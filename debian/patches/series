@@ -1,0 +1,14 @@
+member-field-symtab.patch 
+dwarf2-cfi-warning.patch 
+gdbinit-ownership.patch
+gdb-fortran-main.patch 
+linux-clear-thread-list.patch
+man-page-args.patch
+man-page-order.patch
+
+# Ubuntu additions
+pr9538.patch
+gdb-strings.patch
+ptrace-error-verbosity.patch
+# Forwarded to Debian, bug 606667
+gdb-7.2-gcore-relro-writer.patch

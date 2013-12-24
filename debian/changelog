@@ -1,3 +1,9 @@
+gdb (7.4-2012.04-0ubuntu2.1pexip1) pexip; urgency=low
+
+  * Prepare Pexip packaging
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 24 Dec 2013 18:58:33 +0000
+
 gdb (7.4-2012.04-0ubuntu2.1) precise-proposed; urgency=low
 
   [ Mark Russell ]

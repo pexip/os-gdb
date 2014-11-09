@@ -1,14 +1,14 @@
-member-field-symtab.patch 
-dwarf2-cfi-warning.patch 
-gdbinit-ownership.patch
-gdb-fortran-main.patch 
-linux-clear-thread-list.patch
-man-page-args.patch
-man-page-order.patch
-
-# Ubuntu additions
-pr9538.patch
-gdb-strings.patch
-ptrace-error-verbosity.patch
-# Forwarded to Debian, bug 606667
-gdb-7.2-gcore-relro-writer.patch
+gdb-fortran-main.patch
+linuxthreads_signal_handling.patch
+solve_PATH_MAX_issue.patch
+gdb-6.5-bz185337-resolve-tls-without-debuginfo-v2.patch
+python-config.patch
+ppc64le.diff
+gdb-glibc-vdso-workaround.patch
+hurd-new-RPC-reply-stub-functions.patch
+hurd-adapt-to-changed-MIG-output.patch
+hurd-adjust-to-startup-with-shell-changes.patch
+hurd-make-MIG-output-parsing-more-robust.patch
+kfreebsd_bug752390.diff
+restore-run.1.patch
+fix-ftbfs-arm64.patch

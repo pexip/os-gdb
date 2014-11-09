@@ -1,0 +1,46 @@
+From 036cd38182bde32d8297b630cd5c861d53b8949e Mon Sep 17 00:00:00 2001
+From: Ramana Radhakrishnan <ramana.radhakrishnan@arm.com>
+Date: Thu, 22 May 2014 16:07:20 +0100
+Subject: [PATCH] Include asm/ptrace.h in aarch64-linux-nat.c
+
+From e9dae05e9c32efda9724330c6d5ade3ca848591d Mon Sep 17 00:00:00 2001
+From: Ramana Radhakrishnan <ramana.radhakrishnan@arm.com>
+Date: Fri, 23 May 2014 09:01:14 +0100
+Subject: [PATCH] Include asm/ptrace.h for linux-aarch64-low.c
+
+A recent change to glibc removed asm/ptrace.h from user.h for
+AArch64. This meant that cross-native builds of gdb using trunk
+glibc broke because aarch64-linux-nat.c because user_hwdebug_state
+couldn't be found.
+
+Fixed by including asm/ptrace.h like other ports.
+
+
+diff --git a/gdb/aarch64-linux-nat.c b/gdb/aarch64-linux-nat.c
+index 28ad38b..877e702 100644
+--- a/gdb/aarch64-linux-nat.c
++++ b/gdb/aarch64-linux-nat.c
+@@ -33,6 +33,7 @@
+ 
+ #include <sys/ptrace.h>
+ #include <sys/utsname.h>
++#include <asm/ptrace.h>
+ 
+ #include "gregset.h"
+ 
+diff --git a/gdb/gdbserver/linux-aarch64-low.c b/gdb/gdbserver/linux-aarch64-low.c
+index 033e79e..6066e15 100644
+--- a/gdb/gdbserver/linux-aarch64-low.c
++++ b/gdb/gdbserver/linux-aarch64-low.c
+@@ -26,6 +26,7 @@
+ #include <signal.h>
+ #include <sys/user.h>
+ #include <sys/ptrace.h>
++#include <asm/ptrace.h>
+ #include <sys/uio.h>
+ 
+ #include "gdb_proc_service.h"
+
+-- 
+1.7.1
+

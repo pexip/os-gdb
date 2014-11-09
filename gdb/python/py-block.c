@@ -1,6 +1,6 @@
 /* Python interface to blocks.
 
-   Copyright (C) 2008-2012 Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -41,10 +41,10 @@ typedef struct blpy_block_object {
 
 typedef struct {
   PyObject_HEAD
-  /* The block dictionary of symbols.  */
-  struct dictionary *dict;
-  /* The iterator for that dictionary.  */
-  struct dict_iterator iter;
+  /* The block.  */
+  const struct block *block;
+  /* The iterator for that block.  */
+  struct block_iterator iter;
   /* Has the iterator been initialized flag.  */
   int initialized_p;
   /* Pointer back to the original source block object.  Needed to
@@ -78,7 +78,8 @@ typedef struct {
       }									\
   } while (0)
 
-static PyTypeObject block_syms_iterator_object_type;
+static PyTypeObject block_syms_iterator_object_type
+    CPYCHECKER_TYPE_OBJECT_FOR_TYPEDEF ("block_syms_iterator_object");
 static const struct objfile_data *blpy_objfile_data_key;
 
 static PyObject *
@@ -94,7 +95,7 @@ blpy_iter (PyObject *self)
   if (block_iter_obj == NULL)
       return NULL;
 
-  block_iter_obj->dict = BLOCK_DICT (block);
+  block_iter_obj->block = block;
   block_iter_obj->initialized_p = 0;
   Py_INCREF (self);
   block_iter_obj->source = (block_object *) self;
@@ -311,11 +312,11 @@ blpy_block_syms_iternext (PyObject *self)
 
   if (!iter_obj->initialized_p)
     {
-      sym = dict_iterator_first (iter_obj->dict,  &(iter_obj->iter));
+      sym = block_iterator_first (iter_obj->block,  &(iter_obj->iter));
       iter_obj->initialized_p = 1;
     }
   else
-    sym = dict_iterator_next (&(iter_obj->iter));
+    sym = block_iterator_next (&(iter_obj->iter));
 
   if (sym == NULL)
     {
@@ -370,7 +371,7 @@ PyObject *
 gdbpy_block_for_pc (PyObject *self, PyObject *args)
 {
   gdb_py_ulongest pc;
-  struct block *block;
+  struct block *block = NULL;
   struct obj_section *section = NULL;
   struct symtab *symtab = NULL;
   volatile struct gdb_exception except;
@@ -382,6 +383,9 @@ gdbpy_block_for_pc (PyObject *self, PyObject *args)
     {
       section = find_pc_mapped_section (pc);
       symtab = find_pc_sect_symtab (pc, section);
+
+      if (symtab != NULL && symtab->objfile != NULL)
+	block = block_for_pc (pc);
     }
   GDB_PY_HANDLE_EXCEPTION (except);
 
@@ -392,7 +396,6 @@ gdbpy_block_for_pc (PyObject *self, PyObject *args)
       return NULL;
     }
 
-  block = block_for_pc (pc);
   if (block)
     return block_to_block_object (block, symtab->objfile);
 
@@ -422,16 +425,16 @@ del_objfile_blocks (struct objfile *objfile, void *datum)
     }
 }
 
-void
+int
 gdbpy_initialize_blocks (void)
 {
   block_object_type.tp_new = PyType_GenericNew;
   if (PyType_Ready (&block_object_type) < 0)
-    return;
+    return -1;
 
   block_syms_iterator_object_type.tp_new = PyType_GenericNew;
   if (PyType_Ready (&block_syms_iterator_object_type) < 0)
-    return;
+    return -1;
 
   /* Register an objfile "free" callback so we can properly
      invalidate blocks when an object file is about to be
@@ -439,12 +442,12 @@ gdbpy_initialize_blocks (void)
   blpy_objfile_data_key
     = register_objfile_data_with_cleanup (NULL, del_objfile_blocks);
 
-  Py_INCREF (&block_object_type);
-  PyModule_AddObject (gdb_module, "Block", (PyObject *) &block_object_type);
+  if (gdb_pymodule_addobject (gdb_module, "Block",
+			      (PyObject *) &block_object_type) < 0)
+    return -1;
 
-  Py_INCREF (&block_syms_iterator_object_type);
-  PyModule_AddObject (gdb_module, "BlockIterator",
-		      (PyObject *) &block_syms_iterator_object_type);
+  return gdb_pymodule_addobject (gdb_module, "BlockIterator",
+				 (PyObject *) &block_syms_iterator_object_type);
 }
 
 
@@ -475,8 +478,7 @@ static PyGetSetDef block_object_getset[] = {
 };
 
 PyTypeObject block_object_type = {
-  PyObject_HEAD_INIT (NULL)
-  0,				  /*ob_size*/
+  PyVarObject_HEAD_INIT (NULL, 0)
   "gdb.Block",			  /*tp_name*/
   sizeof (block_object),	  /*tp_basicsize*/
   0,				  /*tp_itemsize*/
@@ -516,8 +518,7 @@ Return true if this block iterator is valid, false if not." },
 };
 
 static PyTypeObject block_syms_iterator_object_type = {
-  PyObject_HEAD_INIT (NULL)
-  0,				  /*ob_size*/
+  PyVarObject_HEAD_INIT (NULL, 0)
   "gdb.BlockIterator",		  /*tp_name*/
   sizeof (block_syms_iterator_object),	      /*tp_basicsize*/
   0,				  /*tp_itemsize*/

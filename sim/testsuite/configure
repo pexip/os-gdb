@@ -1893,6 +1893,12 @@ case "${target}" in
        sim_arch=moxie
        sim_testsuite=yes
        ;;
+   msp430*-*-*)
+       sim_arch=msp430
+       ;;
+   rl78-*-*)
+       sim_arch=rl78
+       ;;
    rx-*-*)
        sim_arch=rx
        ;;

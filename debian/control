@@ -1,105 +1,144 @@
 Source: gdb
-Maintainer: Ubuntu Core developers <ubuntu-devel-discuss@lists.ubuntu.com>
-XSBC-Original-Maintainer: Daniel Jacobowitz <dan@debian.org>
+Maintainer: Héctor Orón Martínez <zumbi@debian.org>
+Uploaders: Luca Bruno <lucab@debian.org>, Samuel Bronson <naesten@gmail.com>
 Section: devel
 Priority: optional
-Standards-Version: 3.8.4
-Build-Depends: autoconf, libtool, texinfo (>= 4.7-2.2), texlive-base, libncurses5-dev, libreadline-dev, bison, gettext, debhelper (>= 7), dejagnu, gcj-jdk | gcj, gobjc, mig [hurd-alpha hurd-amd64 hurd-arm hurd-armeb hurd-avr32 hurd-hppa hurd-i386 hurd-ia64 hurd-m32r hurd-m68k hurd-mips hurd-mipsel hurd-powerpc hurd-ppc64 hurd-s390 hurd-s390x hurd-sh3 hurd-sh3eb hurd-sh4 hurd-sh4eb hurd-sparc hurd-sparc64], cdbs (>= 0.4.17), libkvm-dev [kfreebsd-alpha kfreebsd-amd64 kfreebsd-arm kfreebsd-armeb kfreebsd-avr32 kfreebsd-hppa kfreebsd-i386 kfreebsd-ia64 kfreebsd-m32r kfreebsd-m68k kfreebsd-mips kfreebsd-mipsel kfreebsd-powerpc kfreebsd-ppc64 kfreebsd-s390 kfreebsd-s390x kfreebsd-sh3 kfreebsd-sh3eb kfreebsd-sh4 kfreebsd-sh4eb kfreebsd-sparc kfreebsd-sparc64], type-handling (>= 0.2.1), libunwind7-dev [ia64], flex | flex-old, libexpat1-dev, g++-multilib [i386 powerpc s390 sparc], lib64readline6-dev [i386 powerpc s390 sparc], lib64ncurses5-dev [i386 powerpc s390 sparc], python-dev, zlib1g-dev, procps, lsb-release, bzip2
+Standards-Version: 3.9.5
+Build-Depends:
+# Packaging deps
+               cdbs (>= 0.4.17),
+               debhelper (>= 9),
+               lsb-release,
+               bzip2,
+# Other tool deps
+               autoconf,
+               libtool,
+               gettext,
+               bison,
+               dejagnu,
+               flex | flex-old,
+               procps,
+               g++-multilib [i386 powerpc s390 sparc],
+# Do we really care that much about running the Java tests?
+#               gcj-jdk | gcj,
+               gobjc,
+               mig [hurd-any],
+# TeX[info] deps
+               texinfo (>= 4.7-2.2),
+               texlive-base,
+# Libdev deps
+               libexpat1-dev, lib64expat1-dev [i386 powerpc s390 sparc],
+               libncurses5-dev, lib64ncurses5-dev [i386 powerpc s390 sparc],
+               libreadline-dev, lib64readline6-dev [i386 powerpc s390 sparc],
+               zlib1g-dev,
+               liblzma-dev,
+# babeltrace doesn't build for hurd yet :-(
+#               libbabeltrace-dev,
+#               libbabeltrace-ctf-dev,
+               python-dev,
+               libkvm-dev [kfreebsd-any],
+               libunwind7-dev [ia64],
+Vcs-Git: git://anonscm.debian.org/pkg-gdb/gdb.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-gdb/gdb.git
+Homepage: http://www.gnu.org/s/gdb/
 
 Package: gdb
 Architecture: any
-Section: devel
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Suggests: gdb-doc, gdbserver [amd64 armel armhf i386 ia64 mips mipsel powerpc s390]
-Multi-Arch: allowed
-Description: The GNU Debugger
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Recommends: libc-dbg,
+            gdbserver [amd64 armel armhf arm64 i386 ia64 m32r m68k mips mipsel powerpc powerpcspe ppc64 ppc64el s390 s390x x32]
+Suggests: gdb-doc
+Conflicts: gdb
+Replaces: gdb
+Description: GNU Debugger
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
- where errors occurred. Currently, it works for C, C++, Fortran,
- Modula 2 and Java programs. A must-have for any serious
- programmer.
+ where errors occurred. Currently, gdb supports C, C++, D,
+ Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
+ Go, and Ada. A must-have for any serious programmer.
 
-#Package: gdb-minimal
-#Architecture: any
-#Section: devel
-#Depends: ${shlibs:Depends}, ${misc:Depends}
-#Conflicts: gdb
-#Description: The GNU Debugger
-# GDB is a source-level debugger, capable of breaking programs at
-# any specific line, displaying variable values, and determining
-# where errors occurred. Currently, it works for C, C++, Fortran,
-# Modula 2 and Java programs. A must-have for any serious
-# programmer.
-# .
-# This package contains a minimal version of GDB with optional features
-# disabled.
+Package: gdb-minimal
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Provides: gdb
+Conflicts: gdb
+Replaces: gdb
+Description: GNU Debugger (minimal version)
+ GDB is a source-level debugger, capable of breaking programs at
+ any specific line, displaying variable values, and determining
+ where errors occurred. Currently, gdb supports C, C++, D,
+ Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
+ Go, and Ada. A must-have for any serious programmer.
+ .
+ This package contains a minimal version of GDB with optional features
+ disabled.
 
 Package: gdb64
 Architecture: i386 powerpc s390 sparc
-Section: devel
-Depends: ${shlibs:Depends}, gdb, ${misc:Depends}
-Description: The GNU Debugger (64-bit)
+Replaces: gdb-multiarch (<< 7.6-1)
+Depends: gdb (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Description: GNU Debugger (64-bit)
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
- where errors occurred. Currently, it works for C, C++, Fortran
- Modula 2 and Java programs. A must-have for any serious
- programmer.
+ where errors occurred. Currently, gdb supports C, C++, D,
+ Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
+ Go, and Ada. A must-have for any serious programmer.
+ .
+ This package contains a version of GDB compiled for a 64-bit variant
+ of its architecture.
 
 Package: gdb-multiarch
 Architecture: any
-Section: devel
-Depends: ${shlibs:Depends}, gdb, ${misc:Depends}
-Description: The GNU Debugger (with support for multiple architectures)
+Depends: gdb (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Description: GNU Debugger (with support for multiple architectures)
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
- where errors occurred. Currently, it works for C, C++, Fortran
- Modula 2 and Java programs. A must-have for any serious
- programmer.
+ where errors occurred. Currently, gdb supports C, C++, D,
+ Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
+ Go, and Ada. A must-have for any serious programmer.
  .
  This package contains a version of GDB which supports multiple
  target architectures.
 
 Package: gdbserver
-Architecture: amd64 armel armhf i386 ia64 mips mipsel powerpc s390
-Section: devel
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Architecture: amd64 armel armhf arm64 i386 ia64 m32r m68k mips mipsel powerpc powerpcspe ppc64 ppc64el s390 s390x x32
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Replaces: gdb (<< 7.0.1-1)
-Description: The GNU Debugger (remote server)
+Description: GNU Debugger (remote server)
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
- where errors occurred. Currently, it works for C, C++, Fortran
- Modula 2 and Java programs. A must-have for any serious
- programmer.
+ where errors occurred. Currently, gdb supports C, C++, D,
+ Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
+ Go, and Ada. A must-have for any serious programmer.
  .
  This package contains gdbserver.  Install this to debug remotely
  from another system where GDB is installed.
 
-Package: libgdb-dev
-Architecture: any
-Section: libdevel
-Depends: ${shlibs:Depends}, ${misc:Depends}, binutils-dev, libexpat1-dev, python-dev, zlib1g-dev, libncurses5-dev, libreadline-dev, gdb
-Priority: extra
-Description: The GNU Debugger (libgdb.a)
- GDB is a source-level debugger, capable of breaking programs at
- any specific line, displaying variable values, and determining
- where errors occurred. Currently, it works for C, C++, Fortran
- Modula 2 and Java programs. A must-have for any serious
- programmer.
- .
- This package contains libgdb.a, the bulk of GDB as a linkable
- library.  It is provided for an IDE which links to libgdb.a.  Please
- do not use libgdb.a for new projects.
-
 Package: gdb-source
 Architecture: all
-Section: devel
-Depends: ${misc:Depends}, gdb
-Description: The GNU Debugger (source)
+Depends: ${misc:Depends}
+Description: GNU Debugger (source)
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
- where errors occurred. Currently, it works for C, C++, Fortran
- Modula 2 and Java programs. A must-have for any serious
- programmer.
+ where errors occurred. Currently, gdb supports C, C++, D,
+ Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
+ Go, and Ada. A must-have for any serious programmer.
  .
  This package contains the sources and patches which are needed
  to build GDB.
+
+Package: gdb-dbg
+Section: debug
+Priority: extra
+Architecture: any
+Depends: ${misc:Depends}
+Description: GNU Debugger (debug package)
+ GDB is a source-level debugger, capable of breaking programs at
+ any specific line, displaying variable values, and determining
+ where errors occurred. Currently, gdb supports C, C++, D,
+ Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
+ Go, and Ada. A must-have for any serious programmer.
+ .
+ This package contains the detached debugging symbols for the GNU
+ GDB.

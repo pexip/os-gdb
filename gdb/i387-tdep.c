@@ -1,7 +1,6 @@
 /* Intel 387 floating point stuff.
 
-   Copyright (C) 1988-1989, 1991-1994, 1998-2005, 2007-2012 Free
-   Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -29,7 +28,7 @@
 #include "value.h"
 
 #include "gdb_assert.h"
-#include "gdb_string.h"
+#include <string.h>
 
 #include "i386-tdep.h"
 #include "i387-tdep.h"
@@ -113,13 +112,21 @@ print_i387_ext (struct gdbarch *gdbarch,
     fputs_filtered (" Unsupported", file);
 }
 
-/* Print the status word STATUS.  */
+/* Print the status word STATUS.  If STATUS_P is false, then STATUS
+   was unavailable.  */
 
 static void
-print_i387_status_word (unsigned int status, struct ui_file *file)
+print_i387_status_word (int status_p,
+			unsigned int status, struct ui_file *file)
 {
-  fprintf_filtered (file, "Status Word:         %s",
-		    hex_string_custom (status, 4));
+  fprintf_filtered (file, "Status Word:         ");
+  if (!status_p)
+    {
+      fprintf_filtered (file, "%s\n", _("<unavailable>"));
+      return;
+    }
+
+  fprintf_filtered (file, "%s", hex_string_custom (status, 4));
   fputs_filtered ("  ", file);
   fprintf_filtered (file, " %s", (status & 0x0001) ? "IE" : "  ");
   fprintf_filtered (file, " %s", (status & 0x0002) ? "DE" : "  ");
@@ -143,13 +150,21 @@ print_i387_status_word (unsigned int status, struct ui_file *file)
 		    "                       TOP: %d\n", ((status >> 11) & 7));
 }
 
-/* Print the control word CONTROL.  */
+/* Print the control word CONTROL.  If CONTROL_P is false, then
+   CONTROL was unavailable.  */
 
 static void
-print_i387_control_word (unsigned int control, struct ui_file *file)
+print_i387_control_word (int control_p,
+			 unsigned int control, struct ui_file *file)
 {
-  fprintf_filtered (file, "Control Word:        %s",
-		    hex_string_custom (control, 4));
+  fprintf_filtered (file, "Control Word:        ");
+  if (!control_p)
+    {
+      fprintf_filtered (file, "%s\n", _("<unavailable>"));
+      return;
+    }
+
+  fprintf_filtered (file, "%s", hex_string_custom (control, 4));
   fputs_filtered ("  ", file);
   fprintf_filtered (file, " %s", (control & 0x0001) ? "IM" : "  ");
   fprintf_filtered (file, " %s", (control & 0x0002) ? "DM" : "  ");
@@ -205,81 +220,117 @@ i387_print_float_info (struct gdbarch *gdbarch, struct ui_file *file,
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (get_frame_arch (frame));
   ULONGEST fctrl;
+  int fctrl_p;
   ULONGEST fstat;
+  int fstat_p;
   ULONGEST ftag;
+  int ftag_p;
   ULONGEST fiseg;
+  int fiseg_p;
   ULONGEST fioff;
+  int fioff_p;
   ULONGEST foseg;
+  int foseg_p;
   ULONGEST fooff;
+  int fooff_p;
   ULONGEST fop;
+  int fop_p;
   int fpreg;
   int top;
 
   gdb_assert (gdbarch == get_frame_arch (frame));
 
-  fctrl = get_frame_register_unsigned (frame, I387_FCTRL_REGNUM (tdep));
-  fstat = get_frame_register_unsigned (frame, I387_FSTAT_REGNUM (tdep));
-  ftag = get_frame_register_unsigned (frame, I387_FTAG_REGNUM (tdep));
-  fiseg = get_frame_register_unsigned (frame, I387_FISEG_REGNUM (tdep));
-  fioff = get_frame_register_unsigned (frame, I387_FIOFF_REGNUM (tdep));
-  foseg = get_frame_register_unsigned (frame, I387_FOSEG_REGNUM (tdep));
-  fooff = get_frame_register_unsigned (frame, I387_FOOFF_REGNUM (tdep));
-  fop = get_frame_register_unsigned (frame, I387_FOP_REGNUM (tdep));
+  fctrl_p = read_frame_register_unsigned (frame,
+					  I387_FCTRL_REGNUM (tdep), &fctrl);
+  fstat_p = read_frame_register_unsigned (frame,
+					  I387_FSTAT_REGNUM (tdep), &fstat);
+  ftag_p = read_frame_register_unsigned (frame,
+					 I387_FTAG_REGNUM (tdep), &ftag);
+  fiseg_p = read_frame_register_unsigned (frame,
+					  I387_FISEG_REGNUM (tdep), &fiseg);
+  fioff_p = read_frame_register_unsigned (frame,
+					  I387_FIOFF_REGNUM (tdep), &fioff);
+  foseg_p = read_frame_register_unsigned (frame,
+					  I387_FOSEG_REGNUM (tdep), &foseg);
+  fooff_p = read_frame_register_unsigned (frame,
+					  I387_FOOFF_REGNUM (tdep), &fooff);
+  fop_p = read_frame_register_unsigned (frame,
+					I387_FOP_REGNUM (tdep), &fop);
 
-  top = ((fstat >> 11) & 7);
-
-  for (fpreg = 7; fpreg >= 0; fpreg--)
+  if (fstat_p)
     {
-      gdb_byte raw[I386_MAX_REGISTER_SIZE];
-      int tag = (ftag >> (fpreg * 2)) & 3;
-      int i;
+      top = ((fstat >> 11) & 7);
 
-      fprintf_filtered (file, "%sR%d: ", fpreg == top ? "=>" : "  ", fpreg);
-
-      switch (tag)
+      for (fpreg = 7; fpreg >= 0; fpreg--)
 	{
-	case 0:
-	  fputs_filtered ("Valid   ", file);
-	  break;
-	case 1:
-	  fputs_filtered ("Zero    ", file);
-	  break;
-	case 2:
-	  fputs_filtered ("Special ", file);
-	  break;
-	case 3:
-	  fputs_filtered ("Empty   ", file);
-	  break;
+	  struct value *regval;
+	  int regnum;
+	  int i;
+	  int tag = -1;
+
+	  fprintf_filtered (file, "%sR%d: ", fpreg == top ? "=>" : "  ", fpreg);
+
+	  if (ftag_p)
+	    {
+	      tag = (ftag >> (fpreg * 2)) & 3;
+
+	      switch (tag)
+		{
+		case 0:
+		  fputs_filtered ("Valid   ", file);
+		  break;
+		case 1:
+		  fputs_filtered ("Zero    ", file);
+		  break;
+		case 2:
+		  fputs_filtered ("Special ", file);
+		  break;
+		case 3:
+		  fputs_filtered ("Empty   ", file);
+		  break;
+		}
+	    }
+	  else
+	    fputs_filtered ("Unknown ", file);
+
+	  regnum = (fpreg + 8 - top) % 8 + I387_ST0_REGNUM (tdep);
+	  regval = get_frame_register_value (frame, regnum);
+
+	  if (value_entirely_available (regval))
+	    {
+	      const gdb_byte *raw = value_contents (regval);
+
+	      fputs_filtered ("0x", file);
+	      for (i = 9; i >= 0; i--)
+		fprintf_filtered (file, "%02x", raw[i]);
+
+	      if (tag != -1 && tag != 3)
+		print_i387_ext (gdbarch, raw, file);
+	    }
+	  else
+	    fprintf_filtered (file, "%s", _("<unavailable>"));
+
+	  fputs_filtered ("\n", file);
 	}
-
-      get_frame_register (frame,
-			  (fpreg + 8 - top) % 8 + I387_ST0_REGNUM (tdep),
-			  raw);
-
-      fputs_filtered ("0x", file);
-      for (i = 9; i >= 0; i--)
-	fprintf_filtered (file, "%02x", raw[i]);
-
-      if (tag != 3)
-	print_i387_ext (gdbarch, raw, file);
-
-      fputs_filtered ("\n", file);
     }
 
   fputs_filtered ("\n", file);
-
-  print_i387_status_word (fstat, file);
-  print_i387_control_word (fctrl, file);
+  print_i387_status_word (fstat_p, fstat, file);
+  print_i387_control_word (fctrl_p, fctrl, file);
   fprintf_filtered (file, "Tag Word:            %s\n",
-		    hex_string_custom (ftag, 4));
+		    ftag_p ? hex_string_custom (ftag, 4) : _("<unavailable>"));
   fprintf_filtered (file, "Instruction Pointer: %s:",
-		    hex_string_custom (fiseg, 2));
-  fprintf_filtered (file, "%s\n", hex_string_custom (fioff, 8));
+		    fiseg_p ? hex_string_custom (fiseg, 2) : _("<unavailable>"));
+  fprintf_filtered (file, "%s\n",
+		    fioff_p ? hex_string_custom (fioff, 8) : _("<unavailable>"));
   fprintf_filtered (file, "Operand Pointer:     %s:",
-		    hex_string_custom (foseg, 2));
-  fprintf_filtered (file, "%s\n", hex_string_custom (fooff, 8));
+		    foseg_p ? hex_string_custom (foseg, 2) : _("<unavailable>"));
+  fprintf_filtered (file, "%s\n",
+		    fooff_p ? hex_string_custom (fooff, 8) : _("<unavailable>"));
   fprintf_filtered (file, "Opcode:              %s\n",
-		    hex_string_custom (fop ? (fop | 0xd800) : 0, 4));
+		    fop_p
+		    ? (hex_string_custom (fop ? (fop | 0xd800) : 0, 4))
+		    : _("<unavailable>"));
 }
 
 
@@ -712,8 +763,21 @@ static int xsave_avxh_offset[] =
   576 + 15 * 16		/* Upper 128bit of ... %ymm15 (128 bits each).  */
 };
 
+static int xsave_mpx_offset[] =
+{
+  960 + 0 * 16,			/* bnd0r...bnd3r registers.  */
+  960 + 1 * 16,
+  960 + 2 * 16,
+  960 + 3 * 16,
+  1024 + 0 * 8,			/* bndcfg ... bndstatus.  */
+  1024 + 1 * 8,
+};
+
 #define XSAVE_AVXH_ADDR(tdep, xsave, regnum) \
   (xsave + xsave_avxh_offset[regnum - I387_YMM0H_REGNUM (tdep)])
+
+#define XSAVE_MPX_ADDR(tdep, xsave, regnum) \
+  (xsave + xsave_mpx_offset[regnum - I387_BND0R_REGNUM (tdep)])
 
 /* Similar to i387_supply_fxsave, but use XSAVE extended state.  */
 
@@ -726,16 +790,17 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
   int i;
   unsigned int clear_bv;
   static const gdb_byte zero[MAX_REGISTER_SIZE] = { 0 };
-  const gdb_byte *p;
   enum
     {
       none = 0x0,
       x87 = 0x1,
       sse = 0x2,
       avxh = 0x4,
-      all = x87 | sse | avxh
+      mpx  = 0x8,
+      all = x87 | sse | avxh | mpx
     } regclass;
 
+  gdb_assert (regs != NULL);
   gdb_assert (tdep->st0_regnum >= I386_ST0_REGNUM);
   gdb_assert (tdep->num_xmm_regs > 0);
 
@@ -744,6 +809,9 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
   else if (regnum >= I387_YMM0H_REGNUM (tdep)
 	   && regnum < I387_YMMENDH_REGNUM (tdep))
     regclass = avxh;
+  else if (regnum >= I387_BND0R_REGNUM (tdep)
+	   && regnum < I387_MPXEND_REGNUM (tdep))
+    regclass = mpx;
   else if (regnum >= I387_XMM0_REGNUM(tdep)
 	   && regnum < I387_MXCSR_REGNUM (tdep))
     regclass = sse;
@@ -753,7 +821,7 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
   else
     regclass = none;
 
-  if (regs != NULL && regclass != none)
+  if (regclass != none)
     {
       /* Get `xstat_bv'.  */
       const gdb_byte *xstate_bv_p = XSAVE_XSTATE_BV_ADDR (regs);
@@ -763,7 +831,7 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
       clear_bv = (~(*xstate_bv_p)) & tdep->xcr0;
     }
   else
-    clear_bv = I386_XSTATE_AVX_MASK;
+    clear_bv = I386_XSTATE_ALL_MASK;
 
   /* With the delayed xsave mechanism, in between the program
      starting, and the program accessing the vector registers for the
@@ -772,11 +840,7 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
      time in a program.  This means that from the user-space programs'
      perspective, it's the same as if the registers have always been
      zero from the start of the program.  Therefore, the debugger
-     should provide the same illusion to the user.
-
-     Note however, the case when REGS is NULL is a different case.
-     That case means we do not have access to the x87 states, so we
-     should mark the registers as unavailable (by supplying NULL).  */
+     should provide the same illusion to the user.  */
 
   switch (regclass)
     {
@@ -785,15 +849,23 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
 
     case avxh:
       if ((clear_bv & I386_XSTATE_AVX))
-	regcache_raw_supply (regcache, regnum, regs == NULL ? NULL : zero);
+	regcache_raw_supply (regcache, regnum, zero);
       else
 	regcache_raw_supply (regcache, regnum,
 			     XSAVE_AVXH_ADDR (tdep, regs, regnum));
       return;
 
+    case mpx:
+      if ((clear_bv & I386_XSTATE_BNDREGS))
+	regcache_raw_supply (regcache, regnum, zero);
+      else
+	regcache_raw_supply (regcache, regnum,
+			     XSAVE_MPX_ADDR (tdep, regs, regnum));
+      return;
+
     case sse:
       if ((clear_bv & I386_XSTATE_SSE))
-	regcache_raw_supply (regcache, regnum, regs == NULL ? NULL : zero);
+	regcache_raw_supply (regcache, regnum, zero);
       else
 	regcache_raw_supply (regcache, regnum,
 			     FXSAVE_ADDR (tdep, regs, regnum));
@@ -801,7 +873,7 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
 
     case x87:
       if ((clear_bv & I386_XSTATE_X87))
-	regcache_raw_supply (regcache, regnum, regs == NULL ? NULL : zero);
+	regcache_raw_supply (regcache, regnum, zero);
       else
 	regcache_raw_supply (regcache, regnum,
 			     FXSAVE_ADDR (tdep, regs, regnum));
@@ -816,7 +888,7 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
 	      for (i = I387_YMM0H_REGNUM (tdep);
 		   i < I387_YMMENDH_REGNUM (tdep);
 		   i++)
-		regcache_raw_supply (regcache, i, regs == NULL ? NULL : zero);
+		regcache_raw_supply (regcache, i, zero);
 	    }
 	  else
 	    {
@@ -828,6 +900,42 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
 	    }
 	}
 
+      /* Handle the MPX registers.  */
+      if ((tdep->xcr0 & I386_XSTATE_BNDREGS))
+	{
+	  if (clear_bv & I386_XSTATE_BNDREGS)
+	    {
+	      for (i = I387_BND0R_REGNUM (tdep);
+		   i < I387_BNDCFGU_REGNUM (tdep); i++)
+		regcache_raw_supply (regcache, i, zero);
+	    }
+	  else
+	    {
+	      for (i = I387_BND0R_REGNUM (tdep);
+		   i < I387_BNDCFGU_REGNUM (tdep); i++)
+		regcache_raw_supply (regcache, i,
+				     XSAVE_MPX_ADDR (tdep, regs, i));
+	    }
+	}
+
+      /* Handle the MPX registers.  */
+      if ((tdep->xcr0 & I386_XSTATE_BNDCFG))
+	{
+	  if (clear_bv & I386_XSTATE_BNDCFG)
+	    {
+	      for (i = I387_BNDCFGU_REGNUM (tdep);
+		   i < I387_MPXEND_REGNUM (tdep); i++)
+		regcache_raw_supply (regcache, i, zero);
+	    }
+	  else
+	    {
+	      for (i = I387_BNDCFGU_REGNUM (tdep);
+		   i < I387_MPXEND_REGNUM (tdep); i++)
+		regcache_raw_supply (regcache, i,
+				     XSAVE_MPX_ADDR (tdep, regs, i));
+	    }
+	}
+
       /* Handle the XMM registers.  */
       if ((tdep->xcr0 & I386_XSTATE_SSE))
 	{
@@ -836,7 +944,7 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
 	      for (i = I387_XMM0_REGNUM (tdep);
 		   i < I387_MXCSR_REGNUM (tdep);
 		   i++)
-		regcache_raw_supply (regcache, i, regs == NULL ? NULL : zero);
+		regcache_raw_supply (regcache, i, zero);
 	    }
 	  else
 	    {
@@ -855,7 +963,7 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
 	      for (i = I387_ST0_REGNUM (tdep);
 		   i < I387_FCTRL_REGNUM (tdep);
 		   i++)
-		regcache_raw_supply (regcache, i, regs == NULL ? NULL : zero);
+		regcache_raw_supply (regcache, i, zero);
 	    }
 	  else
 	    {
@@ -872,12 +980,6 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
   for (i = I387_FCTRL_REGNUM (tdep); i < I387_XMM0_REGNUM (tdep); i++)
     if (regnum == -1 || regnum == i)
       {
-	if (regs == NULL)
-	  {
-	    regcache_raw_supply (regcache, i, NULL);
-	    continue;
-	  }
-
 	/* Most of the FPU control registers occupy only 16 bits in
 	   the xsave extended state.  Give those a special treatment.  */
 	if (i != I387_FIOFF_REGNUM (tdep)
@@ -928,10 +1030,8 @@ i387_supply_xsave (struct regcache *regcache, int regnum,
       }
 
   if (regnum == I387_MXCSR_REGNUM (tdep) || regnum == -1)
-    {
-      p = regs == NULL ? NULL : FXSAVE_MXCSR_ADDR (regs);
-      regcache_raw_supply (regcache, I387_MXCSR_REGNUM (tdep), p);
-    }
+    regcache_raw_supply (regcache, I387_MXCSR_REGNUM (tdep),
+			 FXSAVE_MXCSR_ADDR (regs));
 }
 
 /* Similar to i387_collect_fxsave, but use XSAVE extended state.  */
@@ -950,7 +1050,8 @@ i387_collect_xsave (const struct regcache *regcache, int regnum,
       x87 = 0x2 | check,
       sse = 0x4 | check,
       avxh = 0x8 | check,
-      all = x87 | sse | avxh
+      mpx  = 0x10 | check,
+      all = x87 | sse | avxh | mpx
     } regclass;
 
   gdb_assert (tdep->st0_regnum >= I386_ST0_REGNUM);
@@ -961,7 +1062,10 @@ i387_collect_xsave (const struct regcache *regcache, int regnum,
   else if (regnum >= I387_YMM0H_REGNUM (tdep)
 	   && regnum < I387_YMMENDH_REGNUM (tdep))
     regclass = avxh;
-  else if (regnum >= I387_XMM0_REGNUM(tdep)
+  else if (regnum >= I387_BND0R_REGNUM (tdep)
+	   && regnum < I387_MPXEND_REGNUM (tdep))
+    regclass = mpx;
+  else if (regnum >= I387_XMM0_REGNUM (tdep)
 	   && regnum < I387_MXCSR_REGNUM (tdep))
     regclass = sse;
   else if (regnum >= I387_ST0_REGNUM (tdep)
@@ -993,6 +1097,16 @@ i387_collect_xsave (const struct regcache *regcache, int regnum,
       /* Clear register set if its bit in xstat_bv is zero.  */
       if (clear_bv)
 	{
+	  if ((clear_bv & I386_XSTATE_BNDREGS))
+	    for (i = I387_BND0R_REGNUM (tdep);
+		 i < I387_BNDCFGU_REGNUM (tdep); i++)
+	      memset (XSAVE_MPX_ADDR (tdep, regs, i), 0, 16);
+
+	  if ((clear_bv & I386_XSTATE_BNDCFG))
+	    for (i = I387_BNDCFGU_REGNUM (tdep);
+		 i < I387_MPXEND_REGNUM (tdep); i++)
+	      memset (XSAVE_MPX_ADDR (tdep, regs, i), 0, 8);
+
 	  if ((clear_bv & I386_XSTATE_AVX))
 	    for (i = I387_YMM0H_REGNUM (tdep);
 		 i < I387_YMMENDH_REGNUM (tdep); i++)
@@ -1022,6 +1136,33 @@ i387_collect_xsave (const struct regcache *regcache, int regnum,
 		  {
 		    xstate_bv |= I386_XSTATE_AVX;
 		    memcpy (p, raw, 16);
+		  }
+	      }
+	  /* Check if any upper MPX registers are changed.  */
+	  if ((tdep->xcr0 & I386_XSTATE_BNDREGS))
+	    for (i = I387_BND0R_REGNUM (tdep);
+		 i < I387_BNDCFGU_REGNUM (tdep); i++)
+	      {
+		regcache_raw_collect (regcache, i, raw);
+		p = XSAVE_MPX_ADDR (tdep, regs, i);
+		if (memcmp (raw, p, 16))
+		  {
+		    xstate_bv |= I386_XSTATE_BNDREGS;
+		    memcpy (p, raw, 16);
+		  }
+	      }
+
+	  /* Check if any upper MPX registers are changed.  */
+	  if ((tdep->xcr0 & I386_XSTATE_BNDCFG))
+	    for (i = I387_BNDCFGU_REGNUM (tdep);
+		 i < I387_MPXEND_REGNUM (tdep); i++)
+	      {
+		regcache_raw_collect (regcache, i, raw);
+		p = XSAVE_MPX_ADDR (tdep, regs, i);
+		if (memcmp (raw, p, 8))
+		  {
+		    xstate_bv |= I386_XSTATE_BNDCFG;
+		    memcpy (p, raw, 8);
 		  }
 	      }
 
@@ -1074,6 +1215,25 @@ i387_collect_xsave (const struct regcache *regcache, int regnum,
 		}
 	      break;
 
+	    case mpx:
+	      if (regnum < I387_BNDCFGU_REGNUM (tdep))
+		{
+		  regcache_raw_collect (regcache, regnum, raw);
+		  p = XSAVE_MPX_ADDR (tdep, regs, regnum);
+		  if (memcmp (raw, p, 16))
+		    {
+		      xstate_bv |= I386_XSTATE_BNDREGS;
+		      memcpy (p, raw, 16);
+		    }
+		}
+	      else
+		{
+		  p = XSAVE_MPX_ADDR (tdep, regs, regnum);
+		  xstate_bv |= I386_XSTATE_BNDCFG;
+		  memcpy (p, raw, 8);
+		}
+	      break;
+
 	    case sse:
 	      /* This is an SSE register.  */
 	      p = FXSAVE_ADDR (tdep, regs, regnum);
@@ -1115,6 +1275,7 @@ i387_collect_xsave (const struct regcache *regcache, int regnum,
 	    case x87:
 	    case sse:
 	    case avxh:
+	    case mpx:
 	      /* Register REGNUM has been updated.  Return.  */
 	      return;
 	    }

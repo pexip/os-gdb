@@ -24,12 +24,14 @@ SIM_AC_OPTION_HARDWARE(yes,,\
 	bfin_eppi \
 	bfin_evt \
 	bfin_gpio \
+	bfin_gpio2 \
 	bfin_gptimer \
 	bfin_jtag \
 	bfin_mmu \
 	bfin_nfc \
 	bfin_otp \
 	bfin_pfmon \
+	bfin_pint \
 	bfin_pll \
 	bfin_ppi \
 	bfin_rtc \
@@ -45,19 +47,16 @@ SIM_AC_OPTION_HARDWARE(yes,,\
 )
 
 AC_CHECK_FUNCS([getuid getgid geteuid getegid setuid setgid mmap munmap kill pread])
-AC_CHECK_HEADERS([sys/ioctl.h sys/mman.h net/if.h linux/if_tun.h linux/mii.h])
+AC_CHECK_HEADERS([ \
+	linux/if_tun.h \
+	linux/mii.h \
+	linux/types.h \
+	net/if.h \
+	sys/ioctl.h \
+	sys/mman.h \
+])
 
-BFIN_SIM_EXTRA_OBJS=
-
-dnl make sure the dv-sockser code can be supported (i.e. windows)
-case ${host} in
-  *mingw32*) ;;
-  *)
-    AC_DEFINE_UNQUOTED([HAVE_DV_SOCKSER], 1, [Define if dv-sockser is usable.])
-    BFIN_SIM_EXTRA_OBJS="${BFIN_SIM_EXTRA_OBJS} dv-sockser.o"
-    ;;
-esac
-
+BFIN_SIM_EXTRA_OBJS="${BFIN_SIM_EXTRA_OBJS} ${SIM_DV_SOCKSER_O}"
 AC_SUBST([BFIN_SIM_EXTRA_OBJS], ${BFIN_SIM_EXTRA_OBJS})
 
 PKG_PROG_PKG_CONFIG

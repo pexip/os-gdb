@@ -3,7 +3,7 @@ srcdir = @srcdir@
 
 PROGS = basics c_variable cpp_variable var-cmd dw2-ref-missing-frame	\
 	gdb669-pthreads gdb701 gdb792 mi-async mi-basics mi-break	\
-	mi-cli mi-console mi-disassemble mi-eval mi-file		\
+	mi-cli mi-console mi-disassemble mi-dprintf mi-eval mi-file	\
 	mi-file-transfer mi-non-stop mi-non-stop-exit			\
 	mi-ns-stale-regcache mi-nsintrall mi-nsmoribund mi-nsthrexec	\
 	mi-pending mi-pthreads mi-read-memory mi-regs mi-return		\
@@ -23,6 +23,7 @@ all info install-info dvi install uninstall installcheck check:
 
 clean mostlyclean:
 	-rm -f *.ci *.o $(OBJS) $(PROGS) *~ core
+	-rm -f *.dwo *.dwp
 	-rm -f $(MISCELLANEOUS)
 
 distclean maintainer-clean realclean: clean

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
@@ -10,11 +10,11 @@ fi
 
 tardir=$(dirname "$tarball")
 tardir=$(cd "$tardir" && pwd)
-version=$(basename "$tarball" | sed "s/^gdb-//; s/\.tar\.bz2\$//")
+version=$(basename "$tarball" | sed "s/^gdb-//; s/\.tar\.\(gz\|xz\|bz2\)\$//")
 debversion=${version}
-tarball="$tardir"/gdb-$version.tar.bz2
-dfsg="$tardir/gdb_$debversion.orig.tar.gz"
-doc="$tardir/gdb-doc_$version.orig.tar.gz"
+tarball="$tardir"/$(basename "$tarball")
+dfsg="$tardir/gdb_$debversion.orig.tar.xz"
+doc="$tardir/gdb-doc_$version.orig.tar.xz"
 
 dir=`cd $(dirname "$0") && pwd`
 
@@ -24,12 +24,11 @@ olddir=`pwd`
 cd "$temp"
 mkdir src
 cd src
-tar xjf "$tarball"
+tar -xf "$tarball"
 cd ..
 
 src=src/gdb-$version
 dest=gdb-$debversion
-dest2=gdb-doc-$version
 
 if ! test -d "$src"; then
   echo "Could not find source directory $src"
@@ -41,19 +40,13 @@ if test -z "$dest" || test -e "$dest"; then
   exit 1
 fi
 
-if test -z "$dest2" || test -e "$dest2"; then
-  echo "Could not create dest directory $dest2"
-  exit 1
-fi
-
 src=`cd "$src" && pwd`
 
 cp -a "$src" "$dest"
 pushd "$dest" > /dev/null
 
-# The GDB manual pages are not covered by the GFDL, but the simulator's
-# is.
-echo > sim/common/run.1
+# All of the gdb manpages are GFDL'd now
+rm -f $(find gdb \( -name '*.[1-9]' \))
 
 # Almost all of the texinfo documentation is GFDL.  PSIM's is not, but
 # we don't need that manual especially anyway.  Special care must be taken
@@ -73,21 +66,18 @@ for f in $(find . \( -name \*.texinfo -o -name \*.texi \)); do
 done
 
 popd > /dev/null
-mkdir "$dest2"
-mkdir "$dest2"/readline
-cp -a "$src"/readline/doc "$dest2"/readline/doc
-mkdir "$dest2"/gdb
-cp -a "$src"/gdb/doc "$dest2"/gdb/doc
 
-# Supporting files.
-cp -a "$src"/config.guess "$dest2/"
-cp -a "$src"/config.sub "$dest2/"
-cp -a "$src"/install-sh "$dest2/"
-cp -a "$src"/mkinstalldirs "$dest2/"
-cp -a "$src"/gdb/version.in "$dest2"/gdb/
+tar --auto-compress -cf "$dfsg" gdb-$debversion
 
-tar czf "$dfsg" gdb-$debversion
-tar czf "$doc" gdb-doc-$version
+case "$tarball" in
+    *.xz)       cp "$tarball" "$doc"            ;;
+    *.bz2)      bzcat "$tarball" | xz > "$doc"  ;;
+    *.gz)       zcat "$tarball"  | xz > "$doc"  ;;
+    *)
+        echo "wtf is: $tarball"
+        ;;
+esac
 
+# XXX maybe we should install this as an exit handler?
 cd "$olddir"
 rm -rf $temp

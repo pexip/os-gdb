@@ -1,0 +1,22 @@
+Description: Fix FTBFS on Hurd.
+ Adapt to changed MIG output.
+ Based on a patch by David Michael <fedora.dm0@gmail.com>.
+Author: Thomas Schwinge <thomas@codesourcery.com>
+Origin: upstream, https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=commit;h=bae8023e39868ab2065ff05be61e151b3c082492
+
+diff --git a/gdb/reply_mig_hack.awk b/gdb/reply_mig_hack.awk
+index 075ab02..6d27685 100644
+--- a/gdb/reply_mig_hack.awk
++++ b/gdb/reply_mig_hack.awk
+@@ -78,9 +78,9 @@ parse_phase == 4 {
+   print; next;
+ }
+ 
+-parse_phase == 5 && /^[ \t]*(auto|static) const mach_msg_type_t/ {
++parse_phase == 5 && /^[ \t]*(auto |static |)const mach_msg_type_t/ {
+   # The type check structure for an argument.
+-  arg_check_name[num_checks] = $4;
++  arg_check_name[num_checks] = $(NF - 2);
+   num_checks++;
+   print; next;
+ }

@@ -1,6 +1,6 @@
 /* GNU/Linux on ARM target support.
 
-   Copyright (C) 1999-2012 Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -33,6 +33,7 @@
 #include "tramp-frame.h"
 #include "breakpoint.h"
 #include "auxv.h"
+#include "xml-syscall.h"
 
 #include "arm-tdep.h"
 #include "arm-linux-tdep.h"
@@ -43,10 +44,13 @@
 #include "gdbthread.h"
 #include "symfile.h"
 
-#include "gdb_string.h"
-
-/* This is defined in <elf.h> on ARM GNU/Linux systems.  */
-#define AT_HWCAP        16
+#include "cli/cli-utils.h"
+#include "stap-probe.h"
+#include "parser-defs.h"
+#include "user-regs.h"
+#include <ctype.h>
+#include "elf/common.h"
+#include <string.h>
 
 extern int arm_apcs_32;
 
@@ -56,9 +60,9 @@ extern int arm_apcs_32;
    of the software interrupt the kernel stops the inferior with a
    SIGTRAP, and wakes the debugger.  */
 
-static const char arm_linux_arm_le_breakpoint[] = { 0x01, 0x00, 0x9f, 0xef };
+static const gdb_byte arm_linux_arm_le_breakpoint[] = { 0x01, 0x00, 0x9f, 0xef };
 
-static const char arm_linux_arm_be_breakpoint[] = { 0xef, 0x9f, 0x00, 0x01 };
+static const gdb_byte arm_linux_arm_be_breakpoint[] = { 0xef, 0x9f, 0x00, 0x01 };
 
 /* However, the EABI syscall interface (new in Nov. 2005) does not look at
    the operand of the swi if old-ABI compatibility is disabled.  Therefore,
@@ -66,24 +70,24 @@ static const char arm_linux_arm_be_breakpoint[] = { 0xef, 0x9f, 0x00, 0x01 };
    version 2.5.70 (May 2003), so should be a safe assumption for EABI
    binaries.  */
 
-static const char eabi_linux_arm_le_breakpoint[] = { 0xf0, 0x01, 0xf0, 0xe7 };
+static const gdb_byte eabi_linux_arm_le_breakpoint[] = { 0xf0, 0x01, 0xf0, 0xe7 };
 
-static const char eabi_linux_arm_be_breakpoint[] = { 0xe7, 0xf0, 0x01, 0xf0 };
+static const gdb_byte eabi_linux_arm_be_breakpoint[] = { 0xe7, 0xf0, 0x01, 0xf0 };
 
 /* All the kernels which support Thumb support using a specific undefined
    instruction for the Thumb breakpoint.  */
 
-static const char arm_linux_thumb_be_breakpoint[] = {0xde, 0x01};
+static const gdb_byte arm_linux_thumb_be_breakpoint[] = {0xde, 0x01};
 
-static const char arm_linux_thumb_le_breakpoint[] = {0x01, 0xde};
+static const gdb_byte arm_linux_thumb_le_breakpoint[] = {0x01, 0xde};
 
 /* Because the 16-bit Thumb breakpoint is affected by Thumb-2 IT blocks,
    we must use a length-appropriate breakpoint for 32-bit Thumb
    instructions.  See also thumb_get_next_pc.  */
 
-static const char arm_linux_thumb2_be_breakpoint[] = { 0xf7, 0xf0, 0xa0, 0x00 };
+static const gdb_byte arm_linux_thumb2_be_breakpoint[] = { 0xf7, 0xf0, 0xa0, 0x00 };
 
-static const char arm_linux_thumb2_le_breakpoint[] = { 0xf0, 0xf7, 0x00, 0xa0 };
+static const gdb_byte arm_linux_thumb2_le_breakpoint[] = { 0xf0, 0xf7, 0x00, 0xa0 };
 
 /* Description of the longjmp buffer.  The buffer is treated as an array of 
    elements of size ARM_LINUX_JB_ELEMENT_SIZE.
@@ -788,6 +792,59 @@ arm_linux_sigreturn_return_addr (struct frame_info *frame,
   return 0;
 }
 
+/* At a ptrace syscall-stop, return the syscall number.  This either
+   comes from the SWI instruction (OABI) or from r7 (EABI).
+
+   When the function fails, it should return -1.  */
+
+static LONGEST
+arm_linux_get_syscall_number (struct gdbarch *gdbarch,
+			      ptid_t ptid)
+{
+  struct regcache *regs = get_thread_regcache (ptid);
+  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+
+  ULONGEST pc;
+  ULONGEST cpsr;
+  ULONGEST t_bit = arm_psr_thumb_bit (gdbarch);
+  int is_thumb;
+  ULONGEST svc_number = -1;
+
+  regcache_cooked_read_unsigned (regs, ARM_PC_REGNUM, &pc);
+  regcache_cooked_read_unsigned (regs, ARM_PS_REGNUM, &cpsr);
+  is_thumb = (cpsr & t_bit) != 0;
+
+  if (is_thumb)
+    {
+      regcache_cooked_read_unsigned (regs, 7, &svc_number);
+    }
+  else
+    {
+      enum bfd_endian byte_order_for_code = 
+	gdbarch_byte_order_for_code (gdbarch);
+
+      /* PC gets incremented before the syscall-stop, so read the
+	 previous instruction.  */
+      unsigned long this_instr = 
+	read_memory_unsigned_integer (pc - 4, 4, byte_order_for_code);
+
+      unsigned long svc_operand = (0x00ffffff & this_instr);
+
+      if (svc_operand)
+	{
+          /* OABI */
+	  svc_number = svc_operand - 0x900000;
+	}
+      else
+	{
+          /* EABI */
+	  regcache_cooked_read_unsigned (regs, 7, &svc_number);
+	}
+    }
+
+  return svc_number;
+}
+
 /* When FRAME is at a syscall instruction, return the PC of the next
    instruction to be executed.  */
 
@@ -937,6 +994,9 @@ arm_linux_copy_svc (struct gdbarch *gdbarch, struct regcache *regs,
         	= set_momentary_breakpoint (gdbarch, sal, get_frame_id (frame),
 					    bp_step_resume);
 
+	      /* set_momentary_breakpoint invalidates FRAME.  */
+	      frame = NULL;
+
 	      /* We need to make sure we actually insert the momentary
 	         breakpoint set above.  */
 	      insert_breakpoints ();
@@ -1053,10 +1113,137 @@ arm_linux_displaced_step_copy_insn (struct gdbarch *gdbarch,
   return dsc;
 }
 
+/* Implementation of `gdbarch_stap_is_single_operand', as defined in
+   gdbarch.h.  */
+
+static int
+arm_stap_is_single_operand (struct gdbarch *gdbarch, const char *s)
+{
+  return (*s == '#' || *s == '$' || isdigit (*s) /* Literal number.  */
+	  || *s == '[' /* Register indirection or
+			  displacement.  */
+	  || isalpha (*s)); /* Register value.  */
+}
+
+/* This routine is used to parse a special token in ARM's assembly.
+
+   The special tokens parsed by it are:
+
+      - Register displacement (e.g, [fp, #-8])
+
+   It returns one if the special token has been parsed successfully,
+   or zero if the current token is not considered special.  */
+
+static int
+arm_stap_parse_special_token (struct gdbarch *gdbarch,
+			      struct stap_parse_info *p)
+{
+  if (*p->arg == '[')
+    {
+      /* Temporary holder for lookahead.  */
+      const char *tmp = p->arg;
+      char *endp;
+      /* Used to save the register name.  */
+      const char *start;
+      char *regname;
+      int len, offset;
+      int got_minus = 0;
+      long displacement;
+      struct stoken str;
+
+      ++tmp;
+      start = tmp;
+
+      /* Register name.  */
+      while (isalnum (*tmp))
+	++tmp;
+
+      if (*tmp != ',')
+	return 0;
+
+      len = tmp - start;
+      regname = alloca (len + 2);
+
+      offset = 0;
+      if (isdigit (*start))
+	{
+	  /* If we are dealing with a register whose name begins with a
+	     digit, it means we should prefix the name with the letter
+	     `r', because GDB expects this name pattern.  Otherwise (e.g.,
+	     we are dealing with the register `fp'), we don't need to
+	     add such a prefix.  */
+	  regname[0] = 'r';
+	  offset = 1;
+	}
+
+      strncpy (regname + offset, start, len);
+      len += offset;
+      regname[len] = '\0';
+
+      if (user_reg_map_name_to_regnum (gdbarch, regname, len) == -1)
+	error (_("Invalid register name `%s' on expression `%s'."),
+	       regname, p->saved_arg);
+
+      ++tmp;
+      tmp = skip_spaces_const (tmp);
+      if (*tmp == '#' || *tmp == '$')
+	++tmp;
+
+      if (*tmp == '-')
+	{
+	  ++tmp;
+	  got_minus = 1;
+	}
+
+      displacement = strtol (tmp, &endp, 10);
+      tmp = endp;
+
+      /* Skipping last `]'.  */
+      if (*tmp++ != ']')
+	return 0;
+
+      /* The displacement.  */
+      write_exp_elt_opcode (OP_LONG);
+      write_exp_elt_type (builtin_type (gdbarch)->builtin_long);
+      write_exp_elt_longcst (displacement);
+      write_exp_elt_opcode (OP_LONG);
+      if (got_minus)
+	write_exp_elt_opcode (UNOP_NEG);
+
+      /* The register name.  */
+      write_exp_elt_opcode (OP_REGISTER);
+      str.ptr = regname;
+      str.length = len;
+      write_exp_string (str);
+      write_exp_elt_opcode (OP_REGISTER);
+
+      write_exp_elt_opcode (BINOP_ADD);
+
+      /* Casting to the expected type.  */
+      write_exp_elt_opcode (UNOP_CAST);
+      write_exp_elt_type (lookup_pointer_type (p->arg_type));
+      write_exp_elt_opcode (UNOP_CAST);
+
+      write_exp_elt_opcode (UNOP_IND);
+
+      p->arg = tmp;
+    }
+  else
+    return 0;
+
+  return 1;
+}
+
 static void
 arm_linux_init_abi (struct gdbarch_info info,
 		    struct gdbarch *gdbarch)
 {
+  static const char *const stap_integer_prefixes[] = { "#", "$", "", NULL };
+  static const char *const stap_register_prefixes[] = { "r", NULL };
+  static const char *const stap_register_indirection_prefixes[] = { "[",
+								    NULL };
+  static const char *const stap_register_indirection_suffixes[] = { "]",
+								    NULL };
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
 
   linux_init_abi (info, gdbarch);
@@ -1152,8 +1339,29 @@ arm_linux_init_abi (struct gdbarch_info info,
 					   simple_displaced_step_free_closure);
   set_gdbarch_displaced_step_location (gdbarch, displaced_step_at_entry_point);
 
+  /* Reversible debugging, process record.  */
+  set_gdbarch_process_record (gdbarch, arm_process_record);
+
+  /* SystemTap functions.  */
+  set_gdbarch_stap_integer_prefixes (gdbarch, stap_integer_prefixes);
+  set_gdbarch_stap_register_prefixes (gdbarch, stap_register_prefixes);
+  set_gdbarch_stap_register_indirection_prefixes (gdbarch,
+					  stap_register_indirection_prefixes);
+  set_gdbarch_stap_register_indirection_suffixes (gdbarch,
+					  stap_register_indirection_suffixes);
+  set_gdbarch_stap_gdb_register_prefix (gdbarch, "r");
+  set_gdbarch_stap_is_single_operand (gdbarch, arm_stap_is_single_operand);
+  set_gdbarch_stap_parse_special_token (gdbarch,
+					arm_stap_parse_special_token);
 
   tdep->syscall_next_pc = arm_linux_syscall_next_pc;
+
+  /* `catch syscall' */
+  set_xml_syscall_file_name ("syscalls/arm-linux.xml");
+  set_gdbarch_get_syscall_number (gdbarch, arm_linux_get_syscall_number);
+
+  /* Syscall record.  */
+  tdep->arm_swi_record = NULL;
 }
 
 /* Provide a prototype to silence -Wmissing-prototypes.  */

@@ -1,0 +1,45 @@
+Description: Temporary support for LinuxThreads signal handling on GNU/kFreeBSD
+
+Author: Robert Millan <rmh@debian.org>
+Bug-Debian: http://bugs.debian.org/550361
+Bug-Debian: http://bugs.debian.org/669043
+Bug-Debian: http://bugs.debian.org/698200
+Origin: vendor, http://bugs.debian.org/669043
+
+Index: gdb/gdb/common/signals.c
+===================================================================
+--- gdb.orig/gdb/common/signals.c	2014-05-04 22:13:56.000000000 -0400
++++ gdb/gdb/common/signals.c	2014-05-04 22:13:56.000000000 -0400
+@@ -343,6 +343,15 @@
+     return GDB_SIGNAL_INFO;
+ #endif
+ 
++#if defined(__GLIBC__) && defined(__FreeBSD_kernel__)
++  if (hostsig == 32)
++    return TARGET_SIGNAL_LINUXTHREADS_RESTART;
++  if (hostsig == 33)
++    return TARGET_SIGNAL_LINUXTHREADS_CANCEL;
++  if (hostsig == 34)
++    return TARGET_SIGNAL_LINUXTHREADS_DEBUG;
++#endif
++
+ #if defined (REALTIME_LO)
+   if (hostsig >= REALTIME_LO && hostsig < REALTIME_HI)
+     {
+Index: gdb/include/gdb/signals.def
+===================================================================
+--- gdb.orig/include/gdb/signals.def	2014-05-04 22:13:56.000000000 -0400
++++ gdb/include/gdb/signals.def	2014-05-04 22:13:56.000000000 -0400
+@@ -194,7 +194,11 @@
+ SET (GDB_EXC_SOFTWARE, 149, "EXC_SOFTWARE", "Software generated exception")
+ SET (GDB_EXC_BREAKPOINT, 150, "EXC_BREAKPOINT", "Breakpoint")
+ 
++SET (TARGET_SIGNAL_LINUXTHREADS_RESTART, 151, "32", "LinuxThreads restart signal")
++SET (TARGET_SIGNAL_LINUXTHREADS_CANCEL, 152, "33", "LinuxThreads cancel signal")
++SET (TARGET_SIGNAL_LINUXTHREADS_DEBUG, 153, "34", "LinuxThreads debug signal")
++
+ /* If you are adding a new signal, add it just above this comment.  */
+ 
+ /* Last and unused enum value, for sizing arrays, etc.  */
+-SET (GDB_SIGNAL_LAST, 151, NULL, "GDB_SIGNAL_LAST")
++SET (GDB_SIGNAL_LAST, 154, NULL, "GDB_SIGNAL_LAST")

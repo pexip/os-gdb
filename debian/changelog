@@ -1,160 +1,650 @@
-gdb (7.4-2012.04-0ubuntu2.1) precise-proposed; urgency=low
-
-  [ Mark Russell ]
-  * Added Multi-arch: allowed field to gdb. (LP: #1036834) 
-
- -- Adam Stokes <adam.stokes@canonical.com>  Tue, 06 Nov 2012 11:19:38 -0500
-
-gdb (7.4-2012.04-0ubuntu2) precise-proposed; urgency=low
-
-  * debian/control: enabling gdbserver package for armhf (LP: #989153)
-
- -- Ricardo Salveti de Araujo <ricardo.salveti@linaro.org>  Thu, 26 Apr 2012 15:59:49 -0300
-
-gdb (7.4-2012.04-0ubuntu1) precise-proposed; urgency=low
-
-  * Update to the Linaro 7.4-2012.04 release. LP: #984994.
-
- -- Matthias Klose <doko@ubuntu.com>  Wed, 18 Apr 2012 17:08:57 +0200
-
-gdb (7.4-2012.02-0ubuntu2) precise; urgency=low
-
-  * Update and re-enable the gdb-7.2-gcore-relro-writer patch (Steve Beattie).
-    LP: #954714.
-
- -- Matthias Klose <doko@ubuntu.com>  Fri, 16 Mar 2012 01:32:38 +0100
-
-gdb (7.4-2012.02-0ubuntu1) precise; urgency=low
-
-  * Update to the Linaro 7.4-2012.02 release.
-  * Disable the gdb-7.2-gcore-relro-writer patch (needs an update).
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 13 Mar 2012 20:12:36 +0100
-
-gdb (7.4-0ubuntu1) precise; urgency=low
-
-  * gdb 7.4 release.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 24 Jan 2012 11:23:25 +0100
-
-gdb (7.3.92-0ubuntu3) precise; urgency=low
-
-  * Fix PR 9538 (handle debuginfo for symlinked files), taken from the trunk.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 24 Jan 2012 11:08:40 +0100
-
-gdb (7.3.92-0ubuntu2) precise; urgency=low
-
-  * Build-depend on lib64ncurses5-dev [i386 powerpc s390 sparc].
-
- -- Matthias Klose <doko@ubuntu.com>  Sat, 21 Jan 2012 01:45:54 +0100
-
-gdb (7.3.92-0ubuntu1) precise; urgency=low
-
-  * gdb-7.4 release candidate 2.
-
- -- Matthias Klose <doko@ubuntu.com>  Fri, 20 Jan 2012 21:26:22 +0100
-
-gdb (7.3.1-2011.12-0ubuntu1) precise; urgency=low
-
-  * Update to the Linaro 7.3-2011-12 release.
-
- -- Matthias Klose <doko@ubuntu.com>  Fri, 09 Dec 2011 16:15:50 +0100
-
-gdb (7.3-0ubuntu2) oneiric; urgency=low
-
-  * Update to the Linaro 7.3-2011-08 release.
-
- -- Matthias Klose <doko@ubuntu.com>  Thu, 18 Aug 2011 11:00:25 +0200
-
-gdb (7.3-0ubuntu1) oneiric; urgency=low
-
-  * New upstream release.
-  * Update Linaro changes to 7.3-2011-08~.
-
- -- Matthias Klose <doko@ubuntu.com>  Mon, 08 Aug 2011 07:45:57 +0200
-
-gdb (7.2-1ubuntu11) natty; urgency=low
-
-  * Fix minor ARM prologue parsing bug (Ulrich Weigand). LP: #684218.
-
- -- Matthias Klose <doko@ubuntu.com>  Thu, 24 Mar 2011 10:41:22 +0100
-
-gdb (7.2-1ubuntu10) natty; urgency=low
-
-  * Update with changes from the Linaro 7.2-2011.03-0 release (Ulrich Weigand).
-  * Configure with --with-pkgversion, don't run post-patches.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 15 Mar 2011 16:14:08 +0100
-
-gdb (7.2-1ubuntu9) natty; urgency=low
-
-  * Set MULTIARCH_TARGETS similarly to binutils-multiarch to avoid the need
-    for users to specify which actual target they care about.
-
- -- Loïc Minier <loic.minier@linaro.org>  Tue, 08 Mar 2011 14:31:09 +0100
-
-gdb (7.2-1ubuntu8) natty; urgency=low
-
-  * Add gdb-multiarch package supporting extra bfd targets similarly to
-    binutils-multiarch; the package is constructed much like gdb64 except that
-    it's build with the gdb configure flags and --enable-targets=all for now.
-  * New patch, disable-werror-on-coff-tic, fixes build of coff stuff with
-    gcc-4.5; from upstream mailing-list.
-
- -- Loïc Minier <loic.minier@linaro.org>  Tue, 18 Jan 2011 17:44:56 +0100
-
-gdb (7.2-1ubuntu7) natty; urgency=low
-
-  * Pass --gdb-datadir=/usr/share/gdb-$triplet when building a cross-gdb and
-    update gdb.install sed snippet to match; fixes conflict with gdb;
-    Debian #603347.
-
- -- Loïc Minier <loic.minier@linaro.org>  Mon, 17 Jan 2011 17:50:20 +0100
-
-gdb (7.2-1ubuntu6) natty; urgency=low
-
-  * Add support to "gcore" command for executables with GNU_RELRO
-    sections (Debian bug 606667, LP: #680588).
-
- -- Kees Cook <kees@ubuntu.com>  Thu, 09 Dec 2010 19:47:22 -0800
-
-gdb (7.2-1ubuntu5) natty; urgency=low
-
-  * Rebuild with python 2.7.
-
- -- Matthias Klose <doko@ubuntu.com>  Thu, 09 Dec 2010 15:09:43 +0100
-
-gdb (7.2-1ubuntu4) natty; urgency=low
-
-  * No-change upload to drop upstream changelog.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 03 Dec 2010 08:55:48 +0100
-
-gdb (7.2-1ubuntu3) maverick-proposed; urgency=low
-
-  * Re-add debian/patches/ptrace-error-verbosity.patch that got
-    accidentally dropped in the 7.2 merge: try to make PTRACE scope
-    sysctl more discoverable (LP: #667815).
-
- -- Kees Cook <kees@ubuntu.com>  Thu, 28 Oct 2010 07:16:05 -0700
-
-gdb (7.2-1ubuntu2) maverick; urgency=low
-
-  * Really disable building the gdb-minimal package.
-
- -- Matthias Klose <doko@ubuntu.com>  Mon, 06 Sep 2010 13:43:20 +0200
-
-gdb (7.2-1ubuntu1) maverick; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - PIE testsuite support.
-    - Fix some typos in messages.
-    - Don't build the gdb-minimal package.
-    - Install symlink to compressed gdb64 manpage.
-    - Don't install the upstream changelog in gdbserver.
-
- -- Matthias Klose <doko@ubuntu.com>  Mon, 06 Sep 2010 11:43:18 +0200
+gdb (7.7.1+dfsg-5) unstable; urgency=medium
+
+  * d/p/fix-ftbfs-arm64.patch
+    - Include asm/ptrace.h. A recent change to glibc removed asm/ptrace.h from
+      user.h for AArch64. This meant that cross-native builds of gdbserver
+      using trunk glibc broke because linux-aarch64-low.c because
+      user_hwdebug_state couldn't be found.
+
+ -- Hector Oron <zumbi@debian.org>  Sun, 09 Nov 2014 11:36:01 +0100
+
+gdb (7.7.1+dfsg-4) unstable; urgency=medium
+
+  * d/rules: fix FTBFS on newer dpkg changes.
+    (Closes: #766754)
+  * d/sanitize-gdb.sh: Don't assume input is .tar.bz2
+
+ -- Hector Oron <zumbi@debian.org>  Fri, 07 Nov 2014 17:05:49 +0100
+
+gdb (7.7.1+dfsg-3) unstable; urgency=medium
+
+  * d/p/restore-run.1.patch: Temporary patch to fix sim FTBFS.
+    Turns out that without sim/common/run.1, sim fails to build.
+    This doesn't have any cover texts or invariant sections,
+    so in this patch we simply add it back.
+    (It turns out that sim doesn't support x86.)
+  * d/sanitize-gdb.sh: In future, only strip manpages from gdb/ subtree.
+  * d/NEWS: Add warning about impending switch to Python 3
+
+ -- Samuel Bronson <naesten@gmail.com>  Thu, 14 Aug 2014 18:16:50 -0400
+
+gdb (7.7.1+dfsg-2) unstable; urgency=medium
+
+  * Fix FTBFS on non-x86 trying to install unbuilt libinproctrace.so
+
+ -- Samuel Bronson <naesten@gmail.com>  Tue, 12 Aug 2014 16:21:03 -0400
+
+gdb (7.7.1+dfsg-1) unstable; urgency=medium
+
+  [ Héctor Orón Martínez ]
+  * d/changelog: replace nickname by real name in previous block
+
+  [ Gabriele Giacone ]
+  * Fix FTBFS on Hurd.
+    + Cherry-pick from upstream:
+      hurd-new-RPC-reply-stub-functions.patch
+      hurd-adapt-to-changed-MIG-output.patch
+      hurd-adjust-to-startup-with-shell-changes.patch
+      hurd-make-MIG-output-parsing-more-robust.patch
+    (Closes: #752574)
+
+  [ Samuel Bronson ]
+  * Ship /usr/lib/libinproctrace.so with gdbserver.
+    This enables the "agent" features.
+  * d/copyright: correct a licensecheck error; add required license texts/blurbs
+  * d/gdb.install: Include gcore in gdb package (Closes: #752317).
+    Thanks to Lorenzo Beretta for the report.
+  * New patch to fix the build on kFreeBSD.
+    Thanks to Steven Chamberlain for a fix (Closes: #752390, #752295).
+  * d/watch: Update to be more flexible about upstream tarball format.
+
+  Last but not least,
+  * Use correct tarball, with non-free upstream manpages stripped.
+    Restores DFSG-compliance.
+
+  [ Hector Oron ]
+  * Rename upstream tarball to not conflict with the one in archive.
+
+ -- Samuel Bronson <naesten@gmail.com>  Sat, 09 Aug 2014 13:11:35 -0400
+
+gdb (7.7.1-2) unstable; urgency=medium
+
+  [ Samuel Bronson ]
+  * Don't require Java stuff just to gather test results we don't look at.
+  * Disable babeltrace; it doesn't build everywhere.
+    Thanks to Julien Cristau for the heads up.
+  * Go back to python2; it's causing people trouble and Matthias Klose never
+    actually explained the need.
+    Thanks to Ben Longbons for the report and Jakub Wilk for corroborating it.
+    (Closes: #748711, Reopens: #727003)
+
+ -- Hector Oron <zumbi@debian.org>  Wed, 18 Jun 2014 01:42:25 +0200
+
+gdb (7.7.1-1) unstable; urgency=medium
+
+  [ Samuel Bronson ]
+  * Switch to .xz for our ".orig" tarballs
+  * Imported Upstream version 7.7
+    - GDB 7.7 brings new targets, features and improvements, including:
+      * C++:
+        ** GDB now implements the 'typeid' operator.
+        ** Exception Catchpoints can now filter by type.
+      * Python scripting:
+        ** Frame filters and frame decorators have been added.
+        ** Temporary breakpoints are now supported.
+        ** Line tables representation has been added.
+        ** New attribute 'parent_type' for gdb.Field objects.
+        ** gdb.Field objects can be used as subscripts on gdb.Value objects.
+        ** New attribute 'name' for gdb.Type objects.
+      * New commands:
+        ** show configuration
+        ** catch rethrow
+        ** info exceptions [REGEXP]
+        ** remove-symbol-file [FILENAME | -a ADDRESS]
+        ** maint check-psymtabs
+        ** maint check-symtabs
+        ** maint expand-symtabs
+        ** maint set|show per-command [space | time | symtab]
+      * New options:
+        ** set|show debug symfile off|on
+        ** set|show print raw frame-arguments
+        ** set|show remote trace-status-packet
+        ** set|show debug nios2
+        ** set|show range-stepping
+        ** set|show startup-with-shell
+        ** set|show code-cache
+        For all options that interpret 0 or -1 as meaning "unlimited",
+        the literal 'unlimited' can ot be used.
+      * New convenience variables/functions:
+        ** $_exception
+        ** $_exitsignal
+        ** $_isvoid
+      * GDB/MI:
+        ** All MI commands now accept an optional "--language" option.
+        ** "undefined-command" error code provided in "^error" result
+           records when trying to run a non-existing command.
+        ** New commands -catch-assert and -catch-exceptions
+        ** New command -info-ada-exceptions
+        ** New command -info-gdb-mi-command
+        ** New command -dprintf-insert
+        ** New command -trace-frame-collected
+        ** -trace-save CTF (Common Trace Format) support.
+        ** -data-list-register-values, -stack-list-locals, -stack-list-arguments
+           and -stack-list-variables optional "--skip-unavailable" option.
+        ** -exec-run optional "--start" option.
+      * Remote Protocol:
+        ** Target-assigned range stepping support.
+           GDBserver implements this feature on x86/x86_64 GNU/Linux targets.
+        ** vCont new 'r' action.
+        ** qXfer:libraries-svr4:read's annex used to pass argument list.
+      * New target configurations:
+        ** Nios II ELF                     nios2*-*-elf
+        ** Nios II GNU/Linux               nios2*-*-linux
+        ** Texas Instruments MSP430        msp430*-*-elf
+      * GDB Windows x64 unwinding data support.
+      * SystemTap SDT probes support on AArch64 GNU/Linux.
+      * The 'tsave' command now supports CTF (Common Trace Format).
+      * New script gcore, installed in $prefix/bin
+      * New script contrib/gdb-add-index.sh for adding .gdb_index sections
+        to binaries.
+      * Improve arm*-linux record/replay support.
+      * Removed support for a.out NetBSD and OpenBSD obsolete configurations.
+        ELF variants of these configurations are kept supported.
+      * The "set|show remotebaud" commands are deprecated. Use "show|show serial
+        baud" instead.
+    - For a complete list and more details on each item, please see the
+      NEWS file.
+  * Update patches for new upstream version:
+    - Drop man-page-args.patch and man-page-order.patch:
+      Manpages are dead to us now (not DFSG free), and the source is in
+      texinfo now anyway.
+    - Drop upstream-arm-catch-syscall.patch and
+      upstream-print_insn_rl78-workaround.patch:
+      Already applied upstream.
+    - Update linuxthreads_signal_handling.patch and
+      gdb-6.5-bz185337-resolve-tls-without-debuginfo-v2.patch
+  * d/gdb-minimal.manpages: Remove because manpages are dead to us
+  * d/rules:
+    - Update for the new release.
+      * Don't expect all tests to pass, they never do.
+        ("make check" finally stopped lying?)
+      * Adjust for "gcore" getting its source renamed and getting installed
+    - Other improvements
+      * Install contrib/ in /usr/share/doc/gdb/
+      * Carry over more configure flags to secondary packages, so
+        e.g. gdb-multiarch can find it's message catalogs
+    - Nitpicks:
+      * Replace a $(findstring ...) call with $(filter ...)
+        (It's probably not all that likely that DEB_BUILD_OPTIONS would contain
+        an item with nocheck as a substring, but still ...)
+      * Use --disable-readline; we have our own ...
+  * d/control:
+    - Update Vcs-Git/Vcs-Browser URLs
+
+  [ Héctor Orón Martínez ]
+  * d/control.in, d/rules: add gdb-dbg package.
+    (closes: #696197)
+  * d/control.in: update Vcs-* references
+  * d/control.in: bump standards version, no changes required
+  * d/compat, d/control.in: bump dh compat to 9 to get build-id based
+    debug info paths
+  * d/p/ppc64le.diff: apply upstream patch for ppc64le support
+  * d/control.in: add ppc64el architecture
+    - Thanks Frédéric Bonnard for report
+    (closes: #744204)
+  * d/control.in: gdb-minimal provides gdb
+    (closes: #588775)
+  * d/control.in: gdb recommends gdbserver
+    (closes: #675623)
+  * Fix gdb: confusing error message "$HOME/pid: No such file or directory"
+    (closes: #712671)
+  * d/p/gdb-glibc-vdso-workaround.patch:
+    - Work around PR libc/13097 "linux-vdso.so.1"
+    (closes: #738702)
+  * d/rules: do not misuse the version field to encode the distro name
+    (closes: #738331)
+  * d/copyright: update file to conform DEP5.
+
+  [ Samuel Bronson ]
+  * d/control.in: Misc fixes, like not building an
+    "Architecture: all".-dbg package
+  * d/control: Regenerate after above changes ...
+  * d/rules: Enable CTF support through babeltrace
+  * d/rules: Be more specific about which features to build with
+  * d/control.in, d/control: Drop B-D on libbz2-dev; gdb doesn't want it
+  * debian/gdbserver.install: Don't install an empty gdbserver manpage either.
+  * d/watch, d/upstream-signing-key.pgp: Verify sigs; remove dh_make stuff
+  * d/control.in, d/control: Make gdb and gdb-minimal conflict as policy says
+  * d/include-binary-files: Appease dpkg-source about the upstream key ...
+  * d/patches/python-config.patch: Add header, fix typo pointed out upstream
+  * d/sanitize-gdb.sh: stop filtering gdb-doc, drop all manpages from gdb
+  * Imported Upstream version 7.7.1
+    - GDB 7.7.1 provides the following fixes and improvements to GDB 7.7:
+      * PR win32/14018 (pc register not available error on Windows)
+      * PR python/16547 (GDB crashing on gdb.python/py-linetable.exp)
+      * PR build/16550 (64-bit GDB doesn't build on Solaris)
+      * PR gdb/16626 (auto-load regression: gdb uses wrong file to test safety)
+      * PR breakpoints/16292 (GDB oversteps a range in some cases.)
+      * PR gdb/16575 (stale breakpoint instructions in the code cache)
+      * PR gdb/16696 (AIX 32-bit cores, high section addresses)
+      * PR gdb/16721 (Erroneous backtrace on AVR)
+      * PR gdb/16832 (Erroneous backtrace on avrxmega architectures)
+      * PR build/16873 (GDB 7.7 does not build with GCC 4.9)
+        (Closes: #746855)
+
+ -- Hector Oron <zumbi@debian.org>  Sat, 31 May 2014 11:12:46 +0200
+
+gdb (7.6.2-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Build using python3. Closes: #727003.
+
+ -- Matthias Klose <doko@debian.org>  Sat, 03 May 2014 15:56:03 +0200
+
+gdb (7.6.2-1) unstable; urgency=low
+
+  * Imported upstream version 7.6.2
+    - GDB 7.6.2 provides the following fixes and improvements to GDB 7.6.1:
+      * PR breakpoint/16251 (AArch64 hardware breakpoint error after fork)
+      * PR gdb/16303 (GDB 7.6.1 does not work with binutils 2.24 on MIPS16
+        and microMIPS)
+  * d/rules: Revert configuring with "MULTIARCH_TARGET=all" and go back
+    to static list of targets. "all" is broken and does not work at least on
+    ARM. (LP: #1233185). Thanks Martin Pitt for report.
+    (Closes: #725078)
+  * d/rules: Add aarch64-linux-gnu to multiarch target list.
+
+ -- Hector Oron <zumbi@debian.org>  Sat, 18 Jan 2014 14:28:01 +0100
+
+gdb (7.6.1-1) unstable; urgency=low
+
+  [ Samuel Bronson ]
+  * Imported Upstream version 7.6.1
+    - GDB 7.6.1 provides the following fixes and improvements to GDB 7.6:
+      * PR tdep/15420 (Cannot debug threaded programs on newer versions
+        of x86-solaris - Solaris 10, Update 10 or later)
+      * PR remote/15455 (QTro remote packet broken)
+      * PR build/15476 (Build failure due to incomplete enum type in utils.h)
+      * PR server/15594 (tls support in 64x32 x86 gdbserver doesn't extend
+        address to 64 bit)
+      * PR server/15075 (dprintf inteferes with "next")
+      * PR server/15434 (dprintf uses a synchronous 'continue' even in
+        non-stop mode)
+      * PR tui/14880 (in split register layouts, up results in assertion
+        failure in value.c)
+      * PR c++/15519 (GDB 7.6 is 94x slower than GDB 7.5.1 using a certain
+        core file)
+      * PR gdb/15837 (GDB prints entry values for local variables)
+      * PR gdb/15415 (gdb resolves symbolic links when passing argv[0])
+      * PR cli/15603 (CTRL-C can no longer interrupt inferior)
+      * PR gdb/15604 (gdbserver socket leak 7.5 regression)
+  * Backport ARM Linux `catch syscall' support from my upstream
+    patch. (Closes: #709937)
+  
+ -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 08 Oct 2013 17:23:45 +0000
+
+gdb (7.6-5) unstable; urgency=low
+
+  [ Samuel Bronson ]
+  * d/control{,.in}: revert to B-D on libunwind7-dev [ia64].
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sat, 06 Jul 2013 12:17:24 +0200
+
+gdb (7.6-4) unstable; urgency=low
+
+  [ Samuel Bronson ]
+  * d/rules: Exclude .git from gdb-source package.
+  * d/control{,.in}: Bump ia64 B-D to libunwind8-dev for transition.
+  * d/NEWS: Fix version number so lintian will shut up about it.
+  * d/patches:
+    - Remove no-longer-used patches:
+      + 0000-tui-skip-registers-pr-tui-13073.patch: Old Backport
+      + 0001-netbsd-init-match-property-field.patch: Old Backport
+      + 0002-add-cpu-to-source-release.patch: Old Backport
+      + m68k-thread-debugging.patch: Old Backport or Merged Upstream
+      + gdbinit-ownership.patch: handled differently upstream
+      + member-field-symtab.patch: the patched code disappeared
+    - Drop patches for problems that have gone away:
+      + dwarf2-cfi-warning.patch: I'm not seeing any spam without this.
+      + linux-clear-thread-list.patch: #303736 is gone even without this.
+    - Add/reformat metadata:
+      + gdb-6.5-bz185337-resolve-tls-without-debuginfo-v2.patch
+      + solve_PATH_MAX_issue.patch
+      + linuxthreads_signal_handling.patch
+  * d/control{,.in}: Reformat relationship fields.
+  * d/rules:
+    - Allow gdb-minimal to use expat.
+    - Get hardening flags working.
+    - Explicitly configure gdb64 --with-expat.
+    - s/--with-libunwind/--with-libunwind-ia64/; the former is depracated.
+    - Make gdb --version report exact package version much as
+      gcc --version does.
+  * Build gdbserver on arm64.
+  * Avoid identical short or long descriptions between packages.
+  * Remove stray "The" from short descriptions.
+
+  [ Hector Oron ]
+  * d/p/upstream-print_insn_rl78-workaround.patch
+    + Fix "FTBFS: gdb compile failed" (Closes: #713735)
+
+ -- Hector Oron <zumbi@debian.org>  Wed, 26 Jun 2013 02:59:24 +0200
+
+gdb (7.6-3) unstable; urgency=low
+
+  [ Héctor Orón Martínez ]
+  * d/gbp.conf:
+    - switch debian-branch to master
+  * d/control{,.in}:
+    - add replaces gdb-multiarch (<< 7.6-1). (Closes: #709232)
+  * d/p/gdb-6.5-bz185337-resolve-tls-without-debuginfo-v2.patch:
+    - fix refuses to print errno. (Closes: #581707)
+
+  [ Svante Signell ]
+  * d/p/solve_PATH_MAX_issue.patch: new patch fixes FTBFS on hurd.
+    (Closes: #709508)
+
+  [ Samuel Bronson ]
+  * debian/rules: Don't abort test suite on "ulimit -c unlimited" failure;
+    do abort building early on failure to invoke the test suite.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 24 May 2013 10:09:03 +0200
+
+gdb (7.6-2) unstable; urgency=low
+
+  * Fix truncated maintainer field. (Closes: #709118)
+  * d/control{,.in}: link 64-bit arch against expat.
+
+ -- Hector Oron <zumbi@debian.org>  Tue, 21 May 2013 12:58:01 +0200
+
+gdb (7.6-1) unstable; urgency=low
+
+  * Imported Upstream version 7.6
+  * New upstream features:
+    - GDB 7.6 brings new targets, features and improvements, including:
+      * New native configurations:
+        ARM AArch64 GNU/Linux           aarch64*-*-linux-gnu
+        FreeBSD/powerpc                 powerpc*-*-freebsd
+        x86_64/Cygwin                   x86_64-*-cygwin*
+        Tilera TILE-Gx GNU/Linux        tilegx*-*-linux-gnu
+      * New target configurations:
+        ARM AArch64                     aarch64*-*-elf
+        ARM AArch64 GNU/Linux           aarch64*-*-linux
+        Lynx 178 PowerPC                powerpc-*-lynx*178
+        x86_64/Cygwin                   x86_64-*-cygwin*
+        Tilera TILE-Gx GNU/Linux        tilegx*-*-linux
+      * New configure options: -enable-libmcheck/--disable-libmcheck
+      * Support for the "mini debuginfo" section, .gnu_debugdata
+      * The C++ ABI now defaults to the GNU v3 ABI.  This has been the
+        default for GCC since November 2000.
+      * New command line option: -nh (disables auto-loading of ~/.gdbinit)
+      * Various GDB/MI changes
+      * Python scripting:
+        ** Vectors can be created with gdb.Type.vector.
+        ** Python's atexit.register now works in GDB.
+        ** Types can be pretty-printed via a Python API.
+        ** Python 3 is now supported (in addition to Python 2.4 or later)
+        ** New class gdb.Architecture exposes GDB's internal representation
+           of architecture in the Python API.
+        ** New method Frame.architecture returns the gdb.Architecture object
+           corresponding to the frame's architecture.
+        ** New Python-based convenience functions ($_memeq, $_streq,
+           $_strlen and $_regex)
+      * The 'cd' command now defaults to using '~' (the home directory) if
+        not given an argument.
+      * New commands:
+        ** catch signal
+        ** maint info bfds
+        ** python-interactive
+        ** enable/disable type-printer
+      * New remote packets (QTBuffer:size, Qbtrace:bts, Qbtrace:off and
+        qXfer:btrace:read)
+      * New options:
+        ** set/show print type methods (on|off)
+        ** set/show print type typedefs (on|off)
+        ** set/show filename-display basename|relative|absolute
+        ** set/show trace-buffer-size
+        ** set/show remote trace-buffer-size-packet auto|on|off
+        ** set/show debug aarch64
+        ** set/show debug coff-pe-read
+        ** set/show debug mach-o
+        ** set/show debug notification
+      * target record:
+        The "target record" command has been renamed to "target record-full",
+        and a new "target record-btrace" has been added.  This new target
+        uses hardward support to record the control-flow of a process.
+        Execution replay is not supported, but this targets allows investigating
+        the program's recorded execution.
+  * d/control{,.in}: bump standards version
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 19 May 2013 00:14:02 +0200
+
+gdb (7.5.1-1) experimental; urgency=low
+
+  * New upstream release (Closes: #685388).
+  * New upstream features:
+    [7.5]
+    - Go language support.
+    - New targets (x32 ABI, microMIPS, Renesas RL78, HP OpenVMS ia64).
+    - More Python scripting improvements.
+    - SDT (Static Defined Tracing) probes support with SystemTap probes.
+    - GDBserver improvements (stdio connections, target-side evaluation
+      of breakpoint conditions, remote protocol improvements).
+    - Other miscellaneous improvements (ability to stop when a shared
+      library is loaded/unloaded, dynamic printf, etc).
+    - Reverse debugging on ARM.
+    - The binary "gdbtui" has been abandoned and can no longer be built.
+      Use "gdb -tui" instead.
+    - Better handling of symlinked libraries, like ld.so (Closes: #680173).
+    [7.5.1]
+    - Offer some helpful tips when detecting a file/script for which
+      auto-loading has been declined.
+    - Special handling of program's '.exe' suffix when searching for
+      auto-load-able scripts.
+  * Upstream bugfixes:
+    [7.5.1]
+    - strict-aliasing warnings in libiberty/md5.c generated by GCC 4.7.
+    - An "Attempt to dereference a generic pointer" error (-var-create).
+      This error only occurs when the "print object" setting is "on".
+    - Backtrace problems on x32 (PR backtrace/14646).
+    - next/step/finish problems on x32 (PR gdb/14647).
+    - A "malformed linespec error: unexpected keyword, [...]" error
+      (PR breakpoints/14643)
+    - GDB crash while stepping through powerpc (32bits) code.
+    - A failed assertion in linux_ptrace_test_ret_to_nx.
+    - A "!frame_id_inlined_p (frame_id)" failed assertion.
+    - A "No more reverse-execution history." error during reverse "next"
+      execution (PR 14548).
+    - Incomplete command descriptions in "apropos" output.
+    - PR gdb/14494 (a GDB crash difficult to characterize).
+    - A build warning in allocate_symtab when building on x86_64-windows.
+  * Updated patches:
+    - Tweaked man-page-order.patch and linuxthreads_signal_handling.patch
+      so they apply to new upstream source.
+    - Dropped m68k-thread-debugging.patch; upstream already had it.
+    - Dropped debian-changes-7.3.50~cvs20110627-1 and gdbinit-ownership.patch:
+      upstream closed [CVE-2005-1705] with a new option "set auto-load
+      safe-path" (Closes: #694256).
+  * Drop libgdb-dev, since libgdb.a was dropped upstream.
+  * Update architecture list for gdbserver.
+  * Fix documentation symlinking stuff:
+    - Fix manpage symlinks (Closes: #595179).
+    - Add "Depends: gdb (= ${binary:Version})" where needed for symlinked
+      doc directories.
+    - Migrate gdb-source to a real doc-directory, not a symlink, to avoid
+      having an :all package depend on a fixed version of an :any package,
+      which wouldn't survive binNMUs.
+  * Adjust lintian overrides:
+    - Use wildcards for dates of unused readline/support/config.{guess,sub}.
+    - gdb64 is *supposed* to be built for another architecture.
+  * debian/control: Drop redundant "Section:" fields.
+  * Configure gdb-multiarch with --enable-64-bit-bfd so it supports 64-bit
+    targets (Closes: #699582).
+  * Recommend libc-dbg (Closes: #246315, #309460).
+  * Bump Standards-Version in debian/control.in too, so it *stays* bumped.
+  * Add support for debug info compressed with bzip2 and lzma/xz:
+    Build-Depend on libbz2-dev and liblzma-dev.
+  * Add myself to Uploaders.
+  
+ -- Samuel Bronson <naesten@gmail.com>  Wed, 20 Feb 2013 17:22:51 -0500
+
+gdb (7.4.1+dfsg-0.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Fix debian/sanitize-gdb.sh to use bash.
+  * Run that script to get the expected dfsg-compliant tarball.
+    (Closes: #698074)
+
+ -- David Prévot <taffit@debian.org>  Sun, 27 Jan 2013 12:18:15 -0400
+
+gdb (7.4.1-3) unstable; urgency=low
+
+  * Fix typo: replace mutliarch by multiarch.
+
+ -- Hector Oron <zumbi@debian.org>  Fri, 05 Oct 2012 08:58:19 +0000
+
+gdb (7.4.1-2) unstable; urgency=low
+
+  * Fix empty doc directory when upgrading from squeeze to wheezy.
+    (Closes: #684375)
+  * d/p/m68k-thread-debugging.patch:
+    - Add thread debugging function for m68k. Taken from upstream.
+    Thanks Thorsten Glaser.
+  * d/control: bump standars version to 3.9.3
+
+ -- Hector Oron <zumbi@debian.org>  Wed, 19 Sep 2012 21:16:17 +0000
+
+gdb (7.4.1-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Fix LinuxThreads signal handling on GNU/kFreeBSD.  (Closes: #550361,
+    #669043)
+
+ -- Robert Millan <rmh@debian.org>  Sat, 12 May 2012 12:25:16 +0200
+
+gdb (7.4.1-1) unstable; urgency=low
+
+  * New upstream release:
+    - [GDB/MI] Error when resuming program execution in all-stop mode
+      ("Cannot execute this command without a live selected thread").
+    - [Pascal] Polluted display of class methods parameters.
+    - [target remote] Errror when connecting to remote target where
+      disconnected tracing is in effect.
+    - [AVX] Float and ymm* register values not available.
+    - [GDB] Crash when using the "finish" command.
+    - [build] makeinfo should not be required to build GDB.
+  * d/control: enable gdb-multiarch packages
+  * d/rules: disable simulator for gdb-multiarch builds.
+
+ -- Hector Oron <zumbi@debian.org>  Thu, 26 Apr 2012 18:26:18 +0200
+
+gdb (7.4really-1) unstable; urgency=low
+
+  * New upstream release:
+    - Many Python scripting improvements
+    - Better support for ambiguous linespecs
+    - Masked watchpoints
+    - Tracepoint support improvements
+    - Support for Texas Instruments TMS320C6x (tic6x-*-*)
+    - A Renesas RL78 simulator (rl78-*-elf)
+    - Some minor Remote protocol extensions and GDB/MI changes
+  * Temporarily disable gdb-multiarch and gdb-dbg.
+
+ -- Hector Oron <zumbi@debian.org>  Sat, 28 Jan 2012 00:41:20 +0100
+
+gdb (7.4-1~cvs20111117.2) experimental; urgency=low
+
+  * Add build dependency on lib64ncurses5-dev for multilib targets. 
+
+ -- Hector Oron <zumbi@debian.org>  Fri, 18 Nov 2011 19:35:17 +0000
+
+gdb (7.4-1~cvs20111117.1) experimental; urgency=low
+
+  * Add accidentally dropped armhf to architecture list
+  * Add GDB debug package (Closes: #592512, #490049)
+  * Provide GDB multiarch package (Closes: #610519)
+    - Add gdb-multiarch package supporting extra bfd targets similarly to
+      binutils-multiarch; the package is constructed much like gdb64 except that
+      it's build with the gdb configure flags and --enable-targets=all for now.
+    - Thanks Loïc Minier.
+  * Fix conflicts between cross and regular gdb (Closes: #603347)
+    - Pass --gdb-datadir=/usr/share/gdb-$triplet when building a cross-gdb and
+      update gdb.install sed snippet to match; fixes conflict with gdb;
+    - Thanks Loïc Minier.
+
+ -- Hector Oron <zumbi@debian.org>  Thu, 17 Nov 2011 18:37:45 +0000
+
+gdb (7.4-1~cvs20111117) experimental; urgency=low
+
+  * CVS snapshot release (20111117)
+  * debian/control.in: Stop using deprecated type-handling Build-Depends
+    Thanks Guillem Jover. (Closes: #639164)
+  * debian/control.in: Mention D language support in description
+    - Also mention other supported languages. (Closes: #595892)
+  * debian/control.in: Add Vcs-Git, Vcs-Browser and Homepage fields.
+  * debian/control.in: Bump Standards-Version
+
+ -- Hector Oron <zumbi@debian.org>  Wed, 24 Aug 2011 20:02:33 +0100
+
+gdb (7.3-1) unstable; urgency=low
+
+  * New upstream release, including:
+    - Initial OpenCL C language support has been added
+    - C++ enhancements:
+       * Template parameters are now in scope when debugging in an
+         instantiation
+       * The motion commands "next", "finish", "until", and "advance" now
+         work better when exceptions are thrown
+    - Improved Python support, enhancing the existing APIs as well as
+      introducing new ones.
+    - Improved thread debugging support:
+       * GDB now understands thread names
+       * A new command "thread find [REGEXP]" has been added
+    - GDBserver enhancements:
+       * Support for PowerPC LynxOS (versions 4.x and 5.x) and i686 LynxOS
+         (version 5.x)
+       * Support for Blackfin Linux
+    - Support for reading and writing a new .gdb_index section,
+      containing a fast index of DWARF debugging info
+    - Various GDB/MI improvements
+    - Support for ia64 HP-UX (ia64-*-hpux*) has been added
+    - Target support for Analog Devices, Inc. Blackfin Processors (bfin-*)
+    - GNU simulator improvements:
+       * New --map-info flag
+       * CFI flash simulation support
+    - Other worthy improvments (in random order):
+      * The "catch syscall" command is now available on mips-linux.
+      * New GDB Commands: "set directories"
+      * Support for using labels in linespecs (Eg you can use "advance label")
+      * The "watch" command now accepts an optional "-location" argument
+      * Thread debugging of core dumps now supported on GNU/Linux
+      * Ranged breakpoints support (PowerPC BookE running Linux 2.6.34 or later)
+      * Support for Ada task switching inside programs using the Ravenscar profile
+    - See gdb/NEWS for more detailed information.  
+
+ -- Hector Oron <zumbi@debian.org>  Tue, 23 Aug 2011 11:13:36 +0100
+
+gdb (7.3.50~cvs20110627-2) experimental; urgency=low
+
+  * Restrict prelink build depend to linux-any architectures.
+  * Fix cross-build target:
+    - Set DEB_BUILD_GNU_TYPE and use it for --build= instead of
+    DEB_HOST_GNU_TYPE; Thanks Loïc Minier (Closes: #601028)
+  * Add preliminary support for armhf.
+    - Thanks Konstantinos Margaritis (Closes: #596953)
+
+ -- Hector Oron <zumbi@debian.org>  Tue, 05 Jul 2011 22:37:20 +0100
+
+gdb (7.3.50~cvs20110627-1) experimental; urgency=low
+
+  * Upstream pre-release based on CVS date 20110627.
+  * Drop Daniel Jacobowitz as Maintainer.
+      - Thanks for all this years. 
+  * Add myself as Maintainer.
+  * Bump standards version.
+  * Add local-option for unapply-patches.
+  * Add prelink build depend, needed for tests run. 
+
+ -- Hector Oron <zumbi@debian.org>  Tue, 28 Jun 2011 10:30:52 +0100
 
 gdb (7.2-1) unstable; urgency=low
 
@@ -182,36 +672,6 @@ gdb (7.1-2) unstable; urgency=low
 
  -- Daniel Jacobowitz <dan@debian.org>  Tue, 31 Aug 2010 10:57:57 -0400
 
-gdb (7.1-1ubuntu4) maverick; urgency=low
-
-  * debian/patches/ptrace-error-verbosity.patch: update for new yama path.
-
- -- Kees Cook <kees@ubuntu.com>   Tue, 06 Jul 2010 15:26:03 -0700
-
-gdb (7.1-1ubuntu3) maverick; urgency=low
-
-  * Add debian/patches/ptrace-error-verbosity.patch: try to make PTRACE
-    scope sysctl more discoverable.
-
- -- Kees Cook <kees@ubuntu.com>   Tue, 08 Jun 2010 15:46:44 -0700
-
-gdb (7.1-1ubuntu2) lucid; urgency=low
-
-  * Fix TBB TBH decoding in Thumb-2, patch taken from the trunk.
-
- -- Matthias Klose <doko@ubuntu.com>  Thu, 08 Apr 2010 11:48:33 +0200
-
-gdb (7.1-1ubuntu1) lucid; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - PIE testsuite support.
-    - Fix some typos in messages.
-    - Don't build the gdb-minimal package.
-    - Install symlink to compressed gdb64 manpage.
-    - Don't install the upstream changelog in gdbserver.
-
- -- Matthias Klose <doko@ubuntu.com>  Sat, 20 Mar 2010 14:19:26 +0100
-
 gdb (7.1-1) unstable; urgency=low
 
   * New upstream release, including:
@@ -230,45 +690,6 @@ gdb (7.1-1) unstable; urgency=low
   * Fix crash when switching into TUI mode (Closes: #568489).
 
  -- Daniel Jacobowitz <dan@debian.org>  Sat, 20 Mar 2010 01:21:29 -0400
-
-gdb (7.0.90.20100309-0ubuntu2) lucid; urgency=low
-
-  [ Matthias Klose ]
-  * Snapshot, taken from the 7.1 release branch.
-  * Adjust patches, remove obsolete patches.
-
-  [ Kees Cook ]
-  * Rebase PIE testsuite, updates patch series.
-
- -- Matthias Klose <doko@ubuntu.com>  Wed, 10 Mar 2010 01:25:14 +0100
-
-gdb (7.0.1-2ubuntu3) lucid; urgency=low
-
-  * On ARM, add support for single-stepping through IF-THEN blocks (taken
-    from the trunk).
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 09 Mar 2010 15:37:16 +0100
-
-gdb (7.0.1-2ubuntu2) lucid; urgency=low
-
-  * gdb: Make gdbserver a suggestion instead of a dependency.
-  * gdbserver: Don't install the toplevel upstream changelog.
-
- -- Matthias Klose <doko@ubuntu.com>  Sat, 27 Feb 2010 10:58:31 +0100
-
-gdb (7.0.1-2ubuntu1) lucid; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - debian/rules: on sparc, configure the 64bit build with --disable-werror.
-    - Work around a build failure on the ia64 buildd.
-    - PIE support.
-    - Add patch to handle debug_info less frames better.
-    - Fix some typos in messages.
-    - reduce build-id verbosity.
-    - fixup PPC auxv prototype.
-  * Don't build the gdb-minimal package.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 23 Feb 2010 18:27:19 +0100
 
 gdb (7.0.1-2) unstable; urgency=low
 
@@ -293,79 +714,12 @@ gdb (7.0.1-1) unstable; urgency=low
 
  -- Daniel Jacobowitz <dan@debian.org>  Sat, 30 Jan 2010 15:16:35 -0500
 
-gdb (7.0.1-0ubuntu1) lucid; urgency=low
-
-  * New upstream version.
-
- -- Matthias Klose <doko@ubuntu.com>  Thu, 31 Dec 2009 10:07:48 +0100
-
-gdb (7.0-1ubuntu2) lucid; urgency=low
-
-  * [arm] Prevent disassembler from aborting on an invalid Thumb2 instruction,
-    taken from the trunk.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 15 Dec 2009 14:41:05 +0100
-
-gdb (7.0-1ubuntu1) lucid; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - debian/rules: on sparc, configure the 64bit build with --disable-werror.
-    - Work around a build failure on the ia64 buildd.
-    - PIE support.
-    - Add patch to handle debug_info less frames better.
-    - Fix some typos in messages.
-    - reduce build-id verbosity.
-    - fixup PPC auxv prototype.
-  * Update to the 7.0 branch 20091120.
-    - Add Thumb2 debugging for armel.
-
- -- Matthias Klose <doko@ubuntu.com>  Fri, 20 Nov 2009 14:48:57 -0600
-
 gdb (7.0-1) unstable; urgency=low
 
   * New upstream release (Closes: #550567).
   * Order options alphabetically in the man page (Closes: #540811).
 
  -- Daniel Jacobowitz <dan@debian.org>  Sun, 11 Oct 2009 17:16:26 -0400
-
-gdb (7.0-0ubuntu1) karmic; urgency=low
-
-  * 7.0 final release.
-    - Fix PR gdb/10649.
-
- -- Matthias Klose <doko@ubuntu.com>  Fri, 09 Oct 2009 09:27:53 +0200
-
-gdb (6.8.92-0ubuntu1) karmic; urgency=low
-
-  * 7.0 prerelease 2.
-
- -- Matthias Klose <doko@ubuntu.com>  Thu, 01 Oct 2009 15:04:44 +0200
-
-gdb (6.8.90.20090918-0ubuntu2) karmic; urgency=low
-
-  * Update gdb-workaround-rh-stack-off.patch:
-    - reduce build-id verbosity.
-    - fixup PPC auxv prototype.
-
- -- Kees Cook <kees@ubuntu.com>  Sat, 19 Sep 2009 10:26:41 -0700
-
-gdb (6.8.90.20090918-0ubuntu1) karmic; urgency=low
-
-  [ Matthias Klose ]
-  * Merge with Debian; remaining changes:
-    - debian/rules: on sparc, configure the 64bit build with --disable-werror.
-  * Update to the 7.0 release branch.
-
-  [ Kees Cook ]
-  * Add patches to support PIE, thanks to RH's 6.8.91.20090917 branch:
-    - gdb-6.3-test-pie-20050107.patch
-    - gdb-6.5-bz203661-emit-relocs.patch
-    - gdb-workaround-rh-stack-on.patch (workaround lack of Archer, CRC)
-    - gdb-6.6-buildid-locate.patch
-    - gdb-6.3-pie-20050110.patch
-    - gdb-workaround-rh-stack-off.patch (undo workarounds)
-
- -- Matthias Klose <doko@ubuntu.com>  Sat, 19 Sep 2009 15:38:43 +0000
 
 gdb (6.8.50.20090628-4) unstable; urgency=low
 
@@ -399,31 +753,6 @@ gdb (6.8.50.20090628-2) unstable; urgency=low
     It's bigger, but more useful (especially with parallel=).
 
  -- Daniel Jacobowitz <dan@debian.org>  Mon, 06 Jul 2009 14:52:31 -0400
-
-gdb (6.8.50.20090628-1ubuntu3) karmic; urgency=low
-
-  * Refresh PIE support patches to gain analysis of PIE core files.
-
- -- Kees Cook <kees@ubuntu.com>  Tue, 14 Jul 2009 13:20:57 -0700
-
-gdb (6.8.50.20090628-1ubuntu2) karmic; urgency=low
-
-  * Replace the gdbtui binary by a shell script. LP: #244065.
-  * Enable parallel builds.
-
- -- Matthias Klose <doko@ubuntu.com>  Mon, 06 Jul 2009 13:59:42 +0200
-
-gdb (6.8.50.20090628-1ubuntu1) karmic; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - debian/rules: on sparc, configure the 64bit build with --disable-werror.
-    - Support nocheck and parallel=<n> in DEB_BUILD_OPTIONS.
-    - lpia fix for running the check target.
-    - Work around a build failure on the ia64 buildd.
-  * Disable patches (not yet updated): pie-support-alt, pie-support-tests, 
-    handle-nodebuginfo-better.
-
- -- Matthias Klose <doko@ubuntu.com>  Mon, 06 Jul 2009 09:51:58 +0200
 
 gdb (6.8.50.20090628-1) unstable; urgency=low
 
@@ -506,25 +835,6 @@ gdb (6.8.50.20081120.python-1) experimental; urgency=low
 	
  -- Daniel Jacobowitz <dan@debian.org>  Fri, 28 Nov 2008 14:28:47 -0500
 
-gdb (6.8-3ubuntu2) intrepid; urgency=low
-
-  * debian/rules: on sparc, configure the 64bit build with --disable-werror.
-  * Reapply debian/patches/gdb-cvs-reinit_frame_cache.patch. LP: #196274.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 24 Jun 2008 15:42:23 +0200
-
-gdb (6.8-3ubuntu1) intrepid; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - PIE support.
-    - dwarf2-stack-boundry.diff - security fix for CVE-2006-4146.
-    - Add patch to handle debug_info less frames better.
-    - Fix some typos in messages.
-  * Fix build errors with gcc-4.3.
-  * TODO: Fix testcases failing with default hardening options.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 24 Jun 2008 15:42:23 +0200
-
 gdb (6.8-3) unstable; urgency=low
 
   * Initialize some uninitialized variables (Closes: #479561).
@@ -544,28 +854,6 @@ gdb (6.8-2) unstable; urgency=low
 
  -- Daniel Jacobowitz <dan@debian.org>  Fri, 02 May 2008 18:28:37 -0400
 
-gdb (6.8-1ubuntu2) hardy-proposed; urgency=low
-
-  [ Robert Collins ]
-  * Add patch from Michael Matz to handle debug_info less frames better.
-    Origin of patch: https://bugzilla.novell.com/show_bug.cgi?id=390722#c25
-    (LP: #111869).
-
-  [ Martin Pitt ]
-  * Port above patch for amd64, too, since it suffers from the same problem.
-
- -- Robert Collins <robertc@robertcollins.net>  Mon, 26 May 2008 11:49:07 +0200
-
-gdb (6.8-1ubuntu1) hardy; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - PIE support.
-    - dwarf2-stack-boundry.diff - security fix for CVE-2006-4146.
-  * Remove patches merged upstream.
-  * Update pie-support patch.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 01 Apr 2008 15:25:20 +0200
-
 gdb (6.8-1) unstable; urgency=low
 
   * New upstream release.
@@ -582,33 +870,6 @@ gdb (6.8-1) unstable; urgency=low
 
  -- Daniel Jacobowitz <dan@debian.org>  Thu, 27 Mar 2008 18:13:39 -0400
 
-gdb (6.7.1-2ubuntu3) hardy; urgency=low
-
-  * debian/patches/pie-support.patch: updated for 6.7.1; works for
-    attach and core, but not "run".
-  * debian/patches/pie-support-tests.patch: re-enabled, some failures remain.
-  * debian/rules: fix logic to enable running testsuite by default.
-
- -- Kees Cook <kees@ubuntu.com>  Thu, 20 Mar 2008 02:00:27 -0700
-
-gdb (6.7.1-2ubuntu2) hardy; urgency=low
-
-  * debian/patches/gdb-cvs-reinit_frame_cache.patch: upstream fix for SEGV
-    when dealing with register caches (LP: #196274).
-
- -- Kees Cook <kees@ubuntu.com>  Fri, 07 Mar 2008 09:51:58 -0800
-
-gdb (6.7.1-2ubuntu1) hardy; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - Do not depend on type-handling.
-    - PIE support.
-    - dwarf2-stack-boundry.diff - security fix for CVE-2006-4146.
-  * Add patch from Ulrich Weigand to fix stepping over shared library
-    functions on PowerPC (Closes: #432461). LP: #137312.
-
- -- Matthias Klose <doko@ubuntu.com>  Mon, 14 Jan 2008 17:32:12 +0100
-
 gdb (6.7.1-2) unstable; urgency=low
 
   * Add patch from Ulrich Weigand to fix stepping over shared library
@@ -619,16 +880,6 @@ gdb (6.7.1-2) unstable; urgency=low
     - Correct Apps -> Applications in gdb.menu.
 
  -- Daniel Jacobowitz <dan@debian.org>  Wed, 02 Jan 2008 08:49:43 -0500
-
-gdb (6.7.1-1ubuntu1) hardy; urgency=low
-
-  * Merge with Debian; remaining changes:
-    - Do not depend on type-handling.
-    - PIE support.
-    - dwarf2-stack-boundry.diff - security fix for CVE-2006-4146.
-  * Add build-dependency on lib64expat1-dev.
-
- -- Matthias Klose <doko@ubuntu.com>  Tue, 04 Dec 2007 09:13:57 +0100
 
 gdb (6.7.1-1) unstable; urgency=low
 
@@ -672,55 +923,6 @@ gdb (6.6.dfsg-2) unstable; urgency=low
 
  -- Daniel Jacobowitz <dan@debian.org>  Thu, 23 Aug 2007 22:26:20 -0400
 
-gdb (6.6.dfsg-1ubuntu7) gutsy; urgency=low
-
-  * Cross-compile gdb64.
-  * Don't try to install gdbserver on architectures where it doesn't exist.
-
- -- Matthias Klose <doko@ubuntu.com>  Mon, 10 Sep 2007 21:28:07 +0200
-
-gdb (6.6.dfsg-1ubuntu6) gutsy; urgency=low
-
-  * Fix build failures on targets only building gdb.
-  * Remove the gdb32 package.
-  * Fix typos in message strings (LP: #63200).
-
- -- Matthias Klose <doko@ubuntu.com>  Fri, 07 Sep 2007 18:06:20 +0000
-
-gdb (6.6.dfsg-1ubuntu5) gutsy; urgency=low
-
-  * Build a gdb64/gdb32 package on biarch architectures. LP: #25559.
-  * Set Ubuntu maintainer address.
-
- -- Matthias Klose <doko@ubuntu.com>  Wed, 15 Aug 2007 19:01:05 +0000
-
-gdb (6.6.dfsg-1ubuntu4) gutsy; urgency=low
-
-  * Fix register definitions for hppa (Randolph Chung).
-
- -- Matthias Klose <doko@ubuntu.com>  Fri, 03 Aug 2007 17:11:20 +0000
-
-gdb (6.6.dfsg-1ubuntu3) gutsy; urgency=low
-
-  * Run the testsuite on lpia.
-
- -- Matthias Klose <doko@ubuntu.com>  Sat, 28 Jul 2007 18:32:30 +0200
-
-gdb (6.6.dfsg-1ubuntu2) feisty; urgency=low
-
-  * Reenable the workaround for a build failure on the ia64 buildd.
-
- -- Matthias Klose <doko@ubuntu.com>  Sun, 11 Feb 2007 23:34:47 +0100
-
-gdb (6.6.dfsg-1ubuntu1) feisty; urgency=low
-
-  * Merge with Debian unstable; remaining changes:
-    - Do not depend on type-handling.
-    - PIE support.
-    - dwarf2-stack-boundry.diff - security fix for CVE-2006-4146.
-
- -- Matthias Klose <doko@ubuntu.com>  Sun, 11 Feb 2007 14:54:38 +0100
-
 gdb (6.6.dfsg-1) unstable; urgency=low
 
   [ Matthias Klose ]
@@ -742,43 +944,6 @@ gdb (6.6.dfsg-1) unstable; urgency=low
 
  -- Daniel Jacobowitz <dan@debian.org>  Sat, 27 Jan 2007 21:59:06 -0500
 
-gdb (6.6-0ubuntu1) feisty; urgency=low
-
-  * New upstream version.
-  * sim-destdir.patch, gdbinit-ownership.patch, bfd-get-mtime-less.patch,
-    pie-support.patch, thread-db-multiple-libraries.patch: Update.
-  * thread-db-live-threads.patch, fork-context-switch.patch,
-    glibc2.5-gnu-hash.patch: Remove, applied upstream.
-
- -- Matthias Klose <doko@ubuntu.com>  Thu,  4 Jan 2007 15:11:39 +0100
-
-gdb (6.5.dfsg-2ubuntu3) feisty; urgency=low
-
-  * Add PIE support, taken from Fedora patch bundle:
-    - debian/patches/pie-support.patch: core PIE support.
-    - debian/patches/pie-support-tests.patch: PIE operational tests.
-  * debian/rules: drop use of "tee" to solve strange hangs on i386/amd64.
-
- -- Kees Cook <kees@ubuntu.com>  Thu, 14 Dec 2006 15:05:33 -0800
-
-gdb (6.5.dfsg-2ubuntu2) feisty; urgency=low
-
-  * Add debian/patches/glibc2.5-gnu-hash.patch:
-    - Teach gdb how to deal with glibc 2.5's .gnu.hash sections, so that gdb
-      works on feisty at all.
-    - Patch taken from upstream CVS head.
-    - Closes: LP#73724
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 14 Dec 2006 09:17:51 +0100
-
-gdb (6.5.dfsg-2ubuntu1) feisty; urgency=low
-
-  * Merge from debian unstable. Changes left:
-    - type-handling
-    - 'dwarf2-stack-boundry.diff' - security fix for CVE-2006-4146
-
- -- Michael Vogt <michael.vogt@ubuntu.com>  Thu, 23 Nov 2006 06:56:42 +0100
-
 gdb (6.5.dfsg-2) unstable; urgency=low
 
   * Backport a patch to fix GDB segfaults on threaded programs.
@@ -795,33 +960,6 @@ gdb (6.5.dfsg-1) unstable; urgency=low
   * Correctly detect changed executables when rerunning.
 
  -- Daniel Jacobowitz <dan@debian.org>  Sun,  5 Nov 2006 18:33:48 -0500
-
-gdb (6.4.90.dfsg-1ubuntu3) edgy; urgency=low
-
-  * SECURITY UPDATE: fix local arbitrary code execution in DWARF processing.
-  * Add 'dwarf2-stack-boundry.diff': limits the DWARF operation stack.
-    Without this, arbitrary code execution would be possible if a user
-    were tricked into debugging an executable with malicious DWARF headers.
-  * References:
-    CVE-2006-4146
-    https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=204845
-
- -- Kees Cook <kees@outflux.net>  Thu, 28 Sep 2006 11:13:50 -0700
-
-gdb (6.4.90.dfsg-1ubuntu2) edgy; urgency=low
-
-  * debian/patches/from_upstream_fix_context_switch.patch:
-    - upstream patch (http://sourceware.org/ml/gdb-cvs/2006-09/msg00053.html),
-      should fix a multi-threading issue (Ubuntu: #56391)
-
- -- Sebastien Bacher <seb128@canonical.com>  Fri, 29 Sep 2006 17:42:43 +0200
-
-gdb (6.4.90.dfsg-1ubuntu1) edgy; urgency=low
-
-  * Merge from debian unstable:
-    - left only type-handling bit.
-
- -- Fabio M. Di Nitto <fabbione@ubuntu.com>  Tue, 04 Jul 2006 07:46:08 +0200
 
 gdb (6.4.90.dfsg-1) unstable; urgency=low
 
@@ -844,55 +982,6 @@ gdb (6.4.90.dfsg-1) unstable; urgency=low
 
  -- Daniel Jacobowitz <dan@debian.org>  Tue,  6 Jun 2006 09:23:45 -0400
 
-gdb (6.4-1ubuntu5) dapper; urgency=low
-
-  Changes by David S. Miller:
-
-  * Fix linux_nat regression introduced with the last upload.
-
- -- Fabio M. Di Nitto <fabbione@ubuntu.com>  Tue, 09 May 2006 07:48:51 +0200
-
-gdb (6.4-1ubuntu4) dapper; urgency=low
-
-  Changes by David S. Miller:
-
-  * Fix core file generation on sparc.
-
-  * sparc patches split and clean up as applied upstream.
-
- -- Fabio M. Di Nitto <fabbione@ubuntu.com>  Sat, 06 May 2006 06:44:31 +0200
-
-gdb (6.4-1ubuntu3) dapper; urgency=low
-
-  Changes by David S. Miller:
-
-  * Fix signal frame handling on sparc and use dwarf2 frame unwinding on
-    sparc/linux:
-    - Add patch sparc-dwarf2-and-sigframe.patch.
-    - Update debian/patches/series.
-
- -- Fabio M. Di Nitto <fabbione@ubuntu.com>  Thu, 06 Apr 2006 07:16:23 +0200
-
-gdb (6.4-1ubuntu2) dapper; urgency=low
-
-  Changes by David S. Miller:
-
-  * Fix sparc threads support:
-    - Add patch gdb-sparclinux-threads.patch.
-    - Update debian/patches/series.
-
-  NOTE: the patch will work only with properly patched kernel.
-  The patch should be in 2.6.15-20 kernel serie.
-
- -- Fabio M. Di Nitto <fabbione@ubuntu.com>  Sun, 02 Apr 2006 09:42:13 +0200
-
-gdb (6.4-1ubuntu1) dapper; urgency=low
-
-  * merged with debian, 
-  * debian/control, debian/rules: Remove type-handling.
-
- -- Michael Vogt <michael.vogt@ubuntu.com>  Wed, 28 Dec 2005 11:19:23 +0100
-
 gdb (6.4-1) unstable; urgency=low
 
   * New upstream release.
@@ -907,12 +996,6 @@ gdb (6.4-1) unstable; urgency=low
     program (Closes: #303736).
 
  -- Daniel Jacobowitz <dan@debian.org>  Sun, 11 Dec 2005 13:14:04 -0500
-
-gdb (6.3.90.20051119-1ubuntu1) dapper; urgency=low
-
-  * debian/control, debian/rules: Remove type-handling.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 21 Nov 2005 19:50:49 +0000
 
 gdb (6.3.90.20051119-1) unstable; urgency=low
 

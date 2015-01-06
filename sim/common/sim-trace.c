@@ -1,6 +1,5 @@
 /* Simulator tracing/debugging support.
-   Copyright (C) 1997-1998, 2001, 2007-2012 Free Software Foundation,
-   Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -497,17 +496,6 @@ trace_uninstall (SIM_DESC sd)
     }
 }
 
-typedef enum {
-  trace_fmt_invalid,
-  trace_fmt_word,
-  trace_fmt_fp,
-  trace_fmt_fpu,
-  trace_fmt_string,
-  trace_fmt_bool,
-  trace_fmt_addr,
-  trace_fmt_instruction_incomplete,
-} data_fmt;
-
 /* compute the nr of trace data units consumed by data */
 static int
 save_data_size (TRACE_DATA *data,
@@ -519,7 +507,7 @@ save_data_size (TRACE_DATA *data,
 
 
 /* Archive DATA into the trace buffer */
-static void
+void
 save_data (SIM_DESC sd,
 	   TRACE_DATA *data,
 	   data_fmt fmt,
@@ -1312,7 +1300,7 @@ trace_one_insn (SIM_DESC sd, sim_cpu *cpu, address_word pc,
 }
 
 void
-trace_printf VPARAMS ((SIM_DESC sd, sim_cpu *cpu, const char *fmt, ...))
+trace_printf (SIM_DESC sd, sim_cpu *cpu, const char *fmt, ...)
 {
 #if !defined __STDC__ && !defined ALMOST_STDC
   SIM_DESC sd;
@@ -1321,7 +1309,7 @@ trace_printf VPARAMS ((SIM_DESC sd, sim_cpu *cpu, const char *fmt, ...))
 #endif
   va_list ap;
 
-  VA_START (ap, fmt);
+  va_start (ap, fmt);
 #if !defined __STDC__ && !defined ALMOST_STDC
   sd = va_arg (ap, SIM_DESC);
   cpu = va_arg (ap, sim_cpu *);
@@ -1334,7 +1322,7 @@ trace_printf VPARAMS ((SIM_DESC sd, sim_cpu *cpu, const char *fmt, ...))
 }
 
 void
-debug_printf VPARAMS ((sim_cpu *cpu, const char *fmt, ...))
+debug_printf (sim_cpu *cpu, const char *fmt, ...)
 {
 #if !defined __STDC__ && !defined ALMOST_STDC
   sim_cpu *cpu;
@@ -1342,7 +1330,7 @@ debug_printf VPARAMS ((sim_cpu *cpu, const char *fmt, ...))
 #endif
   va_list ap;
 
-  VA_START (ap, fmt);
+  va_start (ap, fmt);
 #if !defined __STDC__ && !defined ALMOST_STDC
   cpu = va_arg (ap, sim_cpu *);
   fmt = va_arg (ap, const char *);

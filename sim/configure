@@ -652,6 +652,7 @@ microblaze
 mips
 mn10300
 moxie
+msp430
 rl78
 rx
 sh64
@@ -3768,10 +3769,10 @@ subdirs="$subdirs arm"
 
        sim_testsuite=yes
        ;;
-   rx-*-*)
+   msp430*-*-*)
 
-  sim_arch=rx
-  subdirs="$subdirs rx"
+  sim_arch=msp430
+  subdirs="$subdirs msp430"
 
 
        ;;
@@ -3779,6 +3780,13 @@ subdirs="$subdirs arm"
 
   sim_arch=rl78
   subdirs="$subdirs rl78"
+
+
+       ;;
+   rx-*-*)
+
+  sim_arch=rx
+  subdirs="$subdirs rx"
 
 
        ;;

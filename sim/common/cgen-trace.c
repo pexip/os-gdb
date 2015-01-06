@@ -1,5 +1,5 @@
 /* Tracing support for CGEN-based simulators.
-   Copyright (C) 1996-1999, 2007-2012 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -17,6 +17,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
+#include "config.h"
 #include <errno.h>
 #include "dis-asm.h"
 #include "bfd.h"
@@ -298,7 +299,7 @@ cgen_trace_printf (SIM_CPU *cpu, char *fmt, ...)
 /* sprintf to a "stream" */
 
 int
-sim_disasm_sprintf VPARAMS ((SFILE *f, const char *format, ...))
+sim_disasm_sprintf (SFILE *f, const char *format, ...)
 {
 #ifndef __STDC__
   SFILE *f;
@@ -307,7 +308,7 @@ sim_disasm_sprintf VPARAMS ((SFILE *f, const char *format, ...))
   int n;
   va_list args;
 
-  VA_START (args, format);
+  va_start (args, format);
 #ifndef __STDC__
   f = va_arg (args, SFILE *);
   format = va_arg (args, char *);

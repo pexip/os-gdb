@@ -1,5 +1,5 @@
 /* Common target dependent code for GDB on ARM systems.
-   Copyright (C) 2002-2003, 2007-2012 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -70,6 +70,10 @@ enum gdb_regnum {
    code readability in this header.  IEEE extended doubles are 80
    bits.  DWORD aligned they use 96 bits.  */
 #define FP_REGISTER_SIZE	12
+
+/* Say how long VFP double precision registers are.  Used for documentation
+   purposes and code readability.  These are fixed at 64 bits.  */
+#define VFP_REGISTER_SIZE	8
 
 /* Number of machine registers.  The only define actually required 
    is gdbarch_num_regs.  The other definitions are used for documentation
@@ -169,16 +173,16 @@ struct gdbarch_tdep
   CORE_ADDR lowest_pc;		/* Lowest address at which instructions 
 				   will appear.  */
 
-  const char *arm_breakpoint;	/* Breakpoint pattern for an ARM insn.  */
+  const gdb_byte *arm_breakpoint;	/* Breakpoint pattern for an ARM insn.  */
   int arm_breakpoint_size;	/* And its size.  */
-  const char *thumb_breakpoint;	/* Breakpoint pattern for a Thumb insn.  */
+  const gdb_byte *thumb_breakpoint;	/* Breakpoint pattern for a Thumb insn.  */
   int thumb_breakpoint_size;	/* And its size.  */
 
   /* If the Thumb breakpoint is an undefined instruction (which is
      affected by IT blocks) rather than a BKPT instruction (which is
      not), then we need a 32-bit Thumb breakpoint to preserve the
      instruction count in IT blocks.  */
-  const char *thumb2_breakpoint;
+  const gdb_byte *thumb2_breakpoint;
   int thumb2_breakpoint_size;
 
   int jb_pc;			/* Offset to PC value in jump buffer.
@@ -200,6 +204,9 @@ struct gdbarch_tdep
   /* Return the expected next PC if FRAME is stopped at a syscall
      instruction.  */
   CORE_ADDR (*syscall_next_pc) (struct frame_info *frame);
+
+   /* Parse swi insn args, sycall record.  */
+  int (*arm_swi_record) (struct regcache *regcache);
 };
 
 /* Structures used for displaced stepping.  */
@@ -330,6 +337,8 @@ extern int arm_psr_thumb_bit (struct gdbarch *);
    instruction?  */
 extern int arm_pc_is_thumb (struct gdbarch *, CORE_ADDR);
 
+extern int arm_process_record (struct gdbarch *gdbarch, 
+                               struct regcache *regcache, CORE_ADDR addr);
 /* Functions exported from armbsd-tdep.h.  */
 
 /* Return the appropriate register set for the core section identified

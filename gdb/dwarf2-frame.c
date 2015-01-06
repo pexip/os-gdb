@@ -1,6 +1,6 @@
 /* Frame unwinder for frames with DWARF Call Frame Information.
 
-   Copyright (C) 2003-2005, 2007-2012 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
    Contributed by Mark Kettenis.
 
@@ -33,7 +33,7 @@
 #include "value.h"
 
 #include "gdb_assert.h"
-#include "gdb_string.h"
+#include <string.h>
 
 #include "complaints.h"
 #include "dwarf2-frame.h"
@@ -68,8 +68,8 @@ struct dwarf2_cie
   ULONGEST return_address_register;
 
   /* Instruction sequence to initialize a register set.  */
-  gdb_byte *initial_instructions;
-  gdb_byte *end;
+  const gdb_byte *initial_instructions;
+  const gdb_byte *end;
 
   /* Saved augmentation, in case it's needed later.  */
   char *augmentation;
@@ -116,8 +116,8 @@ struct dwarf2_fde
   CORE_ADDR address_range;
 
   /* Instruction sequence.  */
-  gdb_byte *instructions;
-  gdb_byte *end;
+  const gdb_byte *instructions;
+  const gdb_byte *end;
 
   /* True if this FDE is read from a .eh_frame instead of a .debug_frame
      section.  */
@@ -141,7 +141,7 @@ struct comp_unit
   struct objfile *objfile;
 
   /* Pointer to the .debug_frame section loaded into memory.  */
-  gdb_byte *dwarf_frame_buffer;
+  const gdb_byte *dwarf_frame_buffer;
 
   /* Length of the loaded .debug_frame section.  */
   bfd_size_type dwarf_frame_size;
@@ -286,7 +286,7 @@ dwarf2_frame_state_free (void *p)
 /* Helper functions for execute_stack_op.  */
 
 static CORE_ADDR
-read_reg (void *baton, int reg)
+read_addr_from_reg (void *baton, int reg)
 {
   struct frame_info *this_frame = (struct frame_info *) baton;
   struct gdbarch *gdbarch = get_frame_arch (this_frame);
@@ -298,12 +298,19 @@ read_reg (void *baton, int reg)
   buf = alloca (register_size (gdbarch, regnum));
   get_frame_register (this_frame, regnum, buf);
 
-  /* Convert the register to an integer.  This returns a LONGEST
-     rather than a CORE_ADDR, but unpack_pointer does the same thing
-     under the covers, and this makes more sense for non-pointer
-     registers.  Maybe read_reg and the associated interfaces should
-     deal with "struct value" instead of CORE_ADDR.  */
-  return unpack_long (register_type (gdbarch, regnum), buf);
+  return unpack_pointer (register_type (gdbarch, regnum), buf);
+}
+
+/* Implement struct dwarf_expr_context_funcs' "get_reg_value" callback.  */
+
+static struct value *
+get_reg_value (void *baton, struct type *type, int reg)
+{
+  struct frame_info *this_frame = (struct frame_info *) baton;
+  struct gdbarch *gdbarch = get_frame_arch (this_frame);
+  int regnum = gdbarch_dwarf2_reg_to_regnum (gdbarch, reg);
+
+  return value_from_register (type, regnum, this_frame);
 }
 
 static void
@@ -346,7 +353,8 @@ register %s (#%d) at %s"),
 
 static const struct dwarf_expr_context_funcs dwarf2_frame_ctx_funcs =
 {
-  read_reg,
+  read_addr_from_reg,
+  get_reg_value,
   read_mem,
   ctx_no_get_frame_base,
   ctx_no_get_frame_cfa,
@@ -354,7 +362,8 @@ static const struct dwarf_expr_context_funcs dwarf2_frame_ctx_funcs =
   ctx_no_get_tls_address,
   ctx_no_dwarf_call,
   ctx_no_get_base_type,
-  ctx_no_push_dwarf_reg_entry_value
+  ctx_no_push_dwarf_reg_entry_value,
+  ctx_no_get_addr_index
 };
 
 static CORE_ADDR
@@ -383,7 +392,8 @@ execute_stack_op (const gdb_byte *exp, ULONGEST len, int addr_size,
   if (ctx->location == DWARF_VALUE_MEMORY)
     result = dwarf_expr_fetch_address (ctx, 0);
   else if (ctx->location == DWARF_VALUE_REGISTER)
-    result = read_reg (this_frame, value_as_long (dwarf_expr_fetch (ctx, 0)));
+    result = read_addr_from_reg (this_frame,
+				 value_as_long (dwarf_expr_fetch (ctx, 0)));
   else
     {
       /* This is actually invalid DWARF, but if we ever do run across
@@ -409,14 +419,14 @@ execute_cfa_program (struct dwarf2_fde *fde, const gdb_byte *insn_ptr,
 		     CORE_ADDR pc, struct dwarf2_frame_state *fs)
 {
   int eh_frame_p = fde->eh_frame_p;
-  int bytes_read;
+  unsigned int bytes_read;
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
   while (insn_ptr < insn_end && fs->pc <= pc)
     {
       gdb_byte insn = *insn_ptr++;
-      ULONGEST utmp, reg;
-      LONGEST offset;
+      uint64_t utmp, reg;
+      int64_t offset;
 
       if ((insn & 0xc0) == DW_CFA_advance_loc)
 	fs->pc += (insn & 0x3f) * fs->code_align;
@@ -424,7 +434,7 @@ execute_cfa_program (struct dwarf2_fde *fde, const gdb_byte *insn_ptr,
 	{
 	  reg = insn & 0x3f;
 	  reg = dwarf2_frame_adjust_regnum (gdbarch, reg, eh_frame_p);
-	  insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	  insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 	  offset = utmp * fs->data_align;
 	  dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
 	  fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_OFFSET;
@@ -466,9 +476,9 @@ execute_cfa_program (struct dwarf2_fde *fde, const gdb_byte *insn_ptr,
 	      break;
 
 	    case DW_CFA_offset_extended:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      reg = dwarf2_frame_adjust_regnum (gdbarch, reg, eh_frame_p);
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 	      offset = utmp * fs->data_align;
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_OFFSET;
@@ -476,28 +486,28 @@ execute_cfa_program (struct dwarf2_fde *fde, const gdb_byte *insn_ptr,
 	      break;
 
 	    case DW_CFA_restore_extended:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      dwarf2_restore_rule (gdbarch, reg, fs, eh_frame_p);
 	      break;
 
 	    case DW_CFA_undefined:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      reg = dwarf2_frame_adjust_regnum (gdbarch, reg, eh_frame_p);
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_UNDEFINED;
 	      break;
 
 	    case DW_CFA_same_value:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      reg = dwarf2_frame_adjust_regnum (gdbarch, reg, eh_frame_p);
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAME_VALUE;
 	      break;
 
 	    case DW_CFA_register:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      reg = dwarf2_frame_adjust_regnum (gdbarch, reg, eh_frame_p);
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 	      utmp = dwarf2_frame_adjust_regnum (gdbarch, utmp, eh_frame_p);
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_REG;
@@ -535,8 +545,9 @@ bad CFI data; mismatched DW_CFA_restore_state at %s"),
 	      break;
 
 	    case DW_CFA_def_cfa:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &fs->regs.cfa_reg);
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
+	      fs->regs.cfa_reg = reg;
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 
 	      if (fs->armcc_cfa_offsets_sf)
 		utmp *= fs->data_align;
@@ -546,15 +557,14 @@ bad CFI data; mismatched DW_CFA_restore_state at %s"),
 	      break;
 
 	    case DW_CFA_def_cfa_register:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &fs->regs.cfa_reg);
-	      fs->regs.cfa_reg = dwarf2_frame_adjust_regnum (gdbarch,
-                                                             fs->regs.cfa_reg,
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
+	      fs->regs.cfa_reg = dwarf2_frame_adjust_regnum (gdbarch, reg,
                                                              eh_frame_p);
 	      fs->regs.cfa_how = CFA_REG_OFFSET;
 	      break;
 
 	    case DW_CFA_def_cfa_offset:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 
 	      if (fs->armcc_cfa_offsets_sf)
 		utmp *= fs->data_align;
@@ -567,18 +577,18 @@ bad CFI data; mismatched DW_CFA_restore_state at %s"),
 	      break;
 
 	    case DW_CFA_def_cfa_expression:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end,
-                                       &fs->regs.cfa_exp_len);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
+	      fs->regs.cfa_exp_len = utmp;
 	      fs->regs.cfa_exp = insn_ptr;
 	      fs->regs.cfa_how = CFA_EXP;
 	      insn_ptr += fs->regs.cfa_exp_len;
 	      break;
 
 	    case DW_CFA_expression:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      reg = dwarf2_frame_adjust_regnum (gdbarch, reg, eh_frame_p);
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 	      fs->regs.reg[reg].loc.exp = insn_ptr;
 	      fs->regs.reg[reg].exp_len = utmp;
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_EXP;
@@ -586,9 +596,9 @@ bad CFI data; mismatched DW_CFA_restore_state at %s"),
 	      break;
 
 	    case DW_CFA_offset_extended_sf:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      reg = dwarf2_frame_adjust_regnum (gdbarch, reg, eh_frame_p);
-	      insn_ptr = read_sleb128 (insn_ptr, insn_end, &offset);
+	      insn_ptr = safe_read_sleb128 (insn_ptr, insn_end, &offset);
 	      offset *= fs->data_align;
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_OFFSET;
@@ -596,27 +606,27 @@ bad CFI data; mismatched DW_CFA_restore_state at %s"),
 	      break;
 
 	    case DW_CFA_val_offset:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 	      offset = utmp * fs->data_align;
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_VAL_OFFSET;
 	      fs->regs.reg[reg].loc.offset = offset;
 	      break;
 
 	    case DW_CFA_val_offset_sf:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
-	      insn_ptr = read_sleb128 (insn_ptr, insn_end, &offset);
+	      insn_ptr = safe_read_sleb128 (insn_ptr, insn_end, &offset);
 	      offset *= fs->data_align;
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_VAL_OFFSET;
 	      fs->regs.reg[reg].loc.offset = offset;
 	      break;
 
 	    case DW_CFA_val_expression:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 	      fs->regs.reg[reg].loc.exp = insn_ptr;
 	      fs->regs.reg[reg].exp_len = utmp;
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_VAL_EXP;
@@ -624,17 +634,16 @@ bad CFI data; mismatched DW_CFA_restore_state at %s"),
 	      break;
 
 	    case DW_CFA_def_cfa_sf:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &fs->regs.cfa_reg);
-	      fs->regs.cfa_reg = dwarf2_frame_adjust_regnum (gdbarch,
-                                                             fs->regs.cfa_reg,
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
+	      fs->regs.cfa_reg = dwarf2_frame_adjust_regnum (gdbarch, reg,
                                                              eh_frame_p);
-	      insn_ptr = read_sleb128 (insn_ptr, insn_end, &offset);
+	      insn_ptr = safe_read_sleb128 (insn_ptr, insn_end, &offset);
 	      fs->regs.cfa_offset = offset * fs->data_align;
 	      fs->regs.cfa_how = CFA_REG_OFFSET;
 	      break;
 
 	    case DW_CFA_def_cfa_offset_sf:
-	      insn_ptr = read_sleb128 (insn_ptr, insn_end, &offset);
+	      insn_ptr = safe_read_sleb128 (insn_ptr, insn_end, &offset);
 	      fs->regs.cfa_offset = offset * fs->data_align;
 	      /* cfa_how deliberately not set.  */
 	      break;
@@ -666,14 +675,14 @@ bad CFI data; mismatched DW_CFA_restore_state at %s"),
 
 	    case DW_CFA_GNU_args_size:
 	      /* Ignored.  */
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &utmp);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
 	      break;
 
 	    case DW_CFA_GNU_negative_offset_extended:
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &reg);
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &reg);
 	      reg = dwarf2_frame_adjust_regnum (gdbarch, reg, eh_frame_p);
-	      insn_ptr = read_uleb128 (insn_ptr, insn_end, &offset);
-	      offset *= fs->data_align;
+	      insn_ptr = safe_read_uleb128 (insn_ptr, insn_end, &utmp);
+	      offset = utmp * fs->data_align;
 	      dwarf2_frame_state_alloc_regs (&fs->regs, reg + 1);
 	      fs->regs.reg[reg].how = DWARF2_FRAME_REG_SAVED_OFFSET;
 	      fs->regs.reg[reg].loc.offset = -offset;
@@ -888,10 +897,8 @@ dwarf2_compile_cfa_to_ax (struct agent_expr *expr, struct axs_value *loc,
 			  CORE_ADDR pc,
 			  struct dwarf2_per_cu_data *data)
 {
-  const int num_regs = gdbarch_num_regs (gdbarch)
-		       + gdbarch_num_pseudo_regs (gdbarch);
   struct dwarf2_fde *fde;
-  CORE_ADDR text_offset, cfa;
+  CORE_ADDR text_offset;
   struct dwarf2_frame_state fs;
   int addr_size;
 
@@ -986,18 +993,38 @@ struct dwarf2_frame_cache
   /* The .text offset.  */
   CORE_ADDR text_offset;
 
+  /* True if we already checked whether this frame is the bottom frame
+     of a virtual tail call frame chain.  */
+  int checked_tailcall_bottom;
+
   /* If not NULL then this frame is the bottom frame of a TAILCALL_FRAME
      sequence.  If NULL then it is a normal case with no TAILCALL_FRAME
      involved.  Non-bottom frames of a virtual tail call frames chain use
      dwarf2_tailcall_frame_unwind unwinder so this field does not apply for
      them.  */
   void *tailcall_cache;
+
+  /* The number of bytes to subtract from TAILCALL_FRAME frames frame
+     base to get the SP, to simulate the return address pushed on the
+     stack.  */
+  LONGEST entry_cfa_sp_offset;
+  int entry_cfa_sp_offset_p;
 };
+
+/* A cleanup that sets a pointer to NULL.  */
+
+static void
+clear_pointer_cleanup (void *arg)
+{
+  void **ptr = arg;
+
+  *ptr = NULL;
+}
 
 static struct dwarf2_frame_cache *
 dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
 {
-  struct cleanup *old_chain;
+  struct cleanup *reset_cache_cleanup, *old_chain;
   struct gdbarch *gdbarch = get_frame_arch (this_frame);
   const int num_regs = gdbarch_num_regs (gdbarch)
 		       + gdbarch_num_pseudo_regs (gdbarch);
@@ -1006,8 +1033,6 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
   struct dwarf2_fde *fde;
   volatile struct gdb_exception ex;
   CORE_ADDR entry_pc;
-  LONGEST entry_cfa_sp_offset;
-  int entry_cfa_sp_offset_p = 0;
   const gdb_byte *instr;
 
   if (*this_cache)
@@ -1017,6 +1042,7 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
   cache = FRAME_OBSTACK_ZALLOC (struct dwarf2_frame_cache);
   cache->reg = FRAME_OBSTACK_CALLOC (num_regs, struct dwarf2_frame_state_reg);
   *this_cache = cache;
+  reset_cache_cleanup = make_cleanup (clear_pointer_cleanup, this_cache);
 
   /* Allocate and initialize the frame state.  */
   fs = XZALLOC (struct dwarf2_frame_state);
@@ -1054,7 +1080,8 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
 
   /* First decode all the insns in the CIE.  */
   execute_cfa_program (fde, fde->cie->initial_instructions,
-		       fde->cie->end, gdbarch, get_frame_pc (this_frame), fs);
+		       fde->cie->end, gdbarch,
+		       get_frame_address_in_block (this_frame), fs);
 
   /* Save the initialized register set.  */
   fs->initial = fs->regs;
@@ -1070,8 +1097,8 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
 	  && (gdbarch_dwarf2_reg_to_regnum (gdbarch, fs->regs.cfa_reg)
 	      == gdbarch_sp_regnum (gdbarch)))
 	{
-	  entry_cfa_sp_offset = fs->regs.cfa_offset;
-	  entry_cfa_sp_offset_p = 1;
+	  cache->entry_cfa_sp_offset = fs->regs.cfa_offset;
+	  cache->entry_cfa_sp_offset_p = 1;
 	}
     }
   else
@@ -1079,7 +1106,7 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
 
   /* Then decode the insns in the FDE up to our target PC.  */
   execute_cfa_program (fde, instr, fde->end, gdbarch,
-		       get_frame_pc (this_frame), fs);
+		       get_frame_address_in_block (this_frame), fs);
 
   TRY_CATCH (ex, RETURN_MASK_ERROR)
     {
@@ -1087,7 +1114,7 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
       switch (fs->regs.cfa_how)
 	{
 	case CFA_REG_OFFSET:
-	  cache->cfa = read_reg (this_frame, fs->regs.cfa_reg);
+	  cache->cfa = read_addr_from_reg (this_frame, fs->regs.cfa_reg);
 	  if (fs->armcc_cfa_offsets_reversed)
 	    cache->cfa -= fs->regs.cfa_offset;
 	  else
@@ -1110,6 +1137,8 @@ dwarf2_frame_cache (struct frame_info *this_frame, void **this_cache)
       if (ex.error == NOT_AVAILABLE_ERROR)
 	{
 	  cache->unavailable_retaddr = 1;
+	  do_cleanups (old_chain);
+	  discard_cleanups (reset_cache_cleanup);
 	  return cache;
 	}
 
@@ -1218,13 +1247,7 @@ incomplete CFI data; unspecified registers (e.g., %s) at %s"),
     cache->undefined_retaddr = 1;
 
   do_cleanups (old_chain);
-
-  /* Try to find a virtual tail call frames chain with bottom (callee) frame
-     starting at THIS_FRAME.  */
-  dwarf2_tailcall_sniffer_first (this_frame, &cache->tailcall_cache,
-				 (entry_cfa_sp_offset_p
-				  ? &entry_cfa_sp_offset : NULL));
-
+  discard_cleanups (reset_cache_cleanup);
   return cache;
 }
 
@@ -1252,12 +1275,11 @@ dwarf2_frame_this_id (struct frame_info *this_frame, void **this_cache,
     dwarf2_frame_cache (this_frame, this_cache);
 
   if (cache->unavailable_retaddr)
+    (*this_id) = frame_id_build_unavailable_stack (get_frame_func (this_frame));
+  else if (cache->undefined_retaddr)
     return;
-
-  if (cache->undefined_retaddr)
-    return;
-
-  (*this_id) = frame_id_build (cache->cfa, get_frame_func (this_frame));
+  else
+    (*this_id) = frame_id_build (cache->cfa, get_frame_func (this_frame));
 }
 
 static struct value *
@@ -1269,6 +1291,16 @@ dwarf2_frame_prev_register (struct frame_info *this_frame, void **this_cache,
     dwarf2_frame_cache (this_frame, this_cache);
   CORE_ADDR addr;
   int realnum;
+
+  /* Check whether THIS_FRAME is the bottom frame of a virtual tail
+     call frame chain.  */
+  if (!cache->checked_tailcall_bottom)
+    {
+      cache->checked_tailcall_bottom = 1;
+      dwarf2_tailcall_sniffer_first (this_frame, &cache->tailcall_cache,
+				     (cache->entry_cfa_sp_offset_p
+				      ? &cache->entry_cfa_sp_offset : NULL));
+    }
 
   /* Non-bottom frames of a virtual tail call frames chain use
      dwarf2_tailcall_frame_unwind unwinder so this code does not apply for
@@ -1396,10 +1428,6 @@ dwarf2_frame_sniffer (const struct frame_unwind *self,
   if (self->type != NORMAL_FRAME)
     return 0;
 
-  /* Preinitializa the cache so that TAILCALL_FRAME can find the record by
-     dwarf2_tailcall_sniffer_first.  */
-  dwarf2_frame_cache (this_frame, this_cache);
-
   return 1;
 }
 
@@ -1490,88 +1518,36 @@ dwarf2_frame_cfa (struct frame_info *this_frame)
   if (!frame_unwinder_is (this_frame, &dwarf2_frame_unwind)
       && !frame_unwinder_is (this_frame, &dwarf2_tailcall_frame_unwind))
     error (_("can't compute CFA for this frame"));
+  if (get_frame_unwind_stop_reason (this_frame) == UNWIND_UNAVAILABLE)
+    throw_error (NOT_AVAILABLE_ERROR,
+		 _("can't compute CFA for this frame: "
+		   "required registers or memory are unavailable"));
   return get_frame_base (this_frame);
 }
 
 const struct objfile_data *dwarf2_frame_objfile_data;
 
 static unsigned int
-read_1_byte (bfd *abfd, gdb_byte *buf)
+read_1_byte (bfd *abfd, const gdb_byte *buf)
 {
   return bfd_get_8 (abfd, buf);
 }
 
 static unsigned int
-read_4_bytes (bfd *abfd, gdb_byte *buf)
+read_4_bytes (bfd *abfd, const gdb_byte *buf)
 {
   return bfd_get_32 (abfd, buf);
 }
 
 static ULONGEST
-read_8_bytes (bfd *abfd, gdb_byte *buf)
+read_8_bytes (bfd *abfd, const gdb_byte *buf)
 {
   return bfd_get_64 (abfd, buf);
 }
 
 static ULONGEST
-read_unsigned_leb128 (bfd *abfd, gdb_byte *buf, unsigned int *bytes_read_ptr)
-{
-  ULONGEST result;
-  unsigned int num_read;
-  int shift;
-  gdb_byte byte;
-
-  result = 0;
-  shift = 0;
-  num_read = 0;
-
-  do
-    {
-      byte = bfd_get_8 (abfd, (bfd_byte *) buf);
-      buf++;
-      num_read++;
-      result |= ((byte & 0x7f) << shift);
-      shift += 7;
-    }
-  while (byte & 0x80);
-
-  *bytes_read_ptr = num_read;
-
-  return result;
-}
-
-static LONGEST
-read_signed_leb128 (bfd *abfd, gdb_byte *buf, unsigned int *bytes_read_ptr)
-{
-  LONGEST result;
-  int shift;
-  unsigned int num_read;
-  gdb_byte byte;
-
-  result = 0;
-  shift = 0;
-  num_read = 0;
-
-  do
-    {
-      byte = bfd_get_8 (abfd, (bfd_byte *) buf);
-      buf++;
-      num_read++;
-      result |= ((byte & 0x7f) << shift);
-      shift += 7;
-    }
-  while (byte & 0x80);
-
-  if (shift < 8 * sizeof (result) && (byte & 0x40))
-    result |= -(((LONGEST)1) << shift);
-
-  *bytes_read_ptr = num_read;
-
-  return result;
-}
-
-static ULONGEST
-read_initial_length (bfd *abfd, gdb_byte *buf, unsigned int *bytes_read_ptr)
+read_initial_length (bfd *abfd, const gdb_byte *buf,
+		     unsigned int *bytes_read_ptr)
 {
   LONGEST result;
 
@@ -1680,10 +1656,10 @@ read_encoded_value (struct comp_unit *unit, gdb_byte encoding,
     {
     case DW_EH_PE_uleb128:
       {
-	ULONGEST value;
+	uint64_t value;
 	const gdb_byte *end_buf = buf + (sizeof (value) + 1) * 8 / 7;
 
-	*bytes_read_ptr += read_uleb128 (buf, end_buf, &value) - buf;
+	*bytes_read_ptr += safe_read_uleb128 (buf, end_buf, &value) - buf;
 	return base + value;
       }
     case DW_EH_PE_udata2:
@@ -1697,10 +1673,10 @@ read_encoded_value (struct comp_unit *unit, gdb_byte encoding,
       return (base + bfd_get_64 (unit->abfd, (bfd_byte *) buf));
     case DW_EH_PE_sleb128:
       {
-	LONGEST value;
+	int64_t value;
 	const gdb_byte *end_buf = buf + (sizeof (value) + 1) * 8 / 7;
 
-	*bytes_read_ptr += read_sleb128 (buf, end_buf, &value) - buf;
+	*bytes_read_ptr += safe_read_sleb128 (buf, end_buf, &value) - buf;
 	return base + value;
       }
     case DW_EH_PE_sdata2:
@@ -1842,11 +1818,7 @@ add_fde (struct dwarf2_fde_table *fde_table, struct dwarf2_fde *fde)
   fde_table->entries[fde_table->num_entries - 1] = fde;
 }
 
-#ifdef CC_HAS_LONG_LONG
 #define DW64_CIE_ID 0xffffffffffffffffULL
-#else
-#define DW64_CIE_ID ~0
-#endif
 
 /* Defines the type of eh_frames that are expected to be decoded: CIE, FDE
    or any of them.  */
@@ -1858,28 +1830,32 @@ enum eh_frame_type
   EH_CIE_OR_FDE_TYPE_ID = EH_CIE_TYPE_ID | EH_FDE_TYPE_ID
 };
 
-static gdb_byte *decode_frame_entry (struct comp_unit *unit, gdb_byte *start,
-				     int eh_frame_p,
-                                     struct dwarf2_cie_table *cie_table,
-                                     struct dwarf2_fde_table *fde_table,
-                                     enum eh_frame_type entry_type);
+static const gdb_byte *decode_frame_entry (struct comp_unit *unit,
+					   const gdb_byte *start,
+					   int eh_frame_p,
+					   struct dwarf2_cie_table *cie_table,
+					   struct dwarf2_fde_table *fde_table,
+					   enum eh_frame_type entry_type);
 
 /* Decode the next CIE or FDE, entry_type specifies the expected type.
    Return NULL if invalid input, otherwise the next byte to be processed.  */
 
-static gdb_byte *
-decode_frame_entry_1 (struct comp_unit *unit, gdb_byte *start, int eh_frame_p,
+static const gdb_byte *
+decode_frame_entry_1 (struct comp_unit *unit, const gdb_byte *start,
+		      int eh_frame_p,
                       struct dwarf2_cie_table *cie_table,
                       struct dwarf2_fde_table *fde_table,
                       enum eh_frame_type entry_type)
 {
   struct gdbarch *gdbarch = get_objfile_arch (unit->objfile);
-  gdb_byte *buf, *end;
+  const gdb_byte *buf, *end;
   LONGEST length;
   unsigned int bytes_read;
   int dwarf64_p;
   ULONGEST cie_id;
   ULONGEST cie_pointer;
+  int64_t sleb128;
+  uint64_t uleb128;
 
   buf = start;
   length = read_initial_length (unit->abfd, buf, &bytes_read);
@@ -1995,37 +1971,41 @@ decode_frame_entry_1 (struct comp_unit *unit, gdb_byte *start, int eh_frame_p,
       else
 	cie->ptr_size = cie->addr_size;
 
-      cie->code_alignment_factor =
-	read_unsigned_leb128 (unit->abfd, buf, &bytes_read);
-      buf += bytes_read;
+      buf = gdb_read_uleb128 (buf, end, &uleb128);
+      if (buf == NULL)
+	return NULL;
+      cie->code_alignment_factor = uleb128;
 
-      cie->data_alignment_factor =
-	read_signed_leb128 (unit->abfd, buf, &bytes_read);
-      buf += bytes_read;
+      buf = gdb_read_sleb128 (buf, end, &sleb128);
+      if (buf == NULL)
+	return NULL;
+      cie->data_alignment_factor = sleb128;
 
       if (cie_version == 1)
 	{
 	  cie->return_address_register = read_1_byte (unit->abfd, buf);
-	  bytes_read = 1;
+	  ++buf;
 	}
       else
-	cie->return_address_register = read_unsigned_leb128 (unit->abfd, buf,
-							     &bytes_read);
+	{
+	  buf = gdb_read_uleb128 (buf, end, &uleb128);
+	  if (buf == NULL)
+	    return NULL;
+	  cie->return_address_register = uleb128;
+	}
+
       cie->return_address_register
 	= dwarf2_frame_adjust_regnum (gdbarch,
 				      cie->return_address_register,
 				      eh_frame_p);
 
-      buf += bytes_read;
-
       cie->saw_z_augmentation = (*augmentation == 'z');
       if (cie->saw_z_augmentation)
 	{
-	  ULONGEST length;
+	  uint64_t length;
 
-	  length = read_unsigned_leb128 (unit->abfd, buf, &bytes_read);
-	  buf += bytes_read;
-	  if (buf > end)
+	  buf = gdb_read_uleb128 (buf, end, &length);
+	  if (buf == NULL)
 	    return NULL;
 	  cie->initial_instructions = buf + length;
 	  augmentation++;
@@ -2139,10 +2119,12 @@ decode_frame_entry_1 (struct comp_unit *unit, gdb_byte *start, int eh_frame_p,
 	 can skip the whole thing.  */
       if (fde->cie->saw_z_augmentation)
 	{
-	  ULONGEST length;
+	  uint64_t length;
 
-	  length = read_unsigned_leb128 (unit->abfd, buf, &bytes_read);
-	  buf += bytes_read + length;
+	  buf = gdb_read_uleb128 (buf, end, &length);
+	  if (buf == NULL)
+	    return NULL;
+	  buf += length;
 	  if (buf > end)
 	    return NULL;
 	}
@@ -2161,14 +2143,15 @@ decode_frame_entry_1 (struct comp_unit *unit, gdb_byte *start, int eh_frame_p,
 /* Read a CIE or FDE in BUF and decode it. Entry_type specifies whether we
    expect an FDE or a CIE.  */
 
-static gdb_byte *
-decode_frame_entry (struct comp_unit *unit, gdb_byte *start, int eh_frame_p,
+static const gdb_byte *
+decode_frame_entry (struct comp_unit *unit, const gdb_byte *start,
+		    int eh_frame_p,
                     struct dwarf2_cie_table *cie_table,
                     struct dwarf2_fde_table *fde_table,
                     enum eh_frame_type entry_type)
 {
   enum { NONE, ALIGN4, ALIGN8, FAIL } workaround = NONE;
-  gdb_byte *ret;
+  const gdb_byte *ret;
   ptrdiff_t start_offset;
 
   while (1)
@@ -2280,7 +2263,7 @@ void
 dwarf2_build_frame_info (struct objfile *objfile)
 {
   struct comp_unit *unit;
-  gdb_byte *frame_ptr;
+  const gdb_byte *frame_ptr;
   struct dwarf2_cie_table cie_table;
   struct dwarf2_fde_table fde_table;
   struct dwarf2_fde_table *fde_table2;
@@ -2338,7 +2321,7 @@ dwarf2_build_frame_info (struct objfile *objfile)
 	  if (e.reason < 0)
 	    {
 	      warning (_("skipping .eh_frame info of %s: %s"),
-		       objfile->name, e.message);
+		       objfile_name (objfile), e.message);
 
 	      if (fde_table.num_entries != 0)
 		{
@@ -2378,7 +2361,7 @@ dwarf2_build_frame_info (struct objfile *objfile)
       if (e.reason < 0)
 	{
 	  warning (_("skipping .debug_frame info of %s: %s"),
-		   objfile->name, e.message);
+		   objfile_name (objfile), e.message);
 
 	  if (fde_table.num_entries != 0)
 	    {

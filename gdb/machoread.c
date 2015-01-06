@@ -1,5 +1,5 @@
 /* Darwin support for GDB, the GNU debugger.
-   Copyright (C) 2008-2012 Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
 
    Contributed by AdaCore.
 
@@ -16,8 +16,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -34,11 +33,12 @@
 #include "vec.h"
 #include "psympriv.h"
 #include "complaints.h"
+#include "gdb_bfd.h"
 
 #include <string.h>
 
 /* If non-zero displays debugging message.  */
-static int mach_o_debug_level = 0;
+static unsigned int mach_o_debug_level = 0;
 
 /* Dwarf debugging information are never in the final executable.  They stay
    in object files and the executable contains the list of object files read
@@ -64,10 +64,8 @@ typedef struct oso_el
 }
 oso_el;
 
-/* Vector of object files to be read after the executable.  This is one
-   global variable but it's life-time is the one of macho_symfile_read.  */
+/* Vector of object files to be read after the executable.  */
 DEF_VEC_O (oso_el);
-static VEC (oso_el) *oso_vector;
 
 static void
 macho_new_init (struct objfile *objfile)
@@ -78,13 +76,13 @@ static void
 macho_symfile_init (struct objfile *objfile)
 {
   objfile->flags |= OBJF_REORDERED;
-  init_entry_point_info (objfile);
 }
 
 /*  Add a new OSO to the vector of OSO to load.  */
 
 static void
-macho_register_oso (struct objfile *objfile,
+macho_register_oso (VEC (oso_el) **oso_vector_ptr,
+		    struct objfile *objfile,
                     asymbol **oso_sym, asymbol **end_sym,
                     unsigned int nbr_syms)
 {
@@ -95,7 +93,7 @@ macho_register_oso (struct objfile *objfile,
   el.oso_sym = oso_sym;
   el.end_sym = end_sym;
   el.nbr_syms = nbr_syms;
-  VEC_safe_push (oso_el, oso_vector, &el);
+  VEC_safe_push (oso_el, *oso_vector_ptr, &el);
 }
 
 /* Add symbol SYM to the minimal symbol table of OBJFILE.  */
@@ -116,7 +114,8 @@ macho_symtab_add_minsym (struct objfile *objfile, const asymbol *sym)
       CORE_ADDR offset;
       enum minimal_symbol_type ms_type;
 
-      offset = ANOFFSET (objfile->section_offsets, sym->section->index);
+      offset = ANOFFSET (objfile->section_offsets,
+			 gdb_bfd_section_index (objfile->obfd, sym->section));
 
       /* Bfd symbols are section relative.  */
       symaddr = sym->value + sym->section->vma;
@@ -126,11 +125,11 @@ macho_symtab_add_minsym (struct objfile *objfile, const asymbol *sym)
          interested in will have a section.  */
       /* Relocate all non-absolute and non-TLS symbols by the
          section offset.  */
-      if (sym->section != &bfd_abs_section
+      if (sym->section != bfd_abs_section_ptr
           && !(sym->section->flags & SEC_THREAD_LOCAL))
         symaddr += offset;
 
-      if (sym->section == &bfd_abs_section)
+      if (sym->section == bfd_abs_section_ptr)
         ms_type = mst_abs;
       else if (sym->section->flags & SEC_CODE)
         {
@@ -164,8 +163,9 @@ macho_symtab_add_minsym (struct objfile *objfile, const asymbol *sym)
         return;	/* Skip this symbol.  */
 
       prim_record_minimal_symbol_and_info
-        (sym->name, symaddr, ms_type, sym->section->index,
-         sym->section, objfile);
+        (sym->name, symaddr, ms_type,
+	 gdb_bfd_section_index (objfile->obfd, sym->section),
+	 objfile);
     }
 }
 
@@ -174,13 +174,14 @@ macho_symtab_add_minsym (struct objfile *objfile, const asymbol *sym)
 
 static void
 macho_symtab_read (struct objfile *objfile,
-		   long number_of_symbols, asymbol **symbol_table)
+		   long number_of_symbols, asymbol **symbol_table,
+		   VEC (oso_el) **oso_vector_ptr)
 {
   long i;
   const asymbol *dir_so = NULL;
   const asymbol *file_so = NULL;
   asymbol **oso_file = NULL;
-  unsigned int nbr_syms;
+  unsigned int nbr_syms = 0;
 
   /* Current state while reading stabs.  */
   enum
@@ -238,7 +239,7 @@ macho_symtab_read (struct objfile *objfile,
               /* Debugging symbols are not expected here.  */
               complaint (&symfile_complaints,
                          _("%s: Unexpected debug stab outside SO markers"),
-                         objfile->name);
+                         objfile_name (objfile));
             }
           else
             {
@@ -298,7 +299,8 @@ macho_symtab_read (struct objfile *objfile,
                 {
                   /* End of file.  */
                   if (state == S_DWARF_FILE)
-                    macho_register_oso (objfile, oso_file, symbol_table + i,
+                    macho_register_oso (oso_vector_ptr, objfile,
+					oso_file, symbol_table + i,
                                         nbr_syms);
                   state = S_NO_SO;
                 }
@@ -445,7 +447,7 @@ macho_resolve_oso_sym_with_minsym (struct objfile *main_objfile, asymbol *sym)
 /* Add oso file OSO/ABFD as a symbol file.  */
 
 static void
-macho_add_oso_symfile (oso_el *oso, bfd *abfd,
+macho_add_oso_symfile (oso_el *oso, bfd *abfd, const char *name,
                        struct objfile *main_objfile, int symfile_flags)
 {
   int storage;
@@ -454,6 +456,7 @@ macho_add_oso_symfile (oso_el *oso, bfd *abfd,
   asymbol **symp;
   struct bfd_hash_table table;
   int nbr_sections;
+  struct cleanup *cleanup;
 
   /* Per section flag to mark which section have been rebased.  */
   unsigned char *sections_rebased;
@@ -466,14 +469,14 @@ macho_add_oso_symfile (oso_el *oso, bfd *abfd,
     {
       warning (_("`%s': can't read symbols: %s."), oso->name,
                bfd_errmsg (bfd_get_error ()));
-      bfd_close (abfd);
+      gdb_bfd_unref (abfd);
       return;
     }
 
   if (abfd->my_archive == NULL && oso->mtime != bfd_get_mtime (abfd))
     {
       warning (_("`%s': file time stamp mismatch."), oso->name);
-      bfd_close (abfd);
+      gdb_bfd_unref (abfd);
       return;
     }
 
@@ -482,7 +485,7 @@ macho_add_oso_symfile (oso_el *oso, bfd *abfd,
                               oso->nbr_syms))
     {
       warning (_("`%s': can't create hash table"), oso->name);
-      bfd_close (abfd);
+      gdb_bfd_unref (abfd);
       return;
     }
 
@@ -563,7 +566,7 @@ macho_add_oso_symfile (oso_el *oso, bfd *abfd,
           res = macho_resolve_oso_sym_with_minsym (main_objfile, sym);
           if (res != 0)
             {
-              sym->section = &bfd_com_section;
+              sym->section = bfd_com_section_ptr;
               sym->value = res;
             }
         }
@@ -629,31 +632,30 @@ macho_add_oso_symfile (oso_el *oso, bfd *abfd,
 
   bfd_hash_table_free (&table);
 
-  /* Make sure that the filename was malloc'ed.  The current filename comes
-     either from an OSO symbol name or from an archive name.  Memory for both
-     is not managed by gdb.  */
-  abfd->filename = xstrdup (abfd->filename);
-
   /* We need to clear SYMFILE_MAINLINE to avoid interractive question
      from symfile.c:symbol_file_add_with_addrs_or_offsets.  */
+  cleanup = make_cleanup_bfd_unref (abfd);
   symbol_file_add_from_bfd
-    (abfd, symfile_flags & ~(SYMFILE_MAINLINE | SYMFILE_VERBOSE), NULL,
+    (abfd, name, symfile_flags & ~(SYMFILE_MAINLINE | SYMFILE_VERBOSE), NULL,
      main_objfile->flags & (OBJF_REORDERED | OBJF_SHARED
 			    | OBJF_READNOW | OBJF_USERLOADED),
      main_objfile);
+  do_cleanups (cleanup);
 }
 
-/* Read symbols from the vector of oso files.  */
+/* Read symbols from the vector of oso files.
+
+   Note that this function sorts OSO_VECTOR_PTR.  */
 
 static void
-macho_symfile_read_all_oso (struct objfile *main_objfile, int symfile_flags)
+macho_symfile_read_all_oso (VEC (oso_el) **oso_vector_ptr,
+			    struct objfile *main_objfile,
+			    int symfile_flags)
 {
   int ix;
-  VEC (oso_el) *vec;
+  VEC (oso_el) *vec = *oso_vector_ptr;
   oso_el *oso;
-
-  vec = oso_vector;
-  oso_vector = NULL;
+  struct cleanup *cleanup = make_cleanup (null_cleanup, NULL);
 
   /* Sort oso by name so that files from libraries are gathered.  */
   qsort (VEC_address (oso_el, vec), VEC_length (oso_el, vec),
@@ -677,6 +679,8 @@ macho_symfile_read_all_oso (struct objfile *main_objfile, int symfile_flags)
 	  memcpy (archive_name, oso->name, pfx_len);
 	  archive_name[pfx_len] = '\0';
 
+	  make_cleanup (xfree, archive_name);
+
           /* Compute number of oso for this archive.  */
           for (last_ix = ix;
                VEC_iterate (oso_el, vec, last_ix, oso2); last_ix++)
@@ -686,7 +690,7 @@ macho_symfile_read_all_oso (struct objfile *main_objfile, int symfile_flags)
             }
 
 	  /* Open the archive and check the format.  */
-	  archive_bfd = bfd_openr (archive_name, gnutarget);
+	  archive_bfd = gdb_bfd_open (archive_name, gnutarget, -1);
 	  if (archive_bfd == NULL)
 	    {
 	      warning (_("Could not open OSO archive file \"%s\""),
@@ -698,17 +702,18 @@ macho_symfile_read_all_oso (struct objfile *main_objfile, int symfile_flags)
 	    {
 	      warning (_("OSO archive file \"%s\" not an archive."),
 		       archive_name);
-	      bfd_close (archive_bfd);
+	      gdb_bfd_unref (archive_bfd);
               ix = last_ix;
 	      continue;
 	    }
-	  member_bfd = bfd_openr_next_archived_file (archive_bfd, NULL);
+
+	  member_bfd = gdb_bfd_openr_next_archived_file (archive_bfd, NULL);
 
 	  if (member_bfd == NULL)
 	    {
 	      warning (_("Could not read archive members out of "
 			 "OSO archive \"%s\""), archive_name);
-	      bfd_close (archive_bfd);
+	      gdb_bfd_unref (archive_bfd);
               ix = last_ix;
 	      continue;
 	    }
@@ -731,6 +736,7 @@ macho_symfile_read_all_oso (struct objfile *main_objfile, int symfile_flags)
                                   member_len))
                     {
                       macho_add_oso_symfile (oso2, member_bfd,
+					     bfd_get_filename (member_bfd),
                                              main_objfile, symfile_flags);
                       oso2->name = NULL;
                       break;
@@ -738,12 +744,12 @@ macho_symfile_read_all_oso (struct objfile *main_objfile, int symfile_flags)
                 }
 
               prev = member_bfd;
-	      member_bfd = bfd_openr_next_archived_file
-		(archive_bfd, member_bfd);
+	      member_bfd = gdb_bfd_openr_next_archived_file (archive_bfd,
+							     member_bfd);
 
               /* Free previous member if not referenced by an oso.  */
               if (ix2 >= last_ix)
-                bfd_close (prev);
+                gdb_bfd_unref (prev);
 	    }
           for (ix2 = ix; ix2 < last_ix; ix2++)
             {
@@ -759,18 +765,19 @@ macho_symfile_read_all_oso (struct objfile *main_objfile, int symfile_flags)
 	{
           bfd *abfd;
 
-	  abfd = bfd_openr (oso->name, gnutarget);
+	  abfd = gdb_bfd_open (oso->name, gnutarget, -1);
 	  if (!abfd)
             warning (_("`%s': can't open to read symbols: %s."), oso->name,
                      bfd_errmsg (bfd_get_error ()));
           else
-            macho_add_oso_symfile (oso, abfd, main_objfile, symfile_flags);
+            macho_add_oso_symfile (oso, abfd, oso->name, main_objfile,
+				   symfile_flags);
 
           ix++;
         }
     }
 
-  VEC_free (oso_el, vec);
+  do_cleanups (cleanup);
 }
 
 /* DSYM (debug symbols) files contain the debug info of an executable.
@@ -780,22 +787,24 @@ macho_symfile_read_all_oso (struct objfile *main_objfile, int symfile_flags)
    executable name and the executable base name to get the DSYM file name.  */
 #define DSYM_SUFFIX ".dSYM/Contents/Resources/DWARF/"
 
-/* Check if a dsym file exists for OBJFILE.  If so, returns a bfd for it.
-   Return NULL if no valid dsym file is found.  */
+/* Check if a dsym file exists for OBJFILE.  If so, returns a bfd for it
+   and return *FILENAMEP with its original xmalloc-ated filename.
+   Return NULL if no valid dsym file is found (FILENAMEP is not used in
+   such case).  */
 
 static bfd *
-macho_check_dsym (struct objfile *objfile)
+macho_check_dsym (struct objfile *objfile, char **filenamep)
 {
-  size_t name_len = strlen (objfile->name);
+  size_t name_len = strlen (objfile_name (objfile));
   size_t dsym_len = strlen (DSYM_SUFFIX);
-  const char *base_name = lbasename (objfile->name);
+  const char *base_name = lbasename (objfile_name (objfile));
   size_t base_len = strlen (base_name);
   char *dsym_filename = alloca (name_len + dsym_len + base_len + 1);
   bfd *dsym_bfd;
   bfd_mach_o_load_command *main_uuid;
   bfd_mach_o_load_command *dsym_uuid;
 
-  strcpy (dsym_filename, objfile->name);
+  strcpy (dsym_filename, objfile_name (objfile));
   strcpy (dsym_filename + name_len, DSYM_SUFFIX);
   strcpy (dsym_filename + name_len + dsym_len, base_name);
 
@@ -805,23 +814,20 @@ macho_check_dsym (struct objfile *objfile)
   if (bfd_mach_o_lookup_command (objfile->obfd,
                                  BFD_MACH_O_LC_UUID, &main_uuid) == 0)
     {
-      warning (_("can't find UUID in %s"), objfile->name);
+      warning (_("can't find UUID in %s"), objfile_name (objfile));
       return NULL;
     }
-  dsym_filename = xstrdup (dsym_filename);
-  dsym_bfd = bfd_openr (dsym_filename, gnutarget);
+  dsym_bfd = gdb_bfd_openr (dsym_filename, gnutarget);
   if (dsym_bfd == NULL)
     {
       warning (_("can't open dsym file %s"), dsym_filename);
-      xfree (dsym_filename);
       return NULL;
     }
 
   if (!bfd_check_format (dsym_bfd, bfd_object))
     {
-      bfd_close (dsym_bfd);
+      gdb_bfd_unref (dsym_bfd);
       warning (_("bad dsym file format: %s"), bfd_errmsg (bfd_get_error ()));
-      xfree (dsym_filename);
       return NULL;
     }
 
@@ -829,18 +835,18 @@ macho_check_dsym (struct objfile *objfile)
                                  BFD_MACH_O_LC_UUID, &dsym_uuid) == 0)
     {
       warning (_("can't find UUID in %s"), dsym_filename);
-      bfd_close (dsym_bfd);
-      xfree (dsym_filename);
+      gdb_bfd_unref (dsym_bfd);
       return NULL;
     }
   if (memcmp (dsym_uuid->command.uuid.uuid, main_uuid->command.uuid.uuid,
               sizeof (main_uuid->command.uuid.uuid)))
     {
-      warning (_("dsym file UUID doesn't match the one in %s"), objfile->name);
-      bfd_close (dsym_bfd);
-      xfree (dsym_filename);
+      warning (_("dsym file UUID doesn't match the one in %s"),
+	       objfile_name (objfile));
+      gdb_bfd_unref (dsym_bfd);
       return NULL;
     }
+  *filenamep = xstrdup (dsym_filename);
   return dsym_bfd;
 }
 
@@ -851,12 +857,16 @@ macho_symfile_read (struct objfile *objfile, int symfile_flags)
   CORE_ADDR offset;
   long storage_needed;
   bfd *dsym_bfd;
+  VEC (oso_el) *oso_vector = NULL;
+  struct cleanup *old_chain = make_cleanup (VEC_cleanup (oso_el), &oso_vector);
 
   /* Get symbols from the symbol table only if the file is an executable.
      The symbol table of object files is not relocated and is expected to
      be in the executable.  */
   if (bfd_get_file_flags (abfd) & (EXEC_P | DYNAMIC))
     {
+      char *dsym_filename;
+
       /* Process the normal symbol table first.  */
       storage_needed = bfd_get_symtab_upper_bound (objfile->obfd);
       if (storage_needed < 0)
@@ -868,13 +878,12 @@ macho_symfile_read (struct objfile *objfile, int symfile_flags)
 	{
 	  asymbol **symbol_table;
 	  long symcount;
-          struct cleanup *back_to;
 
 	  symbol_table = (asymbol **) xmalloc (storage_needed);
 	  make_cleanup (xfree, symbol_table);
 
           init_minimal_symbol_collection ();
-          back_to = make_cleanup_discard_minimal_symbols ();
+          make_cleanup_discard_minimal_symbols ();
 
 	  symcount = bfd_canonicalize_symtab (objfile->obfd, symbol_table);
 
@@ -883,10 +892,9 @@ macho_symfile_read (struct objfile *objfile, int symfile_flags)
 		   bfd_get_filename (objfile->obfd),
 		   bfd_errmsg (bfd_get_error ()));
 
-	  macho_symtab_read (objfile, symcount, symbol_table);
+	  macho_symtab_read (objfile, symcount, symbol_table, &oso_vector);
 
           install_minimal_symbols (objfile);
-          do_cleanups (back_to);
 	}
 
       /* Try to read .eh_frame / .debug_frame.  */
@@ -896,19 +904,17 @@ macho_symfile_read (struct objfile *objfile, int symfile_flags)
       dwarf2_build_frame_info (objfile);
 
       /* Check for DSYM file.  */
-      dsym_bfd = macho_check_dsym (objfile);
+      dsym_bfd = macho_check_dsym (objfile, &dsym_filename);
       if (dsym_bfd != NULL)
 	{
 	  int ix;
 	  oso_el *oso;
           struct bfd_section *asect, *dsect;
 
+	  make_cleanup (xfree, dsym_filename);
+
 	  if (mach_o_debug_level > 0)
 	    printf_unfiltered (_("dsym file found\n"));
-
-	  /* Remove oso.  They won't be used.  */
-	  VEC_free (oso_el, oso_vector);
-	  oso_vector = NULL;
 
           /* Set dsym section size.  */
           for (asect = objfile->obfd->sections, dsect = dsym_bfd->sections;
@@ -922,9 +928,12 @@ macho_symfile_read (struct objfile *objfile, int symfile_flags)
             }
 
 	  /* Add the dsym file as a separate file.  */
-          symbol_file_add_separate (dsym_bfd, symfile_flags, objfile);
+	  make_cleanup_bfd_unref (dsym_bfd);
+          symbol_file_add_separate (dsym_bfd, dsym_filename, symfile_flags,
+				    objfile);
 
 	  /* Don't try to read dwarf2 from main file or shared libraries.  */
+	  do_cleanups (old_chain);
           return;
 	}
     }
@@ -937,7 +946,9 @@ macho_symfile_read (struct objfile *objfile, int symfile_flags)
 
   /* Then the oso.  */
   if (oso_vector != NULL)
-    macho_symfile_read_all_oso (objfile, symfile_flags);
+    macho_symfile_read_all_oso (&oso_vector, objfile, symfile_flags);
+
+  do_cleanups (old_chain);
 }
 
 static bfd_byte *
@@ -953,7 +964,7 @@ macho_symfile_relocate (struct objfile *objfile, asection *sectp,
 
   if (mach_o_debug_level > 0)
     printf_unfiltered (_("Relocate section '%s' of %s\n"),
-                       sectp->name, objfile->name);
+                       sectp->name, objfile_name (objfile));
 
   return bfd_simple_get_relocated_section_contents (abfd, sectp, buf, NULL);
 }
@@ -965,7 +976,7 @@ macho_symfile_finish (struct objfile *objfile)
 
 static void
 macho_symfile_offsets (struct objfile *objfile,
-                       struct section_addr_info *addrs)
+                       const struct section_addr_info *addrs)
 {
   unsigned int i;
   unsigned int num_sections;
@@ -990,9 +1001,6 @@ macho_symfile_offsets (struct objfile *objfile,
 
   for (i = 0; i < addrs->num_sections; i++)
     {
-      if (addrs->other[i].name == NULL)
-	continue;
-
       ALL_OBJFILE_OSECTIONS (objfile, osect)
 	{
 	  const char *bfd_sect_name = osect->the_bfd_section->name;
@@ -1010,7 +1018,7 @@ macho_symfile_offsets (struct objfile *objfile,
   ALL_OBJFILE_OSECTIONS (objfile, osect)
     {
       const char *bfd_sect_name = osect->the_bfd_section->name;
-      int sect_index = osect->the_bfd_section->index;
+      int sect_index = osect - objfile->sections;;
 
       if (strncmp (bfd_sect_name, "LC_SEGMENT.", 11) == 0)
 	bfd_sect_name += 11;
@@ -1021,8 +1029,6 @@ macho_symfile_offsets (struct objfile *objfile,
 }
 
 static const struct sym_fns macho_sym_fns = {
-  bfd_target_mach_o_flavour,
-
   macho_new_init,               /* init anything gbl to entire symtab */
   macho_symfile_init,           /* read initial info, setup for sym_read() */
   macho_symfile_read,           /* read a symbol file into symtab */
@@ -1032,18 +1038,22 @@ static const struct sym_fns macho_sym_fns = {
   default_symfile_segments,	/* Get segment information from a file.  */
   NULL,
   macho_symfile_relocate,	/* Relocate a debug section.  */
+  NULL,				/* sym_get_probes */
   &psym_functions
 };
 
-void
-_initialize_machoread ()
-{
-  add_symtab_fns (&macho_sym_fns);
+/* -Wmissing-prototypes */
+extern initialize_file_ftype _initialize_machoread;
 
-  add_setshow_zinteger_cmd ("mach-o", class_obscure,
-			    &mach_o_debug_level,
-			    _("Set if printing Mach-O symbols processing."),
-			    _("Show if printing Mach-O symbols processing."),
-			    NULL, NULL, NULL,
-			    &setdebuglist, &showdebuglist);
+void
+_initialize_machoread (void)
+{
+  add_symtab_fns (bfd_target_mach_o_flavour, &macho_sym_fns);
+
+  add_setshow_zuinteger_cmd ("mach-o", class_obscure,
+			     &mach_o_debug_level,
+			     _("Set if printing Mach-O symbols processing."),
+			     _("Show if printing Mach-O symbols processing."),
+			     NULL, NULL, NULL,
+			     &setdebuglist, &showdebuglist);
 }

@@ -1,5 +1,5 @@
 /* GNU/Linux on ARM native support.
-   Copyright (C) 1999-2002, 2004-2012 Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -19,7 +19,7 @@
 #include "defs.h"
 #include "inferior.h"
 #include "gdbcore.h"
-#include "gdb_string.h"
+#include <string.h>
 #include "regcache.h"
 #include "target.h"
 #include "linux-nat.h"
@@ -77,12 +77,12 @@ extern int arm_apcs_32;
    individual thread (process) ID.  get_thread_id () is used to get
    the thread id if it's available, and the process id otherwise.  */
 
-int
+static int
 get_thread_id (ptid_t ptid)
 {
-  int tid = TIDGET (ptid);
+  int tid = ptid_get_lwp (ptid);
   if (0 == tid)
-    tid = PIDGET (ptid);
+    tid = ptid_get_pid (ptid);
   return tid;
 }
 
@@ -671,7 +671,7 @@ arm_linux_read_description (struct target_ops *ops)
 
       /* Now make sure that the kernel supports reading these
 	 registers.  Support was added in 2.6.30.  */
-      pid = GET_LWP (inferior_ptid);
+      pid = ptid_get_lwp (inferior_ptid);
       errno = 0;
       buf = alloca (VFP_REGS_SIZE);
       if (ptrace (PTRACE_GETVFPREGS, pid, 0, buf) < 0
@@ -896,11 +896,17 @@ arm_linux_hw_breakpoint_initialize (struct gdbarch *gdbarch,
   /* We have to create a mask for the control register which says which bits
      of the word pointed to by address to break on.  */
   if (arm_pc_is_thumb (gdbarch, address))
-    mask = 0x3 << (address & 2);
+    {
+      mask = 0x3;
+      address &= ~1;
+    }
   else
-    mask = 0xf;
+    {
+      mask = 0xf;
+      address &= ~3;
+    }
 
-  p->address = (unsigned int) (address & ~3);
+  p->address = (unsigned int) address;
   p->control = arm_hwbp_control_initialize (mask, arm_hwbp_break, 1);
 }
 
@@ -1041,7 +1047,7 @@ arm_linux_insert_hw_breakpoint (struct gdbarch *gdbarch,
 
   arm_linux_hw_breakpoint_initialize (gdbarch, bp_tgt, &p);
   ALL_LWPS (lp)
-    arm_linux_insert_hw_breakpoint1 (&p, TIDGET (lp->ptid), 0);
+    arm_linux_insert_hw_breakpoint1 (&p, ptid_get_lwp (lp->ptid), 0);
 
   return 0;
 }
@@ -1059,7 +1065,7 @@ arm_linux_remove_hw_breakpoint (struct gdbarch *gdbarch,
 
   arm_linux_hw_breakpoint_initialize (gdbarch, bp_tgt, &p);
   ALL_LWPS (lp)
-    arm_linux_remove_hw_breakpoint1 (&p, TIDGET (lp->ptid), 0);
+    arm_linux_remove_hw_breakpoint1 (&p, ptid_get_lwp (lp->ptid), 0);
 
   return 0;
 }
@@ -1110,7 +1116,7 @@ arm_linux_insert_watchpoint (CORE_ADDR addr, int len, int rw,
 
   arm_linux_hw_watchpoint_initialize (addr, len, rw, &p);
   ALL_LWPS (lp)
-    arm_linux_insert_hw_breakpoint1 (&p, TIDGET (lp->ptid), 1);
+    arm_linux_insert_hw_breakpoint1 (&p, ptid_get_lwp (lp->ptid), 1);
 
   return 0;
 }
@@ -1128,7 +1134,7 @@ arm_linux_remove_watchpoint (CORE_ADDR addr, int len, int rw,
 
   arm_linux_hw_watchpoint_initialize (addr, len, rw, &p);
   ALL_LWPS (lp)
-    arm_linux_remove_hw_breakpoint1 (&p, TIDGET (lp->ptid), 1);
+    arm_linux_remove_hw_breakpoint1 (&p, ptid_get_lwp (lp->ptid), 1);
 
   return 0;
 }
@@ -1137,24 +1143,29 @@ arm_linux_remove_watchpoint (CORE_ADDR addr, int len, int rw,
 static int
 arm_linux_stopped_data_address (struct target_ops *target, CORE_ADDR *addr_p)
 {
-  struct siginfo *siginfo_p = linux_nat_get_siginfo (inferior_ptid);
-  int slot = siginfo_p->si_errno;
+  siginfo_t siginfo;
+  int slot;
+
+  if (!linux_nat_get_siginfo (inferior_ptid, &siginfo))
+    return 0;
 
   /* This must be a hardware breakpoint.  */
-  if (siginfo_p->si_signo != SIGTRAP
-      || (siginfo_p->si_code & 0xffff) != 0x0004 /* TRAP_HWBKPT */)
+  if (siginfo.si_signo != SIGTRAP
+      || (siginfo.si_code & 0xffff) != 0x0004 /* TRAP_HWBKPT */)
     return 0;
 
   /* We must be able to set hardware watchpoints.  */
   if (arm_linux_get_hw_watchpoint_count () == 0)
     return 0;
 
+  slot = siginfo.si_errno;
+
   /* If we are in a positive slot then we're looking at a breakpoint and not
      a watchpoint.  */
   if (slot >= 0)
     return 0;
 
-  *addr_p = (CORE_ADDR) (uintptr_t) siginfo_p->si_addr;
+  *addr_p = (CORE_ADDR) (uintptr_t) siginfo.si_addr;
   return 1;
 }
 
@@ -1177,9 +1188,9 @@ arm_linux_watchpoint_addr_within_range (struct target_ops *target,
 /* Handle thread creation.  We need to copy the breakpoints and watchpoints
    in the parent thread to the child thread.  */
 static void
-arm_linux_new_thread (ptid_t ptid)
+arm_linux_new_thread (struct lwp_info *lp)
 {
-  int tid = TIDGET (ptid);
+  int tid = ptid_get_lwp (lp->ptid);
   const struct arm_linux_hwbp_cap *info = arm_linux_get_hwbp_cap ();
 
   if (info != NULL)
@@ -1214,7 +1225,7 @@ arm_linux_thread_exit (struct thread_info *tp, int silent)
   if (info != NULL)
     {
       int i;
-      int tid = TIDGET (tp->ptid);
+      int tid = ptid_get_lwp (tp->ptid);
       struct arm_linux_thread_points *t = NULL, *p;
 
       for (i = 0; 

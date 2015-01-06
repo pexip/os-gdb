@@ -1,4 +1,4 @@
-/* Copyright (C) 2011-2012 Free Software Foundation, Inc.
+/* Copyright (C) 2011-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,7 +18,25 @@
 #ifndef COMMON_LINUX_PTRACE_H
 #define COMMON_LINUX_PTRACE_H
 
+struct buffer;
+
 #include <sys/ptrace.h>
+
+#ifdef __UCLIBC__
+#if !(defined(__UCLIBC_HAS_MMU__) || defined(__ARCH_HAS_MMU__))
+/* PTRACE_TEXT_ADDR and friends.  */
+#include <asm/ptrace.h>
+#define HAS_NOMMU
+#endif
+#endif
+
+#if !defined(PTRACE_TYPE_ARG3)
+#define PTRACE_TYPE_ARG3 void *
+#endif
+
+#if !defined(PTRACE_TYPE_ARG4)
+#define PTRACE_TYPE_ARG4 void *
+#endif
 
 #ifndef PTRACE_GETSIGINFO
 # define PTRACE_GETSIGINFO 0x4202
@@ -64,5 +82,13 @@
 #ifndef __WALL
 #define __WALL          0x40000000 /* Wait for any child.  */
 #endif
+
+extern void linux_ptrace_attach_warnings (pid_t pid, struct buffer *buffer);
+extern void linux_ptrace_init_warnings (void);
+extern void linux_enable_event_reporting (pid_t pid);
+extern int linux_supports_tracefork (void);
+extern int linux_supports_traceclone (void);
+extern int linux_supports_tracevforkdone (void);
+extern int linux_supports_tracesysgood (void);
 
 #endif /* COMMON_LINUX_PTRACE_H */

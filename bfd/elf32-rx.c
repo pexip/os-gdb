@@ -1,6 +1,5 @@
 /* Renesas RX specific support for 32-bit ELF.
-   Copyright (C) 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2008-2013 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -511,19 +510,19 @@ rx_elf_relocate_section
 	}
       else
 	{
-	  bfd_boolean warned;
+	  bfd_boolean warned, ignored;
 
 	  RELOC_FOR_GLOBAL_SYMBOL (info, input_bfd, input_section, rel,
 				   r_symndx, symtab_hdr, sym_hashes, h,
 				   sec, relocation, unresolved_reloc,
-				   warned);
+				   warned, ignored);
 
 	  name = h->root.root.string;
 	}
 
-      if (sec != NULL && elf_discarded_section (sec))
+      if (sec != NULL && discarded_section (sec))
 	RELOC_AGAINST_DISCARDED_SECTION (info, input_bfd, input_section,
-					 rel, relend, howto, contents);
+					 rel, 1, relend, howto, 0, contents);
 
       if (info->relocatable)
 	{
@@ -1163,6 +1162,7 @@ rx_elf_relocate_section
 	  {
 	    int32_t tmp;
 
+	    saw_subtract = TRUE;
 	    RX_STACK_POP (tmp);
 	    tmp = - tmp;
 	    RX_STACK_PUSH (tmp);
@@ -1207,7 +1207,6 @@ rx_elf_relocate_section
 	  {
 	    int32_t tmp1, tmp2;
 
-	    saw_subtract = TRUE;
 	    RX_STACK_POP (tmp1);
 	    RX_STACK_POP (tmp2);
 	    tmp1 /= tmp2;
@@ -1653,7 +1652,7 @@ rx_offset_for_reloc (bfd *                    abfd,
 	  if (ssec)
 	    {
 	      if ((ssec->flags & SEC_MERGE)
-		  && ssec->sec_info_type == ELF_INFO_TYPE_MERGE)
+		  && ssec->sec_info_type == SEC_INFO_TYPE_MERGE)
 		symval = _bfd_merged_section_offset (abfd, & ssec,
 						     elf_section_data (ssec)->sec_info,
 						     symval);
@@ -1926,14 +1925,14 @@ elf32_rx_relax_section (bfd *                  abfd,
       if (shndx_buf == NULL)
 	goto error_return;
       if (bfd_seek (abfd, shndx_hdr->sh_offset, SEEK_SET) != 0
-	  || bfd_bread ((PTR) shndx_buf, amt, abfd) != amt)
+	  || bfd_bread (shndx_buf, amt, abfd) != amt)
 	goto error_return;
       shndx_hdr->contents = (bfd_byte *) shndx_buf;
     }
 
   /* Get a copy of the native relocations.  */
   internal_relocs = (_bfd_elf_link_read_relocs
-		     (abfd, sec, (PTR) NULL, (Elf_Internal_Rela *) NULL,
+		     (abfd, sec, NULL, (Elf_Internal_Rela *) NULL,
 		      link_info->keep_memory));
   if (internal_relocs == NULL)
     goto error_return;
@@ -2115,7 +2114,7 @@ elf32_rx_relax_section (bfd *                  abfd,
 		   /* Decodable bits.  */
 		   && (insn[0] & 0xcc) == 0xcc
 		   /* Width.  */
-		   && (insn[0] & 0x30) != 3
+		   && (insn[0] & 0x30) != 0x30
 		   /* Register MSBs.  */
 		   && (insn[1] & 0x88)  == 0x00)
 	    {
@@ -2219,7 +2218,7 @@ elf32_rx_relax_section (bfd *                  abfd,
 		   /* Decodable bits.  */
 		   && (insn[0] & 0xc3) == 0xc3
 		   /* Width.  */
-		   && (insn[0] & 0x30) != 3
+		   && (insn[0] & 0x30) != 0x30
 		   /* Register MSBs.  */
 		   && (insn[1] & 0x88)  == 0x00)
 	    {
@@ -2937,6 +2936,39 @@ bfd_elf32_rx_set_target_flags (bfd_boolean user_no_warn_mismatch,
   ignore_lma = user_ignore_lma;
 }
 
+/* Converts FLAGS into a descriptive string.
+   Returns a static pointer.  */
+
+static const char *
+describe_flags (flagword flags)
+{
+  static char buf [128];
+
+  buf[0] = 0;
+
+  if (flags & E_FLAG_RX_64BIT_DOUBLES)
+    strcat (buf, "64-bit doubles");
+  else
+    strcat (buf, "32-bit doubles");
+
+  if (flags & E_FLAG_RX_DSP)
+    strcat (buf, ", dsp");
+  else
+    strcat (buf, ", no dsp");
+
+  if (flags & E_FLAG_RX_PID)
+    strcat (buf, ", pid");
+  else
+    strcat (buf, ", no pid");
+
+  if (flags & E_FLAG_RX_ABI)
+    strcat (buf, ", RX ABI");
+  else
+    strcat (buf, ", GCC ABI");
+
+  return buf;
+}
+
 /* Merge backend specific data from an object file to the output
    object file when linking.  */
 
@@ -2958,7 +2990,10 @@ rx_elf_merge_private_bfd_data (bfd * ibfd, bfd * obfd)
     }
   else if (old_flags != new_flags)
     {
-      flagword known_flags = E_FLAG_RX_64BIT_DOUBLES | E_FLAG_RX_DSP | E_FLAG_RX_PID;
+      flagword known_flags;
+
+      known_flags = E_FLAG_RX_ABI | E_FLAG_RX_64BIT_DOUBLES
+	| E_FLAG_RX_DSP | E_FLAG_RX_PID;
 
       if ((old_flags ^ new_flags) & known_flags)
 	{
@@ -2971,9 +3006,12 @@ rx_elf_merge_private_bfd_data (bfd * ibfd, bfd * obfd)
 	    }
 	  else
 	    {
-	      (*_bfd_error_handler)
-		("ELF header flags mismatch: old_flags = 0x%.8lx, new_flags = 0x%.8lx, filename = %s",
-		 old_flags, new_flags, bfd_get_filename (ibfd));
+	      _bfd_error_handler ("There is a conflict merging the ELF header flags from %s",
+				  bfd_get_filename (ibfd));
+	      _bfd_error_handler ("  the input  file's flags: %s",
+				  describe_flags (new_flags));
+	      _bfd_error_handler ("  the output file's flags: %s",
+				  describe_flags (old_flags));
 	      error = TRUE;
 	    }
 	}
@@ -3001,21 +3039,20 @@ rx_elf_print_private_bfd_data (bfd * abfd, void * ptr)
   flags = elf_elfheader (abfd)->e_flags;
   fprintf (file, _("private flags = 0x%lx:"), (long) flags);
 
-  if (flags & E_FLAG_RX_64BIT_DOUBLES)
-    fprintf (file, _(" [64-bit doubles]"));
-  if (flags & E_FLAG_RX_DSP)
-    fprintf (file, _(" [dsp]"));
-
-  fputc ('\n', file);
+  fprintf (file, "%s", describe_flags (flags));
   return TRUE;
 }
 
 /* Return the MACH for an e_flags value.  */
 
 static int
-elf32_rx_machine (bfd * abfd)
+elf32_rx_machine (bfd * abfd ATTRIBUTE_UNUSED)
 {
+#if 0 /* FIXME: EF_RX_CPU_MASK collides with E_FLAG_RX_...
+	 Need to sort out how these flag bits are used.
+         For now we assume that the flags are OK.  */
   if ((elf_elfheader (abfd)->e_flags & EF_RX_CPU_MASK) == EF_RX_CPU_RX)
+#endif
     return bfd_mach_rx;
 
   return 0;
@@ -3060,7 +3097,8 @@ rx_elf_object_p (bfd * abfd)
 	{
 	  Elf_Internal_Shdr *sec = elf_tdata(abfd)->elf_sect_ptr[u];
 
-	  if (phdr[i].p_offset <= (bfd_vma) sec->sh_offset
+	  if (phdr[i].p_filesz
+	      && phdr[i].p_offset <= (bfd_vma) sec->sh_offset
 	      && (bfd_vma)sec->sh_offset <= phdr[i].p_offset + (phdr[i].p_filesz - 1))
 	    {
 	      /* Found one!  The difference between the two addresses,
@@ -3084,7 +3122,8 @@ rx_elf_object_p (bfd * abfd)
       bsec = abfd->sections;
       while (bsec)
 	{
-	  if (phdr[i].p_vaddr <= bsec->vma
+	  if (phdr[i].p_filesz
+	      && phdr[i].p_vaddr <= bsec->vma
 	      && bsec->vma <= phdr[i].p_vaddr + (phdr[i].p_filesz - 1))
 	    {
 	      bsec->lma = phdr[i].p_paddr + (bsec->vma - phdr[i].p_vaddr);
@@ -3137,31 +3176,31 @@ rx_dump_symtab (bfd * abfd, void * internal_syms, void * external_syms)
     {
       switch (ELF_ST_TYPE (isym->st_info))
 	{
-	case STT_FUNC: st_info_str = "STT_FUNC";
-	case STT_SECTION: st_info_str = "STT_SECTION";
-	case STT_FILE: st_info_str = "STT_FILE";
-	case STT_OBJECT: st_info_str = "STT_OBJECT";
-	case STT_TLS: st_info_str = "STT_TLS";
+	case STT_FUNC: st_info_str = "STT_FUNC"; break;
+	case STT_SECTION: st_info_str = "STT_SECTION"; break;
+	case STT_FILE: st_info_str = "STT_FILE"; break;
+	case STT_OBJECT: st_info_str = "STT_OBJECT"; break;
+	case STT_TLS: st_info_str = "STT_TLS"; break;
 	default: st_info_str = "";
 	}
       switch (ELF_ST_BIND (isym->st_info))
 	{
-	case STB_LOCAL: st_info_stb_str = "STB_LOCAL";
-	case STB_GLOBAL: st_info_stb_str = "STB_GLOBAL";
+	case STB_LOCAL: st_info_stb_str = "STB_LOCAL"; break;
+	case STB_GLOBAL: st_info_stb_str = "STB_GLOBAL"; break;
 	default: st_info_stb_str = "";
 	}
       switch (ELF_ST_VISIBILITY (isym->st_other))
 	{
-	case STV_DEFAULT: st_other_str = "STV_DEFAULT";
-	case STV_INTERNAL: st_other_str = "STV_INTERNAL";
-	case STV_PROTECTED: st_other_str = "STV_PROTECTED";
+	case STV_DEFAULT: st_other_str = "STV_DEFAULT"; break;
+	case STV_INTERNAL: st_other_str = "STV_INTERNAL"; break;
+	case STV_PROTECTED: st_other_str = "STV_PROTECTED"; break;
 	default: st_other_str = "";
 	}
       switch (isym->st_shndx)
 	{
-	case SHN_ABS: st_shndx_str = "SHN_ABS";
-	case SHN_COMMON: st_shndx_str = "SHN_COMMON";
-	case SHN_UNDEF: st_shndx_str = "SHN_UNDEF";
+	case SHN_ABS: st_shndx_str = "SHN_ABS"; break;
+	case SHN_COMMON: st_shndx_str = "SHN_COMMON"; break;
+	case SHN_UNDEF: st_shndx_str = "SHN_UNDEF"; break;
 	default: st_shndx_str = "";
 	}
 
@@ -3470,7 +3509,7 @@ elf32_rx_modify_program_headers (bfd * abfd ATTRIBUTE_UNUSED,
   bed = get_elf_backend_data (abfd);
   tdata = elf_tdata (abfd);
   phdr = tdata->phdr;
-  count = tdata->program_header_size / bed->s->sizeof_phdr;
+  count = elf_program_header_size (abfd) / bed->s->sizeof_phdr;
 
   if (ignore_lma)
     for (i = count; i-- != 0;)
@@ -3493,6 +3532,17 @@ elf32_rx_modify_program_headers (bfd * abfd ATTRIBUTE_UNUSED,
 
   return TRUE;
 }
+
+/* The default literal sections should always be marked as "code" (i.e.,
+   SHF_EXECINSTR).  This is particularly important for big-endian mode
+   when we do not want their contents byte reversed.  */
+static const struct bfd_elf_special_section elf32_rx_special_sections[] =
+{
+  { STRING_COMMA_LEN (".init_array"),    0, SHT_INIT_ARRAY, SHF_ALLOC + SHF_EXECINSTR },
+  { STRING_COMMA_LEN (".fini_array"),    0, SHT_FINI_ARRAY, SHF_ALLOC + SHF_EXECINSTR },
+  { STRING_COMMA_LEN (".preinit_array"), 0, SHT_PREINIT_ARRAY, SHF_ALLOC + SHF_EXECINSTR },
+  { NULL,                        0,      0, 0,            0 }
+};
 
 #define ELF_ARCH		bfd_arch_rx
 #define ELF_MACHINE_CODE	EM_RX
@@ -3521,6 +3571,7 @@ elf32_rx_modify_program_headers (bfd * abfd ATTRIBUTE_UNUSED,
 #define bfd_elf32_set_section_contents		rx_set_section_contents
 #define bfd_elf32_bfd_final_link		rx_final_link
 #define bfd_elf32_bfd_relax_section		elf32_rx_relax_section_wrapper
+#define elf_backend_special_sections	        elf32_rx_special_sections
 
 #include "elf32-target.h"
 

@@ -8,10 +8,6 @@ main (argc, argv, envp)
 #endif
 {
     extern void dummy();
-#ifdef usestubs
-    set_debug_traps();
-    breakpoint();
-#endif
     dummy();
     return 0;
     
@@ -189,6 +185,7 @@ union tu_link {
 enum colors {red, green, blue} color;
 enum cars {chevy, ford, porsche} clunker;
 
+struct t_struct *null_t_struct;
 
 void dummy()
 {

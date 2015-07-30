@@ -12,3 +12,4 @@ hurd-make-MIG-output-parsing-more-robust.patch
 kfreebsd_bug752390.diff
 restore-run.1.patch
 fix-ftbfs-arm64.patch
+CVE-2014-8501.patch

@@ -1,20 +1,314 @@
-gdb (7.7.1+dfsg-5) unstable; urgency=medium
+gdb (7.12-6) unstable; urgency=medium
 
-  * d/p/fix-ftbfs-arm64.patch
-    - Include asm/ptrace.h. A recent change to glibc removed asm/ptrace.h from
-      user.h for AArch64. This meant that cross-native builds of gdbserver
-      using trunk glibc broke because linux-aarch64-low.c because
-      user_hwdebug_state couldn't be found.
+  * debian/patches: import 7.12 branch fixes
 
- -- Hector Oron <zumbi@debian.org>  Sun, 09 Nov 2014 11:36:01 +0100
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 19 Jan 2017 11:28:25 +0100
 
-gdb (7.7.1+dfsg-4) unstable; urgency=medium
+gdb (7.12-5) unstable; urgency=medium
 
-  * d/rules: fix FTBFS on newer dpkg changes.
+  * debian/control{,.in}: replace mipsel64 by mips64el.
+    (Closes: #835522)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 17 Jan 2017 12:01:16 +0100
+
+gdb (7.12-4) unstable; urgency=medium
+
+  * debian/sanitize-gdb.sh: drop chm from doc tarball as well.
+    - lintian complains *.chm files are included without sources
+  * Revert "debian/control: declare gdb{,-python2} m-a same"
+    (Closes: #848362)
+  * debian/patches: fix python framefilter.
+    - get address as long instead of unsigned long.
+      (Closes: #814558)
+  * debian/gbp.conf: add upstream branch, pristine-tar.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 18 Dec 2016 01:44:24 +0100
+
+gdb (7.12-3) unstable; urgency=medium
+
+  * debian/patches:
+    - backport build fixes for Hurd.
+    (Closes: #834575)
+  * debian/rules: clean target, remove debian/files.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 15 Dec 2016 01:50:31 +0100
+
+gdb (7.12-2) unstable; urgency=medium
+
+  * debian/control*:
+    - add mipsel64 arch to gdbserver.
+    (Closes: #835522)
+    - demote gdbserver to suggests.
+    (Closes: #820459)
+    - gdb-multiarch alternatively depend on gdb-python2.
+    (Closes: #798405)
+    - add kFreeBSD build depend on libutil-freebsd-dev.
+    - restrict libutil-freebsd-dev to kfreebsd arches.
+    - declare gdb{,-python2} multi-arch same.
+  * debian/gdb{,-python2}.install: add jit-reader header.
+    (Closes: #761903)
+  * debian/rules:
+    - build with fPIC, attempt to fix build failures on kfreebsd and x32.
+    - lowercase package name on DEB_DH_STRIP_ARGS.
+  * debian/patches: drop linuxthreads_signal_handling.patch
+    - kFreeBSD seem to be using fptl now, no need for linuxthreads signals.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Wed, 14 Dec 2016 12:18:36 +0100
+
+gdb (7.12-1) unstable; urgency=medium
+
+  [ Agustin Henze ]
+  * Add `arm-none-eabi` as target for bare metal embedded systems
+  * Set Conflicts, Breaks and Provides fields to replace gdb-arm-none-eabi for gdb-multiarch
+
+  [ Héctor Orón Martínez ]
+  * New upstream version 7.12
+  * debian/patches: refresh patchset
+  * migrate from dbg to dbgsym debug package
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Mon, 12 Dec 2016 17:04:48 +0100
+
+gdb (7.11.1-2) unstable; urgency=medium
+
+  * Fix build when run.1 is missing
+
+ -- Riku Voipio <riku.voipio@linaro.org>  Fri, 17 Jun 2016 15:43:34 +0300
+
+gdb (7.11.1-1) unstable; urgency=medium
+
+  * New upstream version
+  * Ack NMU, Fixed gdb-python, thanks Andreas!
+
+ -- Riku Voipio <riku.voipio@linaro.org>  Thu, 16 Jun 2016 14:49:19 +0300
+
+gdb (7.10-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Fix build of gdb-python2 package (Closes: #798401)
+
+ -- Andreas Bombe <aeb@debian.org>  Sat, 28 May 2016 17:22:54 +0200
+
+gdb (7.10-1) unstable; urgency=medium
+
+  * Imported Upstream version 7.10:
+    - Improved support for accessing shared libraries directly from
+      the target system when debugging remotely.
+    - Various Guile and Python scripting improvements, including (but not
+      limited to):
+      + Support for auto-loading Python/Guile scripts contained
+        in a special section named `.debug_gdb_scripts'.
+      + Support for writing a frame unwinder in Python.
+    - Support for record-replay and reverse debugging on Aarch64 Linux.
+    - GDB now has support for fork events on extended-remote Linux targets
+      (Linux kernels 2.5.60 and later).
+    - Support for DTrace USDT (Userland Static Defined Tracing) probes
+      on x86_64 GNU/Linux targets.
+    - Vector ABI support on S/390 GNU/Linux targets.
+    - GDB now reads the GDBHISTSIZE environment variable rather than
+      HISTSIZE to determine the size of GDB's command history.
+    - Support for setting the parity when connecting to the target
+      using a serial interface.
+    - It is now possible to limit the number of candidates to be
+      considered during completion.
+    - Support for Sun's version of the "stabs" debug file format
+      has been removed.
+    - Support for the following targets and native configurations has
+      been removed:
+      + HP/PA running HP-UX (hppa*-*-hpux*)
+      + Itanium running HP-UX (ia64-*-hpux*)
+  * d/control: make more explicit gdb-python2 is linked with python2.
+    (Closes: #761421)
+  * Drop libgdb-dev postinst. Not needed anymore.
+  * d/rules: configure with --with-system-zlib all targets
+  * sanitize: drop chm embedded files
+  * d/control.in,rules: attempt to manage python files (*.pyc) with cdbs
+    (Closes: #786384)
+
+ -- Hector Oron <zumbi@debian.org>  Wed, 02 Sep 2015 04:04:33 +0200
+
+gdb (7.9.1-1) unstable; urgency=medium
+
+  * Imported Upstream version 7.9.1:
+    - This is a minor corrective release over GDB 7.9, fixing the following issues:
+      + PR build/18033 (C++ style comment used in gdb/iq2000-tdep.c and gdb/compile/compile-*.c)
+      + PR build/18298 ("compile" command cannot find compiler if tools configured with triplet instead of quadruplet)
+      + PR tui/18311 (Random SEGV when displaying registers in TUI mode)
+      + PR python/18299 (exception when registering a global pretty-printer in verbose mode)
+      + PR python/18066 (argument "word" seems broken in Command.complete (text, word))
+      + PR pascal/17815 (Fix pascal behavior for class fields with testcase)
+      + PR python/18285 (ptype expr-with-xmethod causes SEGV)
+  * d/p/load-versioned-libcc1.patch:
+    - load libcc1.so.0 instead unversioned file.
+  * d/p/Segmentation-fault-on-add-symbol-file-command.patch:
+    - fix: segfault on add-symbol-file
+  * d/patches: refresh
+
+ -- Hector Oron <zumbi@debian.org>  Wed, 19 Aug 2015 21:27:17 +0200
+
+gdb (7.9-1) experimental; urgency=medium
+
+  * Imported Upstream version 7.9
+    - GDB 7.9 brings new targets, features and improvements, including:
+      + Many improvements in GDB's Python scripting API.
+      + Compilation and injection of source code into the inferior
+        (requires GCC 5.0 or higher built with libcc1.so).
+      + On resume, GDB now always passes the signal the program had stopped
+        for to the thread the signal was sent to, even if the user changed
+        threads before resuming.  Previously GDB would often (but not
+        always) deliver the signal to the thread that happens to be current
+        at resume time.
+      + Conversely, the "signal" command now consistently delivers the
+        requested signal to the current thread.  GDB now asks for
+        confirmation if the program had stopped for a signal and the user
+        switched threads meanwhile.
+      + Hardware watchpoint support on x86 GNU Hurd.
+      + New target: MIPS SDE, mips*-sde*-elf*
+      + New commands:
+        - add-auto-load-scripts-directory directory
+        - compile code [-r|-raw] [--] [source code]
+        - compile file [-r|-raw] filename
+        - demangle [-l language] [--] name
+        - maint print user-registers
+        - queue-signal signal-name-or-number
+      + New options
+        - set debug symbol-lookup
+        - show debug symbol-lookup
+      + MI changes
+        - New exit-code field in -list-thread-groups command output
+      + Support for these obsolete configurations has been removed.
+        - Alpha running OSF/1 (or Tru64)          alpha*-*-osf*
+        - SGI Irix-5.x                            mips-*-irix5*
+        - SGI Irix-6.x                            mips-*-irix6*
+        - VAX running (4.2 - 4.3 Reno) BSD        vax-*-bsd*
+        - VAX running Ultrix                      vax-*-ultrix*
+      + The "dll-symbols" command, and its two aliases
+        ("add-shared-symbol-files" and "assf"), have been removed.
+        Use the "sharedlibrary" command, or its alias "share", instead.
+  * d/README.python_switch: fix typo. (Closes: #761688)
+  * Replace gdb64 packages by gdb multiarch. (Closes: #775948)
+
+ -- Hector Oron <zumbi@debian.org>  Thu, 19 Mar 2015 13:18:58 +0100
+
+gdb (7.8.2-1) experimental; urgency=medium
+
+  * Imported Upstream version 7.8.2
+    - This is a minor corrective release over GDB 7.8.1, fixing the following issues:
+      + PR symtab/17642 ([7.8 regression] internal-error: resolve_dynamic_struct: Assertion `TYPE_NFIELDS (type) > 0' failed.)
+      + PR binutils/17677 (_bfd_elf_get_synthetic_symtab runs in O(n^2) complexity)
+      + PR gdb/16215 (SPARC: can't compute CFA for this frame)
+      + PR gdb/17525 (target-async: breakpoint commands not executed when program run from -x script)
+      + PR cli/17828 ([7.8 regression] -batch -ex r breaks terminal) 
+  * d/{control*,gdb64*,rules}: drop gdb64 support.
+
+ -- Hector Oron <zumbi@debian.org>  Thu, 22 Jan 2015 02:24:52 +0100
+
+gdb (7.8.1-1) experimental; urgency=medium
+
+  * Imported Upstream version 7.8.1
+    - GDB 7.8.1 provides the following fixes and improvements over GDB 7.8:
+      + PR python/17364 (Need better printer names in bound_registers.py)
+      + PR build/17104 (CFLAGS="-Wall -Wextra" gdb/confgure --with-babeltrace
+        fails)
+      + PR gdb/17345 (babeltrace (1.1.2 and later) complains about the ctf
+        data generated by GDB)
+      + PR build/17298 (gcore: Couldn't get registers: No such process)
+      + PR python/17342 (Xmethod Python is not Python 3 compatible)
+      + PR python/17355 (Crash on Python frame filters with unreadable arg)
+      + PR guile/17367 (computation of guild path wrong when pkg-config script
+        supplied as arg to --with-guile)
+      + PR gdb/17247 (gdb freezes on multi threaded app)
+      + PR gdb/17347 (Regression: GDB stopped on run with attached process)
+      + PR gdb/17407 (Regression for Linux vDSO reading)
+      + PR server/17457 (aarch64/gdbserver: wrong floating point registers
+        display)
+      + PR server/17487 (state->dr_control_mirror == 0 failed assertion in
+        gdbserver on Windows)
+      + PR gdb/17472 (with annotations, input while executing in the foreground
+        crashes readline/gdb)
+      + PR gdb/17471 (repeating a background command makes it foreground)
+      + PR cli/17300 (crash in non-stop mode with continue -a &
+        (readline_callback_read_char() called with no handler!))
+      + PR python/17372 (python hangs when displaying help())
+      + PR python/17408 (../../gdb/infrun.c:5256: internal-error:
+        switch_back_to_stepped_thread: Assertion `!schedlock_applies(1)'
+        failed.)
+    - Fix --batch mode parameter
+      (Closes: #763518)
+  * d/control*:
+    - Bump Standars Version stanza, no changes needed.
+    - -dbg depends on main binary version.
+  * d/rules: fix FTBFS caused by dpkg 1.17.17 changes.
     (Closes: #766754)
-  * d/sanitize-gdb.sh: Don't assume input is .tar.bz2
 
- -- Hector Oron <zumbi@debian.org>  Fri, 07 Nov 2014 17:05:49 +0100
+ -- Hector Oron <zumbi@debian.org>  Sun, 09 Nov 2014 16:29:31 +0100
+
+gdb (7.8-1) experimental; urgency=medium
+
+  [ Samuel Bronson ]
+  * d/sanitize-gdb.sh: Don't assume input is .tar.bz2
+  * Imported Upstream version 7.8
+    - GDB 7.8 brings new targets, features and improvements, including:
+      * Guile scripting support. [Not enabled for Debian!]
+      * Python scripting enhancements.
+      * New commands:
+        ** guile
+        ** guile-repl
+        ** info auto-load guile-scripts [REGEXP]
+      * New options:
+        ** maint ada set ignore-descriptive-types (on|off)
+        ** maint set target-async (on|off)
+        ** set|show auto-load guile-scripts (on|off)
+        ** set|show auto-connect-native-target
+        ** set|show guile print-stack (none|message|full)
+        ** set|show mi-async (on|off)
+        ** set|show print symbol-loading (off|brief|full)
+        ** set|show record btrace replay-memory-access (read-only|read-write)
+      * Deprecated commands:
+        ** "dll-symbols" and its two aliases ("add-shared-symbol-files" and
+           "assf"). Use the "sharedlibrary" command instead.
+        ** "set|show remotebaud". Use "set|show serial baud" instead.
+      * Remote Protocol:
+        ** The qXfer:btrace:read packet supports a new annex 'delta'.
+      * GDB/MI:
+        ** A new option "-gdb-set mi-async" replaces "-gdb-set target-async".
+      * New target configurations:
+        ** PowerPC64 GNU/Linux little-endian       powerpc64le-*-linux*
+      * btrace enhancements:
+         ** The btrace record target now supports the 'record goto' command.
+         ** The btrace record target supports limited reverse execution and
+            replay.
+      * ISO C99 variable length automatic arrays support.
+      * It is no longer required to "set target-async on" in order to use
+        background execution commands (e.g., "c&", "s&", etc.).
+      * "catch syscall" now implemented on s390*-linux* targets.
+      * The "compare-sections" command now works on all targets.
+      * The "target native" command now connects to the native target, and
+        can be used to launch native programs, even if "set
+        auto-connect-native-target" is set to off.
+  * debian/patches: Update for new upstream version
+    - Remove patches subsumed by new upstream version/tarball:
+      + ppc64le.diff
+      + hurd-new-RPC-reply-stub-functions.patch
+      + hurd-adapt-to-changed-MIG-output.patch
+      + hurd-adjust-to-startup-with-shell-changes.patch
+      + hurd-make-MIG-output-parsing-more-robust.patch
+      + kfreebsd_bug752390.diff
+      + restore-run.1.patch
+    - Adjust patches to work with new upstream version:
+      + gdb-fortran-main.patch: Update for upstream changes
+      + python-config.patch: Remove parts applied upstream
+
+  [ Héctor Orón Martínez ]
+  * Switch gdb to python3 (Closes: #752581)
+    + Add gdb-python2 package for use with python2-only scripts
+  * Enable babeltrace on supported arches
+
+  [ Samuel Bronson ]
+  * Make gdb-python2 provide gdb.
+  * Totally rewrite the NEWS entry about the Python changes.
+    + And split out most of the new text to README.python_switch.
+
+ -- Samuel Bronson <naesten@gmail.com>  Tue, 26 Aug 2014 15:34:03 -0400
 
 gdb (7.7.1+dfsg-3) unstable; urgency=medium
 

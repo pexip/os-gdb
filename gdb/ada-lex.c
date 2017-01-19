@@ -9,7 +9,7 @@
 #define FLEX_SCANNER
 #define YY_FLEX_MAJOR_VERSION 2
 #define YY_FLEX_MINOR_VERSION 5
-#define YY_FLEX_SUBMINOR_VERSION 35
+#define YY_FLEX_SUBMINOR_VERSION 39
 #if YY_FLEX_SUBMINOR_VERSION > 0
 #define FLEX_BETA
 #endif
@@ -162,7 +162,12 @@ typedef unsigned int flex_uint32_t;
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #endif
 
-extern int yyleng;
+#ifndef YY_TYPEDEF_YY_SIZE_T
+#define YY_TYPEDEF_YY_SIZE_T
+typedef size_t yy_size_t;
+#endif
+
+extern yy_size_t yyleng;
 
 extern FILE *yyin, *yyout;
 
@@ -171,6 +176,7 @@ extern FILE *yyin, *yyout;
 #define EOB_ACT_LAST_MATCH 2
 
     #define YY_LESS_LINENO(n)
+    #define YY_LINENO_REWIND_TO(ptr)
     
 /* Return all but the first "n" matched characters back to the input stream. */
 #define yyless(n) \
@@ -187,11 +193,6 @@ extern FILE *yyin, *yyout;
 	while ( 0 )
 
 #define unput(c) yyunput( c, (yytext_ptr)  )
-
-#ifndef YY_TYPEDEF_YY_SIZE_T
-#define YY_TYPEDEF_YY_SIZE_T
-typedef size_t yy_size_t;
-#endif
 
 #ifndef YY_STRUCT_YY_BUFFER_STATE
 #define YY_STRUCT_YY_BUFFER_STATE
@@ -210,7 +211,7 @@ struct yy_buffer_state
 	/* Number of characters read into yy_ch_buf, not including EOB
 	 * characters.
 	 */
-	int yy_n_chars;
+	yy_size_t yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
 	 * and can xrealloc() it to grow it, and should xfree() it to
@@ -280,8 +281,8 @@ static YY_BUFFER_STATE * yy_buffer_stack = 0; /**< Stack as an array. */
 
 /* yy_hold_char holds the character lost when yytext is formed. */
 static char yy_hold_char;
-static int yy_n_chars;		/* number of characters read into yy_ch_buf */
-int yyleng;
+static yy_size_t yy_n_chars;		/* number of characters read into yy_ch_buf */
+yy_size_t yyleng;
 
 /* Points to current character in buffer. */
 static char *yy_c_buf_p = (char *) 0;
@@ -309,7 +310,7 @@ static void yy_init_buffer (YY_BUFFER_STATE b,FILE *file  );
 
 YY_BUFFER_STATE yy_scan_buffer (char *base,yy_size_t size  );
 YY_BUFFER_STATE yy_scan_string (yyconst char *yy_str  );
-YY_BUFFER_STATE yy_scan_bytes (yyconst char *bytes,int len  );
+YY_BUFFER_STATE yy_scan_bytes (yyconst char *bytes,yy_size_t len  );
 
 void *yyalloc (yy_size_t  );
 void *yyxrealloc (void *,yy_size_t  );
@@ -820,7 +821,7 @@ int yy_flex_debug = 0;
 char *yytext;
 #line 1 "ada-lex.l"
 /* FLEX lexer for Ada expressions, for GDB.
-   Copyright (C) 1994-2014 Free Software Foundation, Inc.
+   Copyright (C) 1994-2016 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -851,8 +852,9 @@ char *yytext;
 static char numbuf[NUMERAL_WIDTH];
  static void canonicalizeNumeral (char *s1, const char *);
 static struct stoken processString (const char*, int);
-static int processInt (const char *, const char *, const char *);
-static int processReal (const char *);
+static int processInt (struct parser_state *, const char *, const char *,
+		       const char *);
+static int processReal (struct parser_state *, const char *);
 static struct stoken processId (const char *, int);
 static int processAttribute (const char *);
 static int find_dot_all (const char *);
@@ -879,7 +881,7 @@ static void rewind_to_char (int);
 static int find_dot_all (const char *);
 
 
-#line 883 "ada-lex.c"
+#line 885 "ada-lex.c"
 
 #define INITIAL 0
 #define BEFORE_QUAL_QUOTE 1
@@ -919,7 +921,7 @@ FILE *yyget_out (void );
 
 void yyset_out  (FILE * out_str  );
 
-int yyget_leng (void );
+yy_size_t yyget_leng (void );
 
 char *yyget_text (void );
 
@@ -1067,11 +1069,6 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 84 "ada-lex.l"
-
-
-#line 1074 "ada-lex.c"
-
 	if ( !(yy_init) )
 		{
 		(yy_init) = 1;
@@ -1098,6 +1095,12 @@ YY_DECL
 		yy_load_buffer_state( );
 		}
 
+	{
+#line 85 "ada-lex.l"
+
+
+#line 1103 "ada-lex.c"
+
 	while ( 1 )		/* loops until end-of-file is reached */
 		{
 		yy_cp = (yy_c_buf_p);
@@ -1114,7 +1117,7 @@ YY_DECL
 yy_match:
 		do
 			{
-			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)];
+			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)] ;
 			if ( yy_accept[yy_current_state] )
 				{
 				(yy_last_accepting_state) = yy_current_state;
@@ -1156,101 +1159,103 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 86 "ada-lex.l"
+#line 87 "ada-lex.l"
 { }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 88 "ada-lex.l"
+#line 89 "ada-lex.l"
 { yyterminate(); }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 90 "ada-lex.l"
+#line 91 "ada-lex.l"
 {
 		   canonicalizeNumeral (numbuf, yytext);
-		   return processInt (NULL, numbuf, strrchr(numbuf, 'e')+1);
+		   return processInt (pstate, NULL, numbuf,
+				      strrchr (numbuf, 'e') + 1);
 		 }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 95 "ada-lex.l"
+#line 97 "ada-lex.l"
 {
 		   canonicalizeNumeral (numbuf, yytext);
-		   return processInt (NULL, numbuf, NULL);
+		   return processInt (pstate, NULL, numbuf, NULL);
 		 }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 100 "ada-lex.l"
+#line 102 "ada-lex.l"
 {
 		   canonicalizeNumeral (numbuf, yytext);
-    		   return processInt (numbuf,
+		   return processInt (pstate, numbuf,
 				      strchr (numbuf, '#') + 1,
 				      strrchr(numbuf, '#') + 1);
 		 }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 107 "ada-lex.l"
+#line 109 "ada-lex.l"
 {
 		   canonicalizeNumeral (numbuf, yytext);
-    		   return processInt (numbuf, strchr (numbuf, '#') + 1, NULL);
+		   return processInt (pstate, numbuf, strchr (numbuf, '#') + 1,
+				      NULL);
 		 }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 112 "ada-lex.l"
+#line 115 "ada-lex.l"
 {
 		  canonicalizeNumeral (numbuf, yytext+2);
-		  return processInt ("16#", numbuf, NULL);
+		  return processInt (pstate, "16#", numbuf, NULL);
 		}
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 118 "ada-lex.l"
+#line 121 "ada-lex.l"
 {
 		   canonicalizeNumeral (numbuf, yytext);
-		   return processReal (numbuf);
+		   return processReal (pstate, numbuf);
 		}
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 123 "ada-lex.l"
+#line 126 "ada-lex.l"
 {
 		   canonicalizeNumeral (numbuf, yytext);
-		   return processReal (numbuf);
+		   return processReal (pstate, numbuf);
 		}
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 128 "ada-lex.l"
+#line 131 "ada-lex.l"
 {
                    error (_("Based real literals not implemented yet."));
 		}
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 132 "ada-lex.l"
+#line 135 "ada-lex.l"
 {
                    error (_("Based real literals not implemented yet."));
 		}
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 136 "ada-lex.l"
+#line 139 "ada-lex.l"
 {
-		   yylval.typed_val.type = type_char ();
+		   yylval.typed_val.type = type_char (pstate);
 		   yylval.typed_val.val = yytext[1];
 		   return CHARLIT;
 		}
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 142 "ada-lex.l"
+#line 145 "ada-lex.l"
 {
                    int v;
-                   yylval.typed_val.type = type_char ();
+                   yylval.typed_val.type = type_char (pstate);
 		   sscanf (yytext+3, "%2x", &v);
 		   yylval.typed_val.val = v;
 		   return CHARLIT;
@@ -1258,7 +1263,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 150 "ada-lex.l"
+#line 153 "ada-lex.l"
 {
 	           yylval.sval = processString (yytext+1, yyleng-2);
 		   return STRING;
@@ -1266,14 +1271,14 @@ YY_RULE_SETUP
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 155 "ada-lex.l"
+#line 158 "ada-lex.l"
 {
                    error (_("ill-formed or non-terminated string literal"));
 		}
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 160 "ada-lex.l"
+#line 163 "ada-lex.l"
 {
                   rewind_to_char ('i');
 		  return 0;
@@ -1281,7 +1286,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 165 "ada-lex.l"
+#line 168 "ada-lex.l"
 {
                   rewind_to_char ('t');
 		  return 0;
@@ -1290,7 +1295,7 @@ YY_RULE_SETUP
 case 18:
 /* rule 18 can match eol */
 YY_RULE_SETUP
-#line 170 "ada-lex.l"
+#line 173 "ada-lex.l"
 {
                   /* This keyword signals the end of the expression and
                      will be processed separately.  */
@@ -1301,67 +1306,67 @@ YY_RULE_SETUP
 /* ADA KEYWORDS */
 case 19:
 YY_RULE_SETUP
-#line 179 "ada-lex.l"
+#line 182 "ada-lex.l"
 { return ABS; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 180 "ada-lex.l"
+#line 183 "ada-lex.l"
 { return _AND_; }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 181 "ada-lex.l"
+#line 184 "ada-lex.l"
 { return ELSE; }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 182 "ada-lex.l"
+#line 185 "ada-lex.l"
 { return IN; }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 183 "ada-lex.l"
+#line 186 "ada-lex.l"
 { return MOD; }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 184 "ada-lex.l"
+#line 187 "ada-lex.l"
 { return NEW; }
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 185 "ada-lex.l"
+#line 188 "ada-lex.l"
 { return NOT; }
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 186 "ada-lex.l"
+#line 189 "ada-lex.l"
 { return NULL_PTR; }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 187 "ada-lex.l"
+#line 190 "ada-lex.l"
 { return OR; }
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 188 "ada-lex.l"
+#line 191 "ada-lex.l"
 { return OTHERS; }
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 189 "ada-lex.l"
+#line 192 "ada-lex.l"
 { return REM; }
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 190 "ada-lex.l"
+#line 193 "ada-lex.l"
 { return THEN; }
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 191 "ada-lex.l"
+#line 194 "ada-lex.l"
 { return XOR; }
 	YY_BREAK
 /* BOOLEAN "KEYWORDS" */
@@ -1371,70 +1376,70 @@ YY_RULE_SETUP
     making them keywords (when bare). */
 case 32:
 YY_RULE_SETUP
-#line 200 "ada-lex.l"
+#line 203 "ada-lex.l"
 { return TRUEKEYWORD; }
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 201 "ada-lex.l"
+#line 204 "ada-lex.l"
 { return FALSEKEYWORD; }
 	YY_BREAK
 /* ATTRIBUTES */
 case 34:
 /* rule 34 can match eol */
 YY_RULE_SETUP
-#line 205 "ada-lex.l"
-{ return processAttribute (yytext+1); }
+#line 208 "ada-lex.l"
+{ BEGIN INITIAL; return processAttribute (yytext+1); }
 	YY_BREAK
 /* PUNCTUATION */
 case 35:
 YY_RULE_SETUP
-#line 209 "ada-lex.l"
+#line 212 "ada-lex.l"
 { return ARROW; }
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 210 "ada-lex.l"
+#line 213 "ada-lex.l"
 { return DOTDOT; }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 211 "ada-lex.l"
+#line 214 "ada-lex.l"
 { return STARSTAR; }
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 212 "ada-lex.l"
+#line 215 "ada-lex.l"
 { return ASSIGN; }
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 213 "ada-lex.l"
+#line 216 "ada-lex.l"
 { return NOTEQUAL; }
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 214 "ada-lex.l"
+#line 217 "ada-lex.l"
 { return LEQ; }
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 215 "ada-lex.l"
+#line 218 "ada-lex.l"
 { return GEQ; }
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 217 "ada-lex.l"
+#line 220 "ada-lex.l"
 { BEGIN INITIAL; return '\''; }
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 219 "ada-lex.l"
+#line 222 "ada-lex.l"
 { return yytext[0]; }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 221 "ada-lex.l"
+#line 224 "ada-lex.l"
 { if (paren_depth == 0 && comma_terminates)
 		    {
 		      rewind_to_char (',');
@@ -1446,12 +1451,12 @@ YY_RULE_SETUP
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-#line 230 "ada-lex.l"
+#line 233 "ada-lex.l"
 { paren_depth += 1; return '('; }
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
-#line 231 "ada-lex.l"
+#line 234 "ada-lex.l"
 { if (paren_depth == 0)
 		    {
 		      rewind_to_char (')');
@@ -1467,13 +1472,13 @@ YY_RULE_SETUP
 case 47:
 /* rule 47 can match eol */
 YY_RULE_SETUP
-#line 243 "ada-lex.l"
+#line 246 "ada-lex.l"
 { return DOT_ALL; }
 	YY_BREAK
 case 48:
 /* rule 48 can match eol */
 YY_RULE_SETUP
-#line 245 "ada-lex.l"
+#line 248 "ada-lex.l"
 {
 	 	  yylval.sval = processId (yytext+1, yyleng-1);
 	          return DOT_ID;
@@ -1482,7 +1487,7 @@ YY_RULE_SETUP
 case 49:
 /* rule 49 can match eol */
 YY_RULE_SETUP
-#line 250 "ada-lex.l"
+#line 253 "ada-lex.l"
 {
                   int all_posn = find_dot_all (yytext);
 
@@ -1501,7 +1506,7 @@ YY_RULE_SETUP
 case 50:
 /* rule 50 can match eol */
 YY_RULE_SETUP
-#line 267 "ada-lex.l"
+#line 270 "ada-lex.l"
 {
                   yyless (yyleng - 2);
 		  yylval.sval = processId (yytext, yyleng);
@@ -1510,18 +1515,18 @@ YY_RULE_SETUP
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-#line 273 "ada-lex.l"
+#line 276 "ada-lex.l"
 { return COLONCOLON; }
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-#line 275 "ada-lex.l"
+#line 278 "ada-lex.l"
 { return yytext[0]; }
 	YY_BREAK
 /* REGISTERS AND GDB CONVENIENCE VARIABLES */
 case 53:
 YY_RULE_SETUP
-#line 279 "ada-lex.l"
+#line 282 "ada-lex.l"
 {
 		  yylval.sval.ptr = yytext;
 		  yylval.sval.length = yyleng;
@@ -1531,15 +1536,15 @@ YY_RULE_SETUP
 /* CATCH-ALL ERROR CASE */
 case 54:
 YY_RULE_SETUP
-#line 287 "ada-lex.l"
+#line 290 "ada-lex.l"
 { error (_("Invalid character '%s' in expression."), yytext); }
 	YY_BREAK
 case 55:
 YY_RULE_SETUP
-#line 288 "ada-lex.l"
+#line 291 "ada-lex.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 1543 "ada-lex.c"
+#line 1548 "ada-lex.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(BEFORE_QUAL_QUOTE):
 	yyterminate();
@@ -1671,6 +1676,7 @@ case YY_STATE_EOF(BEFORE_QUAL_QUOTE):
 			"fatal flex scanner internal error--no action found" );
 	} /* end of action switch */
 		} /* end of scanning one token */
+	} /* end of user's declarations */
 } /* end of yylex */
 
 /* yy_get_next_buffer - try to read in a new buffer
@@ -1726,21 +1732,21 @@ static int yy_get_next_buffer (void)
 
 	else
 		{
-			int num_to_read =
+			yy_size_t num_to_read =
 			YY_CURRENT_BUFFER_LVALUE->yy_buf_size - number_to_move - 1;
 
 		while ( num_to_read <= 0 )
 			{ /* Not enough room in the buffer - grow it. */
 
 			/* just a shorter name for the current buffer */
-			YY_BUFFER_STATE b = YY_CURRENT_BUFFER;
+			YY_BUFFER_STATE b = YY_CURRENT_BUFFER_LVALUE;
 
 			int yy_c_buf_p_offset =
 				(int) ((yy_c_buf_p) - b->yy_ch_buf);
 
 			if ( b->yy_is_our_buffer )
 				{
-				int new_size = b->yy_buf_size * 2;
+				yy_size_t new_size = b->yy_buf_size * 2;
 
 				if ( new_size <= 0 )
 					b->yy_buf_size += b->yy_buf_size / 8;
@@ -1771,7 +1777,7 @@ static int yy_get_next_buffer (void)
 
 		/* Read in more data. */
 		YY_INPUT( (&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move]),
-			(yy_n_chars), (size_t) num_to_read );
+			(yy_n_chars), num_to_read );
 
 		YY_CURRENT_BUFFER_LVALUE->yy_n_chars = (yy_n_chars);
 		}
@@ -1866,7 +1872,7 @@ static int yy_get_next_buffer (void)
 	yy_current_state = yy_nxt[yy_base[yy_current_state] + (unsigned int) yy_c];
 	yy_is_jam = (yy_current_state == 206);
 
-	return yy_is_jam ? 0 : yy_current_state;
+		return yy_is_jam ? 0 : yy_current_state;
 }
 
     static void yyunput (int c, register char * yy_bp )
@@ -1881,7 +1887,7 @@ static int yy_get_next_buffer (void)
 	if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
 		{ /* need to shift things up to make room */
 		/* +2 for EOB chars. */
-		register int number_to_move = (yy_n_chars) + 2;
+		register yy_size_t number_to_move = (yy_n_chars) + 2;
 		register char *dest = &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[
 					YY_CURRENT_BUFFER_LVALUE->yy_buf_size + 2];
 		register char *source =
@@ -1930,7 +1936,7 @@ static int yy_get_next_buffer (void)
 
 		else
 			{ /* need more input */
-			int offset = (yy_c_buf_p) - (yytext_ptr);
+			yy_size_t offset = (yy_c_buf_p) - (yytext_ptr);
 			++(yy_c_buf_p);
 
 			switch ( yy_get_next_buffer(  ) )
@@ -2090,10 +2096,6 @@ static void yy_load_buffer_state  (void)
 	yyfree((void *) b  );
 }
 
-#ifndef __cplusplus
-extern int isatty (int );
-#endif /* __cplusplus */
-    
 /* Initializes or reinitializes a buffer.
  * This function is sometimes called more than once on the same buffer,
  * such as during a yyrestart() or at EOF.
@@ -2206,7 +2208,7 @@ void yypop_buffer_state (void)
  */
 static void yyensure_buffer_stack (void)
 {
-	int num_to_alloc;
+	yy_size_t num_to_alloc;
     
 	if (!(yy_buffer_stack)) {
 
@@ -2303,12 +2305,12 @@ YY_BUFFER_STATE yy_scan_string (yyconst char * yystr )
  * 
  * @return the newly allocated buffer state object.
  */
-YY_BUFFER_STATE yy_scan_bytes  (yyconst char * yybytes, int  _yybytes_len )
+YY_BUFFER_STATE yy_scan_bytes  (yyconst char * yybytes, yy_size_t  _yybytes_len )
 {
 	YY_BUFFER_STATE b;
 	char *buf;
 	yy_size_t n;
-	int i;
+	yy_size_t i;
     
 	/* Get memory for full buffer, including space for trailing EOB's. */
 	n = _yybytes_len + 2;
@@ -2390,7 +2392,7 @@ FILE *yyget_out  (void)
 /** Get the length of the current token.
  * 
  */
-int yyget_leng  (void)
+yy_size_t yyget_leng  (void)
 {
         return yyleng;
 }
@@ -2538,13 +2540,11 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 288 "ada-lex.l"
+#line 290 "ada-lex.l"
 
 
 
 #include <ctype.h>
-#include <string.h>
-
 /* Initialize the lexer for processing new expression. */
 
 static void
@@ -2579,7 +2579,8 @@ canonicalizeNumeral (char *s1, const char *s2)
  */
 
 static int
-processInt (const char *base0, const char *num0, const char *exp0)
+processInt (struct parser_state *par_state, const char *base0,
+	    const char *num0, const char *exp0)
 {
   ULONGEST result;
   long exp;
@@ -2615,11 +2616,11 @@ processInt (const char *base0, const char *num0, const char *exp0)
       exp -= 1;
     }
 
-  if ((result >> (gdbarch_int_bit (parse_gdbarch)-1)) == 0)
-    yylval.typed_val.type = type_int ();
-  else if ((result >> (gdbarch_long_bit (parse_gdbarch)-1)) == 0)
-    yylval.typed_val.type = type_long ();
-  else if (((result >> (gdbarch_long_bit (parse_gdbarch)-1)) >> 1) == 0)
+  if ((result >> (gdbarch_int_bit (parse_gdbarch (par_state))-1)) == 0)
+    yylval.typed_val.type = type_int (par_state);
+  else if ((result >> (gdbarch_long_bit (parse_gdbarch (par_state))-1)) == 0)
+    yylval.typed_val.type = type_long (par_state);
+  else if (((result >> (gdbarch_long_bit (parse_gdbarch (par_state))-1)) >> 1) == 0)
     {
       /* We have a number representable as an unsigned integer quantity.
          For consistency with the C treatment, we will treat it as an
@@ -2629,7 +2630,7 @@ processInt (const char *base0, const char *num0, const char *exp0)
          assignment does the trick (no, it doesn't; read the reference manual).
        */
       yylval.typed_val.type
-	= builtin_type (parse_gdbarch)->builtin_unsigned_long;
+	= builtin_type (parse_gdbarch (par_state))->builtin_unsigned_long;
       if (result & LONGEST_SIGN)
 	yylval.typed_val.val =
 	  (LONGEST) (result & ~LONGEST_SIGN)
@@ -2639,24 +2640,24 @@ processInt (const char *base0, const char *num0, const char *exp0)
       return INT;
     }
   else
-    yylval.typed_val.type = type_long_long ();
+    yylval.typed_val.type = type_long_long (par_state);
 
   yylval.typed_val.val = (LONGEST) result;
   return INT;
 }
 
 static int
-processReal (const char *num0)
+processReal (struct parser_state *par_state, const char *num0)
 {
   sscanf (num0, "%" DOUBLEST_SCAN_FORMAT, &yylval.typed_val_float.dval);
 
-  yylval.typed_val_float.type = type_float ();
-  if (sizeof(DOUBLEST) >= gdbarch_double_bit (parse_gdbarch)
+  yylval.typed_val_float.type = type_float (par_state);
+  if (sizeof(DOUBLEST) >= gdbarch_double_bit (parse_gdbarch (par_state))
 			    / TARGET_CHAR_BIT)
-    yylval.typed_val_float.type = type_double ();
-  if (sizeof(DOUBLEST) >= gdbarch_long_double_bit (parse_gdbarch)
+    yylval.typed_val_float.type = type_double (par_state);
+  if (sizeof(DOUBLEST) >= gdbarch_long_double_bit (parse_gdbarch (par_state))
 			    / TARGET_CHAR_BIT)
-    yylval.typed_val_float.type = type_long_double ();
+    yylval.typed_val_float.type = type_long_double (par_state);
 
   return FLOAT;
 }
@@ -2681,7 +2682,7 @@ processReal (const char *num0)
 static struct stoken
 processId (const char *name0, int len)
 {
-  char *name = obstack_alloc (&temp_parse_space, len + 11);
+  char *name = (char *) obstack_alloc (&temp_parse_space, len + 11);
   int i0, i;
   struct stoken result;
 
@@ -2752,7 +2753,7 @@ processString (const char *text, int len)
   const char *lim = text + len;
   struct stoken result;
 
-  q = obstack_alloc (&temp_parse_space, len);
+  q = (char *) obstack_alloc (&temp_parse_space, len);
   result.ptr = q;
   p = text;
   while (p < lim)

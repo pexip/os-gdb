@@ -29,6 +29,7 @@ cd ..
 
 src=src/gdb-$version
 dest=gdb-$debversion
+destdoc=gdb-doc-$debversion
 
 if ! test -d "$src"; then
   echo "Could not find source directory $src"
@@ -43,6 +44,8 @@ fi
 src=`cd "$src" && pwd`
 
 cp -a "$src" "$dest"
+cp -a "$src" "$destdoc"
+
 pushd "$dest" > /dev/null
 
 # All of the gdb manpages are GFDL'd now
@@ -55,6 +58,7 @@ rm -f $(find gdb \( -name '*.[1-9]' \))
 # versions.
 
 rm -f $(find . \( -name \*.info -o -name \*.info-\* \))
+rm -f $(find . \( -name \*.chm \))
 
 for f in $(find . \( -name \*.texinfo -o -name \*.texi \)); do
   if test $(basename $f) = observer.texi; then
@@ -69,14 +73,11 @@ popd > /dev/null
 
 tar --auto-compress -cf "$dfsg" gdb-$debversion
 
-case "$tarball" in
-    *.xz)       cp "$tarball" "$doc"            ;;
-    *.bz2)      bzcat "$tarball" | xz > "$doc"  ;;
-    *.gz)       zcat "$tarball"  | xz > "$doc"  ;;
-    *)
-        echo "wtf is: $tarball"
-        ;;
-esac
+pushd "$destdoc" > /dev/null
+rm -f $(find . \( -name \*.chm \))
+popd > /dev/null
+
+tar --auto-compress -cf "$doc" gdb-doc-$debversion
 
 # XXX maybe we should install this as an exit handler?
 cd "$olddir"

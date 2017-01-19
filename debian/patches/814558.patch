@@ -1,0 +1,96 @@
+commit 30a7bb833cbd848b1814f18b91dfdafba4e86839
+Author: Tom Tromey <tom@tromey.com>
+Date:   Mon Oct 31 11:10:35 2016 -0600
+
+    Fix some error-handling bugs in python frame filters
+    
+    While writing a Python frame filter, I found a few bugs in the current
+    frame filter code.  In particular:
+    
+    * One spot converts a Python long to a CORE_ADDR using PyLong_AsLong.
+      However, this can fail on overflow.  I changed this to use
+      get_addr_from_python.
+    
+    * Another spot is doing the same but with PyLong_AsUnsignedLongLong; I
+      changed this as well just for consistency.
+    
+    * Converting line numbers can print "-1" if conversion from long
+      fails.  This isn't fatal but just a bit ugly.
+    
+    I've included a test case for the first issue.  The line number one
+    didn't seem important enough to bother with.
+    
+    2016-11-08  Tom Tromey  <tom@tromey.com>
+    
+            * python/py-framefilter.c (py_print_frame): Use
+            get_addr_from_python.  Check for errors when getting line number.
+    
+    2016-11-08  Tom Tromey  <tom@tromey.com>
+    
+            * gdb.python/py-framefilter.py (ElidingFrameDecorator.address):
+            New method.
+
+diff --git a/gdb/python/py-framefilter.c b/gdb/python/py-framefilter.c
+index 6692ac50cd..4c7757cbb9 100644
+--- a/gdb/python/py-framefilter.c
++++ b/gdb/python/py-framefilter.c
+@@ -1116,7 +1116,13 @@ py_print_frame (PyObject *filter, int flags,
+ 
+ 	  if (paddr != Py_None)
+ 	    {
+-	      address = PyLong_AsLong (paddr);
++	      if (get_addr_from_python (paddr, &address) < 0)
++		{
++		  Py_DECREF (paddr);
++		  do_cleanups (cleanup_stack);
++		  return EXT_LANG_BT_ERROR;
++		}
++
+ 	      has_addr = 1;
+ 	    }
+ 	  Py_DECREF (paddr);
+@@ -1213,10 +1219,10 @@ py_print_frame (PyObject *filter, int flags,
+ 	    }
+ 	  else if (PyLong_Check (py_func))
+ 	    {
+-	      CORE_ADDR addr = PyLong_AsUnsignedLongLong (py_func);
++	      CORE_ADDR addr;
+ 	      struct bound_minimal_symbol msymbol;
+ 
+-	      if (PyErr_Occurred ())
++	      if (get_addr_from_python (py_func, &addr) < 0)
+ 		{
+ 		  do_cleanups (cleanup_stack);
+ 		  return EXT_LANG_BT_ERROR;
+@@ -1340,6 +1346,12 @@ py_print_frame (PyObject *filter, int flags,
+ 	  if (py_line != Py_None)
+ 	    {
+ 	      line = PyLong_AsLong (py_line);
++	      if (PyErr_Occurred ())
++		{
++		  do_cleanups (cleanup_stack);
++		  return EXT_LANG_BT_ERROR;
++		}
++
+ 	      TRY
+ 		{
+ 		  ui_out_text (out, ":");
+diff --git a/gdb/testsuite/ChangeLog b/gdb/testsuite/ChangeLog
+index ebeecf99b4..cb591f4ab0 100644
+diff --git a/gdb/testsuite/gdb.python/py-framefilter.py b/gdb/testsuite/gdb.python/py-framefilter.py
+index 8fdff84990..25809114c4 100644
+--- a/gdb/testsuite/gdb.python/py-framefilter.py
++++ b/gdb/testsuite/gdb.python/py-framefilter.py
+@@ -92,6 +92,12 @@ class ElidingFrameDecorator(FrameDecorator):
+     def elided(self):
+         return iter(self.elided_frames)
+ 
++    def address (self):
++        # Regression test for an overflow in the python layer.
++        bitsize = 8 * gdb.lookup_type('void').pointer().sizeof
++        mask = (1 << bitsize) - 1
++        return 0xffffffffffffffff & mask
++
+ class ElidingIterator:
+     def __init__(self, ii):
+         self.input_iterator = ii

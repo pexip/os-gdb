@@ -1,14 +1,13 @@
-gdb (7.7.1+dfsg-3) unstable; urgency=medium
+gdb (7.8-1) experimental; urgency=medium
 
-  WARNING: gdb will use Python 3 by jessie+1 (Debian 9).
-  
-  Exact details still need to be worked out, but we intend to make this
-  the default soon after jessie is released (if not before).
+  WARNING: gdb now uses Python 3 by default.
 
-  Please update your Python scripts to work on both Python 2 and 3 as soon
-  as possible.
+  Please update your Python scripts to work on both Python 2 and 3 as
+  soon as possible.
 
- -- Samuel Bronson <naesten@gmail.com>  Thu, 14 Aug 2014 17:39:05 -0400
+  See /usr/share/doc/gdb*/README.python_switch for details.
+
+ -- Samuel Bronson <naesten@gmail.com>  Tue, 26 Aug 2014 14:04:20 -0400
 
 gdb (7.4really-1) unstable; urgency=low
 

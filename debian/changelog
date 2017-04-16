@@ -1,3 +1,9 @@
+gdb (7.7.1+dfsg-5pexip3) pexip; urgency=low
+
+  * Update for new build tooling
+
+ -- John-Mark Bell <jmb@pexip.com>  Sun, 16 Apr 2017 14:07:51 +0100
+
 gdb (7.7.1+dfsg-5pexip2) pexip; urgency=low
 
   * SECURITY UPDATE: fix processing of PE binaries

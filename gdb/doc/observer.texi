@@ -1,6 +1,6 @@
 @c This file is part of the GDB manual.
 @c
-@c Copyright (C) 2003-2014 Free Software Foundation, Inc.
+@c Copyright (C) 2003-2016 Free Software Foundation, Inc.
 @c
 @c See the file gdbint.texinfo for copying conditions.
 @c
@@ -15,10 +15,17 @@
 @deftypefun extern void observer_detach_@var{event} (struct observer *@var{observer});
 @deftypefun extern void observer_notify_@var{event} (void);
 @deftypefun void normal_stop (struct bpstats *@var{bs}, int @var{print_frame})
+@deftypefun void signal_received (enum gdb_signal @var{siggnal})
+@deftypefun void end_stepping_range (void)
+@deftypefun void signal_exited (enum gdb_signal @var{siggnal})
+@deftypefun void exited (int @var{exitstatus})
+@deftypefun void no_history (void)
+@deftypefun void sync_execution_done (void)
+@deftypefun void command_error (void)
 @deftypefun void target_changed (struct target_ops *@var{target})
 @deftypefun void executable_changed (void)
 @deftypefun void inferior_created (struct target_ops *@var{objfile}, int @var{from_tty})
-@deftypefun void record_changed (struct inferior *@var{inferior}, int @var{started})
+@deftypefun void record_changed (struct inferior *@var{inferior}, int @var{started}, const char *@var{method}, const char *@var{format})
 @deftypefun void solib_loaded (struct so_list *@var{solib})
 @deftypefun void solib_unloaded (struct so_list *@var{solib})
 @deftypefun void new_objfile (struct objfile *@var{objfile})
@@ -45,4 +52,8 @@
 @deftypefun void tsv_created (const struct trace_state_variable *@var{tsv})
 @deftypefun void tsv_deleted (const struct trace_state_variable *@var{tsv})
 @deftypefun void tsv_modified (const struct trace_state_variable *@var{tsv})
+@deftypefun void inferior_call_pre (ptid_t @var{thread}, CORE_ADDR @var{address})
+@deftypefun void inferior_call_post (ptid_t @var{thread}, CORE_ADDR @var{address})
+@deftypefun void register_changed (struct frame_info *@var{frame}, int @var{regnum})
 @deftypefun void test_notification (int @var{somearg})
+@deftypefun void user_selected_context_changed (user_selected_what @var{selection})

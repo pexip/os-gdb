@@ -42,7 +42,7 @@ Build-Depends:
 Vcs-Git: git://anonscm.debian.org/pkg-gdb/gdb.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-gdb/gdb.git
 Homepage: http://www.gnu.org/s/gdb/
-XS-Pexip-Upstream: http://ftp.debian.org/debian/ jessie
+XS-Pexip-Upstream: http://ftp.debian.org/debian/ stretch
 
 Package: gdb
 Architecture: any

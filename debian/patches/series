@@ -36,5 +36,3 @@ hurd-backport-for-7.12-branch.patch
 0089-Fix-longjmp-across-readline-w-enable-sjlj-exceptions.patch
 0090-gdb-Fix-C-and-C-03-builds.patch
 0115-Fix-some-error-handling-bugs-in-python-frame-filters.patch
-
-CVE-2014-8501.patch

@@ -1,6 +1,7 @@
 gdb (7.12-6pexip1) pexip; urgency=low
 
   * Migrate to Stretch
+  * debian/patches/CVE-2014-8501.patch: Drop; merged upstream
 
  -- John-Mark Bell <jmb@pexip.com>  Wed, 11 Jul 2018 12:49:22 +0100
 

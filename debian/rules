@@ -4,7 +4,7 @@ ALL_BUILDDIR := $(shell pwd)/build
 
 DEB_BUILDDIR := $(ALL_BUILDDIR)/objdir
 DEB_DH_INSTALL_SOURCEDIR := $(shell pwd)/debian/tmp
-DEB_DH_STRIP_ARGS_GDB := --dbg-package=gdb-dbg
+DEB_DH_STRIP_ARGS_gdb = --dbgsym-migration='gdb-dbg (<< 7.12-1~)'
 
 # Override CDBS's default CFLAGS, which also includes -Wall; gdb
 # does not handle -Wunused well with -Werror, but defaults to
@@ -15,11 +15,12 @@ DEB_WARNING_FLAGS :=
 include /usr/share/cdbs/1/rules/debhelper.mk
 
 # This implements building using a configure script and Makefile.
-include /usr/share/cdbs/1/class/autotools.mk
+include /usr/share/cdbs/1/class/python-autotools.mk
 
 # The top-level configure script fails to pass these down properly ...
 export CPPFLAGS
 export LDFLAGS
+CPPFLAGS += -fPIC
 
 # Always install into debian/tmp, even if we are only building one package.
 DEB_DESTDIR := $(shell pwd)/debian/tmp
@@ -66,31 +67,13 @@ ifdef GDB_TARGET
   TP = $(DEB_TARGET_ALIAS)-
   TS = -$(DEB_TARGET_ALIAS)
   CROSS_FORCE = FORCE
-else
-ifneq (,$(filter $(DEB_HOST_ARCH),i386 powerpc sparc s390))
-  build64 = yes
-  CC64 = gcc -m64
-  CFLAGS64 = $(CFLAGS)
-  BUILDDIR64 = $(ALL_BUILDDIR)/objdir64
-  ifeq ($(DEB_HOST_ARCH),i386)
-    HOST64 = x86_64-linux-gnu
-  endif
-  ifeq ($(DEB_HOST_ARCH),powerpc)
-    HOST64 = powerpc64-linux-gnu
-  endif
-  ifeq ($(DEB_HOST_ARCH),sparc)
-    HOST64 = sparc64-linux-gnu
-  endif
-  ifeq ($(DEB_HOST_ARCH),s390)
-    HOST64 = s390x-linux-gnu
-  endif
-endif
 endif
 
 distribution := $(shell lsb_release -is)
 deb_version := $(shell dpkg-parsechangelog | awk '/^Version:/ {print $$2}')
 
 BUILDDIRMULTIARCH = $(ALL_BUILDDIR)/objdir-multiarch
+BUILDDIRPYTHON2 = $(ALL_BUILDDIR)/objdir-python2
 
 run_tests := yes
 
@@ -104,6 +87,10 @@ endif
 
 ifeq ($(DEB_HOST_GNU_CPU),ia64)
   arch_config_args := --with-libunwind-ia64
+endif
+
+ifneq (,$(filter $(DEB_HOST_ARCH),amd64 armel armhf i386 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc s390x))
+  arch_config_args += --with-babeltrace
 endif
 
 ifdef GDB_TARGET
@@ -126,20 +113,14 @@ EXTRA_FLAGS := --disable-gdbtk --disable-shared \
 	--with-pkgversion='$(distribution) $(deb_version)' \
 	--srcdir=$(shell pwd) \
 	--disable-readline --with-system-readline --with-expat \
-	--without-zlib --without-lzma \
-	--without-guile \
+	--with-system-zlib --without-lzma \
+	--without-guile --without-babeltrace \
 	$(arch_config_args) --build=$(DEB_BUILD_GNU_TYPE)
 
 # Debian does not include 64-bit Python packages, so --with-python
 # is here rather than in EXTRA_FLAGS.
 DEB_CONFIGURE_EXTRA_FLAGS := --host=$(DEB_HOST_GNU_TYPE) $(EXTRA_FLAGS) \
-	--enable-tui --with-python=python2 --without-babeltrace \
-	--with-zlib --with-lzma
-# --with-babeltrace
-
-# 64-bit flags
-DEB_CONFIGURE_FLAGS_64 := --host=$(HOST64) $(EXTRA_FLAGS) \
-	--enable-tui
+	--enable-tui --with-lzma --with-python=python3
 
 # multiarch targets; this is taken from the binutils-multiarch package but
 # doesn't seem like a terribly nice list; see
@@ -150,6 +131,7 @@ MULTIARCH_TARGETS := \
 	arm-linux-gnu \
 	arm-linux-gnueabi \
 	arm-linux-gnueabihf \
+	arm-none-eabi \
 	hppa-linux-gnu \
 	i686-linux-gnu \
 	ia64-linux-gnu \
@@ -161,16 +143,16 @@ MULTIARCH_TARGETS := \
 	mips64el-linux-gnu \
 	powerpc-linux-gnu \
 	powerpc-linux-gnuspe \
+	powerpc64le-linux-gnu \
+	powerpc64-linux-gnu \
 	ppc64-linux-gnu \
 	s390-linux-gnu \
 	s390x-linux-gnu \
 	sh-linux-gnu \
-	sh64-linux-gnu \
 	sparc-linux-gnu \
 	sparc64-linux-gnu \
 	x86_64-linux-gnu \
-	m32r-linux-gnu \
-	spu
+	m32r-linux-gnu 
 
 # broken, see https://launchpad.net/bugs/1233185
 #MULTIARCH_TARGETS := all
@@ -184,6 +166,9 @@ DEB_CONFIGURE_FLAGS_MULTIARCH := $(DEB_CONFIGURE_EXTRA_FLAGS) \
 # Minimal flags
 DEB_CONFIGURE_FLAGS_MIN := --host=$(DEB_HOST_GNU_TYPE) $(EXTRA_FLAGS) \
 	--disable-tui --without-python --without-babeltrace
+
+DEB_CONFIGURE_FLAGS_PYTHON2 := $(DEB_CONFIGURE_EXTRA_FLAGS) \
+	--with-python=python2
 
 # Support parallel=<n> in DEB_BUILD_OPTIONS (see #209008)
 COMMA = ,
@@ -202,12 +187,12 @@ build/gdb$(TS):: check-stamp
 	$(MAKE) -C $(DEB_BUILDDIR) info
 	$(MAKE) -C $(DEB_BUILDDIR)/gdb/doc refcard.dvi refcard.ps
 
-build/gdb64:: build64-stamp
-build64-stamp:
-	mkdir -p $(BUILDDIR64)
-	cd $(BUILDDIR64) && CC="$(CC64)" CFLAGS="$(CFLAGS64)" AR=ar \
-	  $(shell pwd)/configure $(DEB_CONFIGURE_NORMAL_ARGS) $(DEB_CONFIGURE_DEBUG_ARGS) $(DEB_CONFIGURE_FLAGS_64)
-	cd $(BUILDDIR64) && $(DEB_MAKE_ENVVARS) $(MAKE) $(NJOBS)
+build/gdb-python2$(TS):: build-python2-stamp
+build-python2-stamp:
+	mkdir -p $(BUILDDIRPYTHON2)
+	cd $(BUILDDIRPYTHON2) && CFLAGS="$(CFLAGS)" \
+	  $(shell pwd)/configure $(DEB_CONFIGURE_NORMAL_ARGS) $(DEB_CONFIGURE_DEBUG_ARGS) $(DEB_CONFIGURE_FLAGS_PYTHON2)
+	cd $(BUILDDIRPYTHON2) && $(DEB_MAKE_ENVVARS) $(MAKE) $(NJOBS)
 	touch $@
 
 build/gdb-multiarch:: build-multiarch-stamp
@@ -234,7 +219,8 @@ endif
 	touch $@
 
 clean::
-	rm -f check-stamp build64-stamp build-multiarch-stamp
+	rm -f check-stamp build-multiarch-stamp
+	rm -f debian/files
 	rm -rf $(ALL_BUILDDIR)
 
 	if test -f gdb/version.in.backup; then \
@@ -250,11 +236,13 @@ clean::
 	find bfd -name bfd.info\* | xargs --no-run-if-empty touch
 
 binary-post-install/gdb$(TS) ::
-	if [ -x debian/tmp/usr/bin/run ]; then				\
-		mv debian/tmp/usr/bin/run					\
-		  debian/gdb$(TS)/usr/bin/$(DEB_TARGET_ALIAS)-run;		\
-		mv debian/tmp/usr/share/man/man1/run.1			\
-		  debian/gdb$(TS)/usr/share/man/man1/$(DEB_TARGET_ALIAS)-run.1;	\
+	if [ -x debian/tmp/usr/bin/run ]; then \
+		mv debian/tmp/usr/bin/run \
+		  debian/gdb$(TS)/usr/bin/$(DEB_TARGET_ALIAS)-run; \
+	fi
+	if [ -r debian/tmp/usr/share/man/man1/run.1 ]; then \
+		mv debian/tmp/usr/share/man/man1/run.1 \
+		  debian/gdb$(TS)/usr/share/man/man1/$(DEB_TARGET_ALIAS)-run.1; \
 	fi
 ifeq ($(run_tests),yes)
 	install -d debian/gdb$(TS)/usr/share/doc/gdb
@@ -273,11 +261,28 @@ endif
 	rm -f debian/gdb$(TS)/usr/bin/$(TP)gdbtui
 	install -m 755 debian/gdbtui debian/gdb$(TS)/usr/bin/$(TP)gdbtui
 
-binary-post-install/gdb64 ::
-	install -d debian/gdb64/usr/bin
-	install -s -m 755 $(BUILDDIR64)/gdb/gdb debian/gdb64/usr/bin/gdb64
-	rm -rf debian/gdb64/usr/share/doc/gdb64
-	ln -s gdb debian/gdb64/usr/share/doc/gdb64
+binary-post-install/gdb-python2$(TS) ::
+	install -d debian/gdb-python24$(TS)/usr/bin
+	install -s -m 755 $(BUILDDIRPYTHON2)/gdb/gdb debian/gdb-python2$(TS)/usr/bin/gdb
+	if [ -x debian/tmp/usr/bin/run ]; then  \
+		install -m 755 debian/tmp/usr/bin/run \
+		  debian/gdb-python2$(TS)/usr/bin/$(DEB_TARGET_ALIAS)-run; \
+	fi
+	if [ -r debian/tmp/usr/share/man/man1/run.1 ]; then  \
+		install -m 644 debian/tmp/usr/share/man/man1/run.1			\
+		  debian/gdb-python2$(TS)/usr/share/man/man1/$(DEB_TARGET_ALIAS)-run.1;	\
+	fi
+
+ifneq ($(DEB_CROSS),yes)
+	# Only ship a global gdbinit for the native GDB.
+	install -d debian/gdb-python2$(TS)/etc/gdb
+	install -m 644 debian/gdbinit debian/gdb-python2$(TS)/etc/gdb/
+	# Likewise gdb-add-index
+	install -m 755 gdb/contrib/gdb-add-index.sh debian/gdb-python2$(TS)/usr/bin/gdb-add-index
+endif
+
+	rm -f debian/gdb-python2$(TS)/usr/bin/$(TP)gdbtui
+	install -m 755 debian/gdbtui debian/gdb-python2$(TS)/usr/bin/$(TP)gdbtui
 
 binary-post-install/gdb-multiarch ::
 	install -d debian/gdb-multiarch/usr/bin
@@ -317,9 +322,11 @@ debian/control:: debian/control.in $(CROSS_FORCE)
 		| sed "s/@TS@/$(TS)/g" \
 		> debian/control
 ifeq ($(DEB_CROSS),yes)
-	sed -i "/Package: gdb64/,\$$ d" -i "/Package: gdb-multiarch/,\$$ d" debian/control
+	sed -i "/Package: gdb-multiarch/,\$$ d" debian/control
 	sed "s+/gdb+/$(TP)gdb+g; s+usr/share/$(TP)gdb+usr/share/gdb$(TS)+g" \
 		debian/gdb.install > debian/gdb$(TS).install
+	sed "s+/gdb+/$(TP)gdb+g; s+usr/share/$(TP)gdb+usr/share/gdb-python2$(TS)+g" \
+		debian/gdb.install > debian/gdb-python2$(TS).install
 endif
 
 # The default changelog is the top level one, which is useless.
@@ -328,10 +335,21 @@ DEB_INSTALL_CHANGELOGS_ALL =
 DEB_INSTALL_DOCS_gdb$(TS) = gdb/NEWS gdb/README gdb/doc/refcard.tex \
 	$(DEB_BUILDDIR)/gdb/doc/refcard.dvi \
 	$(DEB_BUILDDIR)/gdb/doc/refcard.ps \
+	debian/README.python_switch \
 	gdb/contrib/
 DEB_INSTALL_CHANGELOGS_gdb$(TS) = gdb/ChangeLog
 ifneq ($(DEB_CROSS),yes)
 DEB_INSTALL_MANPAGES_gdb$(TS) = debian/gcore.1
+endif
+
+DEB_INSTALL_DOCS_gdb-python2$(TS) = gdb/NEWS gdb/README gdb/doc/refcard.tex \
+	$(DEB_BUILDDIR)/gdb/doc/refcard.dvi \
+	$(DEB_BUILDDIR)/gdb/doc/refcard.ps \
+	debian/README.python_switch \
+	gdb/contrib/
+DEB_INSTALL_CHANGELOGS_gdb-python2$(TS) = gdb/ChangeLog
+ifneq ($(DEB_CROSS),yes)
+DEB_INSTALL_MANPAGES_gdb-python2$(TS) = debian/gcore.1
 endif
 
 DEB_INSTALL_DOCS_gdbserver = gdb/gdbserver/README

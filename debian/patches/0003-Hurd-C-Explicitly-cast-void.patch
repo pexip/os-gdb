@@ -1,0 +1,40 @@
+From e9e431d19426a6dd6b8923850398b847af0a1532 Mon Sep 17 00:00:00 2001
+From: Thomas Schwinge <thomas@codesourcery.com>
+Date: Fri, 25 Nov 2016 11:01:39 +0100
+Subject: [PATCH 03/65] Hurd, C++: Explicitly cast "void *"
+
+C++ doesn't do implicit type conversions from "void *", so we have to...
+
+	gdb/
+	* i386-gnu-nat.c (i386_gnu_dr_set_control_one)
+	(i386_gnu_dr_set_addr_one): Explicitly cast "void *".
+---
+ gdb/ChangeLog      | 5 +++++
+ gdb/i386-gnu-nat.c | 4 ++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/gdb/i386gnu-nat.c b/gdb/i386gnu-nat.c
+index e14a181564..c6c53ca508 100644
+--- a/gdb/i386gnu-nat.c
++++ b/gdb/i386gnu-nat.c
+@@ -307,7 +307,7 @@ i386_gnu_dr_set (const struct i386_debug_state *regs, struct proc *thread)
+ static void
+ i386_gnu_dr_set_control_one (struct proc *thread, void *arg)
+ {
+-  unsigned long *control = arg;
++  unsigned long *control = (unsigned long *) arg;
+   struct i386_debug_state regs;
+ 
+   i386_gnu_dr_get (&regs, thread);
+@@ -337,7 +337,7 @@ struct reg_addr
+ static void
+ i386_gnu_dr_set_addr_one (struct proc *thread, void *arg)
+ {
+-  struct reg_addr *reg_addr = arg;
++  struct reg_addr *reg_addr = (struct reg_addr *) arg;
+   struct i386_debug_state regs;
+ 
+   i386_gnu_dr_get (&regs, thread);
+-- 
+2.11.0
+

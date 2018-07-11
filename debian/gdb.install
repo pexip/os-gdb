@@ -1,3 +1,4 @@
 usr/bin/gdb
 usr/bin/gcore
 usr/share/gdb
+usr/include/gdb/jit-reader.h

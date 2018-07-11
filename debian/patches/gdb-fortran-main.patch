@@ -14,35 +14,36 @@ testcases.
 
 P.S: if there is a symbol named "MAIN__" in sources of other languages, it 
 might disturb the debugging.  But I am not sure how much it is.
-
 ---
- gdb/symtab.c                       |    8 +++++--
- gdb/testsuite/gdb.fortran/lang.exp |   40 +++++++++++++++++++++++++++++++++++++
+ gdb/symtab.c                       |  8 ++++++--
+ gdb/testsuite/gdb.fortran/lang.exp | 40 ++++++++++++++++++++++++++++++++++++++
  2 files changed, 46 insertions(+), 2 deletions(-)
+ create mode 100644 gdb/testsuite/gdb.fortran/lang.exp
 
 Index: gdb/gdb/symtab.c
 ===================================================================
---- gdb.orig/gdb/symtab.c	2014-08-11 18:32:53.133800376 +0200
-+++ gdb/gdb/symtab.c	2014-08-11 18:32:53.129800376 +0200
-@@ -5069,8 +5069,12 @@
+--- gdb.orig/gdb/symtab.c	2016-12-12 17:00:24.776172223 +0100
++++ gdb/gdb/symtab.c	2016-12-12 17:00:24.772172183 +0100
+@@ -5983,8 +5983,13 @@
      }
  
    /* The languages above didn't identify the name of the main procedure.
 -     Fallback to "main".  */
--  set_main_name ("main");
+-  set_main_name ("main", language_unknown);
 +     Fallback to "MAIN__" (g77 and gfortran) if we can find it in the
 +     minimal symtab, to "main" otherwise.  */
-+  if (lookup_minimal_symbol ("MAIN__", NULL, NULL))
-+    set_main_name ("MAIN__");
++  struct bound_minimal_symbol msym = lookup_minimal_symbol ("MAIN__", NULL, NULL);
++  if (msym.minsym)
++    set_main_name ("MAIN__", language_fortran);
 +  else
-+    set_main_name ("main");
++    set_main_name ("main", language_unknown);
  }
  
  char *
 Index: gdb/gdb/testsuite/gdb.fortran/lang.exp
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ gdb/gdb/testsuite/gdb.fortran/lang.exp	2014-08-11 18:32:53.129800376 +0200
++++ gdb/gdb/testsuite/gdb.fortran/lang.exp	2016-12-12 17:00:24.772172183 +0100
 @@ -0,0 +1,40 @@
 +# Copyright 2005 Free Software Foundation, Inc.
 +

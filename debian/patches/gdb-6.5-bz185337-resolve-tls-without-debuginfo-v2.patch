@@ -37,9 +37,9 @@ glibc-debuginfo-2.7-2.x86_64: /usr/lib/debug/lib64/libc.so.6.debug:
 
 Index: gdb/gdb/printcmd.c
 ===================================================================
---- gdb.orig/gdb/printcmd.c	2014-08-11 18:33:04.193799985 +0200
-+++ gdb/gdb/printcmd.c	2014-08-11 18:33:04.193799985 +0200
-@@ -972,6 +972,8 @@
+--- gdb.orig/gdb/printcmd.c	2016-12-12 17:00:32.856251945 +0100
++++ gdb/gdb/printcmd.c	2016-12-12 17:00:32.852251906 +0100
+@@ -1252,6 +1252,8 @@
  
    if (exp && *exp)
      {
@@ -51,7 +51,7 @@ Index: gdb/gdb/printcmd.c
 Index: gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.c	2014-08-11 18:33:04.193799985 +0200
++++ gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.c	2016-12-12 17:00:32.852251906 +0100
 @@ -0,0 +1,28 @@
 +/* This testcase is part of GDB, the GNU debugger.
 +
@@ -84,7 +84,7 @@ Index: gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.c
 Index: gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.exp
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.exp	2014-08-11 18:33:04.193799985 +0200
++++ gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.exp	2016-12-12 17:00:32.852251906 +0100
 @@ -0,0 +1,60 @@
 +# Copyright 2007 Free Software Foundation, Inc.
 +

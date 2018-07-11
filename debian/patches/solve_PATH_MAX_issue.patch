@@ -6,24 +6,23 @@ Forwarded: http://sourceware.org/ml/gdb-patches/2013-05/msg00878.html
 Reviewed-By: Héctor Orón Martínez <zumbi@debian.org>
 Last-Update: 2013-06-08
 
-Index: gdb/gdb/nto-tdep.c
-===================================================================
---- gdb.orig/gdb/nto-tdep.c	2014-08-11 18:33:00.197800126 +0200
-+++ gdb/gdb/nto-tdep.c	2014-08-11 18:33:00.193800126 +0200
-@@ -146,9 +146,11 @@
+--- a/gdb/nto-tdep.c
++++ b/gdb/nto-tdep.c
+@@ -152,10 +152,12 @@
  void
  nto_init_solib_absolute_prefix (void)
  {
 -  char buf[PATH_MAX * 2], arch_path[PATH_MAX];
 +  char *buf, *arch_path;
-   char *nto_root, *endian;
+   char *nto_root;
+   const char *endian;
    const char *arch;
 +  int arch_len, len;
 +#define FMT "set solib-absolute-prefix %s"
  
    nto_root = nto_target ();
    if (strcmp (gdbarch_bfd_arch_info (target_gdbarch ())->arch_name, "i386") == 0)
-@@ -171,9 +173,13 @@
+@@ -178,9 +180,13 @@
  	       == BFD_ENDIAN_BIG ? "be" : "le";
      }
  

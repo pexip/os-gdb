@@ -1,25 +1,26 @@
-Description: Use system python-config if available
-Author: Matthias Klose <doko@ubuntu.com>
-Forwarded: https://sourceware.org/ml/gdb-patches/2012-12/msg00751.html
+From: Matthias Klose <doko@ubuntu.com>
+Date: Wed, 20 Feb 2019 13:25:36 +0100
+Subject: Use system python-config if available
 
+Forwarded: https://sourceware.org/ml/gdb-patches/2012-12/msg00751.html
 ---
  gdb/configure    | 106 +++++++++++++++++++++++++++++++++++++++++++++++++++----
  gdb/configure.ac |  14 ++++----
  2 files changed, 108 insertions(+), 12 deletions(-)
 
-Index: gdb/gdb/configure
-===================================================================
---- gdb.orig/gdb/configure	2016-12-12 17:00:36.436287268 +0100
-+++ gdb/gdb/configure	2016-12-12 17:00:36.432287227 +0100
-@@ -674,6 +674,7 @@
+diff --git a/gdb/configure b/gdb/configure
+index 28756ed..7af5718 100755
+--- a/gdb/configure
++++ b/gdb/configure
+@@ -713,6 +713,7 @@ HAVE_PYTHON_TRUE
  PYTHON_LIBS
  PYTHON_CPPFLAGS
  PYTHON_CFLAGS
 +python_config
  python_prog_path
- LTLIBEXPAT
- LIBEXPAT
-@@ -8998,29 +8999,122 @@
+ LTLIBMPFR
+ LIBMPFR
+@@ -10456,29 +10457,122 @@ fi
      esac
    esac
  
@@ -125,8 +126,8 @@ Index: gdb/gdb/configure
      if test $? != 0; then
        have_python_config=failed
        if test "${with_python}" != auto; then
--        as_fn_error "failure running python-config --includes" "$LINENO" 5
-+        as_fn_error "failure running ${python_config} --includes" "$LINENO" 5
+-        as_fn_error $? "failure running python-config --includes" "$LINENO" 5
++        as_fn_error $? "failure running ${python-config} --includes" "$LINENO" 5
        fi
      fi
 -    python_libs=`${python_prog} ${srcdir}/python/python-config.py --ldflags`
@@ -134,8 +135,8 @@ Index: gdb/gdb/configure
      if test $? != 0; then
        have_python_config=failed
        if test "${with_python}" != auto; then
--        as_fn_error "failure running python-config --ldflags" "$LINENO" 5
-+        as_fn_error "failure running ${python_config} --ldflags" "$LINENO" 5
+-        as_fn_error $? "failure running python-config --ldflags" "$LINENO" 5
++        as_fn_error $? "failure running ${python-config} --ldflags" "$LINENO" 5
        fi
      fi
 -    python_prefix=`${python_prog} ${srcdir}/python/python-config.py --exec-prefix`
@@ -143,16 +144,16 @@ Index: gdb/gdb/configure
      if test $? != 0; then
        have_python_config=failed
        if test "${with_python}" != auto; then
--        as_fn_error "failure running python-config --exec-prefix" "$LINENO" 5
-+        as_fn_error "failure running ${python_config} --exec-prefix" "$LINENO" 5
+-        as_fn_error $? "failure running python-config --exec-prefix" "$LINENO" 5
++        as_fn_error $? "failure running ${python-config} --exec-prefix" "$LINENO" 5
        fi
      fi
    else
-Index: gdb/gdb/configure.ac
-===================================================================
---- gdb.orig/gdb/configure.ac	2016-12-12 17:00:36.436287268 +0100
-+++ gdb/gdb/configure.ac	2016-12-12 17:00:36.432287227 +0100
-@@ -841,29 +841,31 @@
+diff --git a/gdb/configure.ac b/gdb/configure.ac
+index 4c20ea5..d86deb1 100644
+--- a/gdb/configure.ac
++++ b/gdb/configure.ac
+@@ -857,29 +857,31 @@ else
      esac
    esac
  

@@ -1,0 +1,644 @@
+From FEDORA_PATCHES Mon Sep 17 00:00:00 2001
+From: Sergio Durigan Junior <sergiodj@redhat.com>
+Date: Fri, 11 Jan 2019 11:25:11 -0500
+Subject: 
+ gdb-rhbz1560010-fix-assertion-symbol-language-dict-language-2of5.patch
+
+;; Fix 'Assertion `SYMBOL_LANGUAGE (sym) == DICT_LANGUAGE (dict)->la_language' failed.'
+;; Keith Seitz, RHBZ#1560010.
+
+gdb/23712: Use new multidictionary API
+
+This patch builds on the previous by enabling the `new' multidictionary
+API.  A lot of the hunks are simply textual replacements of "dict_"
+with "mdict_" and similar transformations.
+
+A word of warning, even with the use of multidictionaries, the code
+still does not satisfactorily fix the reported problems with gdb/23712
+(or gdb/23010). We still have additional changes to make before that
+happens.
+
+gdb/ChangeLog:
+
+	PR gdb/23712
+	PR symtab/23010
+	* dictionary.h (struct dictionary): Replace declaration with
+	multidictionary.
+	(dict_create_hashed, dict_create_hashed_expandable)
+	(dict_create_linear, dict_create_linear_expandable)
+	(dict_free, dict_add_symbol, dict_add_pending, dict_empty)
+	(dict_iterator_first, dict_iterator_next, dict_iter_match_first)
+	(dict_iter_match_next, dict_size): Rename to "mdict_" versions
+	taking multidictionary argument.
+	[ALL_DICT_SYMBOLS]: Update for multidictionary.
+	* block.h (struct block) <dict>: Change to multidictionary
+	and rename `multidict'.
+	* block.c, buildsym.c, jit.c, mdebugread.c, objfiles.c,
+	symmisc.c: Update all dictionary references to multidictionary.
+
+diff --git a/gdb/block.c b/gdb/block.c
+--- a/gdb/block.c
++++ b/gdb/block.c
+@@ -387,9 +387,9 @@ block_global_block (const struct block *block)
+    zero/NULL.  This is useful for creating "dummy" blocks that don't
+    correspond to actual source files.
+ 
+-   Warning: it sets the block's BLOCK_DICT to NULL, which isn't a
++   Warning: it sets the block's BLOCK_MULTIDICT to NULL, which isn't a
+    valid value.  If you really don't want the block to have a
+-   dictionary, then you should subsequently set its BLOCK_DICT to
++   dictionary, then you should subsequently set its BLOCK_MULTIDICT to
+    dict_create_linear (obstack, NULL).  */
+ 
+ struct block *
+@@ -544,10 +544,11 @@ block_iterator_step (struct block_iterator *iterator, int first)
+ 
+ 	  block = BLOCKVECTOR_BLOCK (COMPUNIT_BLOCKVECTOR (cust),
+ 				     iterator->which);
+-	  sym = dict_iterator_first (BLOCK_DICT (block), &iterator->dict_iter);
++	  sym = mdict_iterator_first (BLOCK_MULTIDICT (block),
++				      &iterator->mdict_iter);
+ 	}
+       else
+-	sym = dict_iterator_next (&iterator->dict_iter);
++	sym = mdict_iterator_next (&iterator->mdict_iter);
+ 
+       if (sym != NULL)
+ 	return sym;
+@@ -569,7 +570,7 @@ block_iterator_first (const struct block *block,
+   initialize_block_iterator (block, iterator);
+ 
+   if (iterator->which == FIRST_LOCAL_BLOCK)
+-    return dict_iterator_first (block->dict, &iterator->dict_iter);
++    return mdict_iterator_first (block->multidict, &iterator->mdict_iter);
+ 
+   return block_iterator_step (iterator, 1);
+ }
+@@ -580,7 +581,7 @@ struct symbol *
+ block_iterator_next (struct block_iterator *iterator)
+ {
+   if (iterator->which == FIRST_LOCAL_BLOCK)
+-    return dict_iterator_next (&iterator->dict_iter);
++    return mdict_iterator_next (&iterator->mdict_iter);
+ 
+   return block_iterator_step (iterator, 0);
+ }
+@@ -612,11 +613,11 @@ block_iter_match_step (struct block_iterator *iterator,
+ 
+ 	  block = BLOCKVECTOR_BLOCK (COMPUNIT_BLOCKVECTOR (cust),
+ 				     iterator->which);
+-	  sym = dict_iter_match_first (BLOCK_DICT (block), name,
+-				       &iterator->dict_iter);
++	  sym = mdict_iter_match_first (BLOCK_MULTIDICT (block), name,
++					&iterator->mdict_iter);
+ 	}
+       else
+-	sym = dict_iter_match_next (name, &iterator->dict_iter);
++	sym = mdict_iter_match_next (name, &iterator->mdict_iter);
+ 
+       if (sym != NULL)
+ 	return sym;
+@@ -639,7 +640,8 @@ block_iter_match_first (const struct block *block,
+   initialize_block_iterator (block, iterator);
+ 
+   if (iterator->which == FIRST_LOCAL_BLOCK)
+-    return dict_iter_match_first (block->dict, name, &iterator->dict_iter);
++    return mdict_iter_match_first (block->multidict, name,
++				   &iterator->mdict_iter);
+ 
+   return block_iter_match_step (iterator, name, 1);
+ }
+@@ -651,7 +653,7 @@ block_iter_match_next (const lookup_name_info &name,
+ 		       struct block_iterator *iterator)
+ {
+   if (iterator->which == FIRST_LOCAL_BLOCK)
+-    return dict_iter_match_next (name, &iterator->dict_iter);
++    return mdict_iter_match_next (name, &iterator->mdict_iter);
+ 
+   return block_iter_match_step (iterator, name, 0);
+ }
+@@ -731,7 +733,7 @@ block_lookup_symbol_primary (const struct block *block, const char *name,
+ 			     const domain_enum domain)
+ {
+   struct symbol *sym, *other;
+-  struct dict_iterator dict_iter;
++  struct mdict_iterator mdict_iter;
+ 
+   lookup_name_info lookup_name (name, symbol_name_match_type::FULL);
+ 
+@@ -740,9 +742,10 @@ block_lookup_symbol_primary (const struct block *block, const char *name,
+ 	      || BLOCK_SUPERBLOCK (BLOCK_SUPERBLOCK (block)) == NULL);
+ 
+   other = NULL;
+-  for (sym = dict_iter_match_first (block->dict, lookup_name, &dict_iter);
++  for (sym
++	 = mdict_iter_match_first (block->multidict, lookup_name, &mdict_iter);
+        sym != NULL;
+-       sym = dict_iter_match_next (lookup_name, &dict_iter))
++       sym = mdict_iter_match_next (lookup_name, &mdict_iter))
+     {
+       if (SYMBOL_DOMAIN (sym) == domain)
+ 	return sym;
+diff --git a/gdb/block.h b/gdb/block.h
+--- a/gdb/block.h
++++ b/gdb/block.h
+@@ -111,7 +111,7 @@ struct block
+ 
+   /* This is used to store the symbols in the block.  */
+ 
+-  struct dictionary *dict;
++  struct multidictionary *multidict;
+ 
+   /* Contains information about namespace-related info relevant to this block:
+      using directives and the current namespace scope.  */
+@@ -143,7 +143,7 @@ struct global_block
+ #define BLOCK_END(bl)		(bl)->endaddr
+ #define BLOCK_FUNCTION(bl)	(bl)->function
+ #define BLOCK_SUPERBLOCK(bl)	(bl)->superblock
+-#define BLOCK_DICT(bl)		(bl)->dict
++#define BLOCK_MULTIDICT(bl)	(bl)->multidict
+ #define BLOCK_NAMESPACE(bl)	(bl)->namespace_info
+ 
+ /* Accessor for ranges field within block BL.  */
+@@ -298,9 +298,9 @@ struct block_iterator
+ 
+   enum block_enum which;
+ 
+-  /* The underlying dictionary iterator.  */
++  /* The underlying multidictionary iterator.  */
+ 
+-  struct dict_iterator dict_iter;
++  struct mdict_iterator mdict_iter;
+ };
+ 
+ /* Initialize ITERATOR to point at the first symbol in BLOCK, and
+diff --git a/gdb/buildsym.c b/gdb/buildsym.c
+--- a/gdb/buildsym.c
++++ b/gdb/buildsym.c
+@@ -349,23 +349,21 @@ finish_block_internal (struct symbol *symbol,
+ 
+   if (symbol)
+     {
+-      BLOCK_DICT (block)
+-	= dict_create_linear (&objfile->objfile_obstack,
+-			      buildsym_compunit->language, *listhead);
++      BLOCK_MULTIDICT (block)
++	= mdict_create_linear (&objfile->objfile_obstack, *listhead);
+     }
+   else
+     {
+       if (expandable)
+ 	{
+-	  BLOCK_DICT (block)
+-	    = dict_create_hashed_expandable (buildsym_compunit->language);
+-	  dict_add_pending (BLOCK_DICT (block), *listhead);
++	  BLOCK_MULTIDICT (block)
++	    = mdict_create_hashed_expandable (buildsym_compunit->language);
++	  mdict_add_pending (BLOCK_MULTIDICT (block), *listhead);
+ 	}
+       else
+ 	{
+-	  BLOCK_DICT (block) =
+-	    dict_create_hashed (&objfile->objfile_obstack,
+-				buildsym_compunit->language, *listhead);
++	  BLOCK_MULTIDICT (block) =
++	    mdict_create_hashed (&objfile->objfile_obstack, *listhead);
+ 	}
+     }
+ 
+@@ -377,7 +375,7 @@ finish_block_internal (struct symbol *symbol,
+   if (symbol)
+     {
+       struct type *ftype = SYMBOL_TYPE (symbol);
+-      struct dict_iterator iter;
++      struct mdict_iterator miter;
+       SYMBOL_BLOCK_VALUE (symbol) = block;
+       BLOCK_FUNCTION (block) = symbol;
+ 
+@@ -391,7 +389,7 @@ finish_block_internal (struct symbol *symbol,
+ 
+ 	  /* Here we want to directly access the dictionary, because
+ 	     we haven't fully initialized the block yet.  */
+-	  ALL_DICT_SYMBOLS (BLOCK_DICT (block), iter, sym)
++	  ALL_DICT_SYMBOLS (BLOCK_MULTIDICT (block), miter, sym)
+ 	    {
+ 	      if (SYMBOL_IS_ARGUMENT (sym))
+ 		nparams++;
+@@ -405,7 +403,7 @@ finish_block_internal (struct symbol *symbol,
+ 	      iparams = 0;
+ 	      /* Here we want to directly access the dictionary, because
+ 		 we haven't fully initialized the block yet.  */
+-	      ALL_DICT_SYMBOLS (BLOCK_DICT (block), iter, sym)
++	      ALL_DICT_SYMBOLS (BLOCK_MULTIDICT (block), miter, sym)
+ 		{
+ 		  if (iparams == nparams)
+ 		    break;
+@@ -1448,7 +1446,7 @@ end_symtab_with_blockvector (struct block *static_block,
+       {
+ 	struct block *block = BLOCKVECTOR_BLOCK (blockvector, block_i);
+ 	struct symbol *sym;
+-	struct dict_iterator iter;
++	struct mdict_iterator miter;
+ 
+ 	/* Inlined functions may have symbols not in the global or
+ 	   static symbol lists.  */
+@@ -1459,7 +1457,7 @@ end_symtab_with_blockvector (struct block *static_block,
+ 	/* Note that we only want to fix up symbols from the local
+ 	   blocks, not blocks coming from included symtabs.  That is why
+ 	   we use ALL_DICT_SYMBOLS here and not ALL_BLOCK_SYMBOLS.  */
+-	ALL_DICT_SYMBOLS (BLOCK_DICT (block), iter, sym)
++	ALL_DICT_SYMBOLS (BLOCK_MULTIDICT (block), miter, sym)
+ 	  if (symbol_symtab (sym) == NULL)
+ 	    symbol_set_symtab (sym, symtab);
+       }
+@@ -1598,7 +1596,7 @@ augment_type_symtab (void)
+ 	 to the primary symtab.  */
+       set_missing_symtab (file_symbols, cust);
+ 
+-      dict_add_pending (BLOCK_DICT (block), file_symbols);
++      mdict_add_pending (BLOCK_MULTIDICT (block), file_symbols);
+     }
+ 
+   if (global_symbols != NULL)
+@@ -1609,7 +1607,7 @@ augment_type_symtab (void)
+ 	 to the primary symtab.  */
+       set_missing_symtab (global_symbols, cust);
+ 
+-      dict_add_pending (BLOCK_DICT (block), global_symbols);
++      mdict_add_pending (BLOCK_MULTIDICT (block), global_symbols);
+     }
+ 
+   reset_symtab_globals ();
+diff --git a/gdb/dictionary.h b/gdb/dictionary.h
+--- a/gdb/dictionary.h
++++ b/gdb/dictionary.h
+@@ -25,10 +25,10 @@
+ 
+ #include "symfile.h"
+ 
+-/* An opaque type for dictionaries; only dictionary.c should know
+-   about its innards.  */
++/* An opaque type for multi-language dictionaries; only dictionary.c should
++   know about its innards.  */
+ 
+-struct dictionary;
++struct multidictionary;
+ 
+ /* Other types needed for declarations.  */
+ 
+@@ -38,65 +38,64 @@ struct pending;
+ struct language_defn;
+ 
+ /* The creation functions for various implementations of
+-   dictionaries.  */
++   multi-language dictionaries.  */
+ 
+-/* Create a dictionary of symbols of language LANGUAGE implemented via
++/* Create a multi-language dictionary of symbols implemented via
+    a fixed-size hashtable.  All memory it uses is allocated on
+    OBSTACK; the environment is initialized from SYMBOL_LIST.  */
+ 
+-extern struct dictionary *dict_create_hashed (struct obstack *obstack,
+-					      enum language language,
+-					      const struct pending
+-					      *symbol_list);
++extern struct multidictionary *
++  mdict_create_hashed (struct obstack *obstack,
++		       const struct pending *symbol_list);
+ 
+-/* Create a dictionary of symbols of language LANGUAGE, implemented
+-   via a hashtable that grows as necessary.  The dictionary is
+-   initially empty; to add symbols to it, call dict_add_symbol().
+-   Call dict_free() when you're done with it.  */
++/* Create a multi-language dictionary of symbols, implemented
++   via a hashtable that grows as necessary.  The initial dictionary of
++   LANGUAGE is empty; to add symbols to it, call mdict_add_symbol().
++   Call mdict_free() when you're done with it.  */
+ 
+-extern struct dictionary *
+-  dict_create_hashed_expandable (enum language language);
++extern struct multidictionary *
++  mdict_create_hashed_expandable (enum language language);
+ 
+-/* Create a dictionary of symbols of language LANGUAGE, implemented
++/* Create a multi-language dictionary of symbols, implemented
+    via a fixed-size array.  All memory it uses is allocated on
+    OBSTACK; the environment is initialized from the SYMBOL_LIST.  The
+    symbols are ordered in the same order that they're found in
+    SYMBOL_LIST.  */
+ 
+-extern struct dictionary *dict_create_linear (struct obstack *obstack,
+-					      enum language language,
+-					      const struct pending
+-					      *symbol_list);
++extern struct multidictionary *
++  mdict_create_linear (struct obstack *obstack,
++		       const struct pending *symbol_list);
+ 
+-/* Create a dictionary of symbols of language LANGUAGE, implemented
+-   via an array that grows as necessary.  The dictionary is initially
+-   empty; to add symbols to it, call dict_add_symbol().  Call
+-   dict_free() when you're done with it.  */
++/* Create a multi-language dictionary of symbols, implemented
++   via an array that grows as necessary.  The multidictionary initially
++   contains a single empty dictionary of LANGUAGE; to add symbols to it,
++   call mdict_add_symbol().  Call mdict_free() when you're done with it.  */
+ 
+-extern struct dictionary *
+-  dict_create_linear_expandable (enum language language);
++extern struct multidictionary *
++  mdict_create_linear_expandable (enum language language);
+ 
+-/* The functions providing the interface to dictionaries.  Note that
+-   the most common parts of the interface, namely symbol lookup, are
+-   only provided via iterator functions.  */
++/* The functions providing the interface to multi-language dictionaries.
++   Note that the most common parts of the interface, namely symbol lookup,
++   are only provided via iterator functions.  */
+ 
+-/* Free the memory used by a dictionary that's not on an obstack.  (If
++/* Free the memory used by a multidictionary that's not on an obstack.  (If
+    any.)  */
+ 
+-extern void dict_free (struct dictionary *dict);
++extern void mdict_free (struct multidictionary *mdict);
+ 
+-/* Add a symbol to an expandable dictionary.  */
++/* Add a symbol to an expandable multidictionary.  */
+ 
+-extern void dict_add_symbol (struct dictionary *dict, struct symbol *sym);
++extern void mdict_add_symbol (struct multidictionary *mdict,
++			      struct symbol *sym);
+ 
+-/* Utility to add a list of symbols to a dictionary.  */
++/* Utility to add a list of symbols to a multidictionary.  */
+ 
+-extern void dict_add_pending (struct dictionary *dict,
+-			      const struct pending *symbol_list);
++extern void mdict_add_pending (struct multidictionary *mdict,
++			       const struct pending *symbol_list);
+ 
+-/* Is the dictionary empty?  */
++/* Is the multidictionary empty?  */
+ 
+-extern int dict_empty (struct dictionary *dict);
++extern int mdict_empty (struct multidictionary *mdict);
+ 
+ /* A type containing data that is used when iterating over all symbols
+    in a dictionary.  Don't ever look at its innards; this type would
+@@ -128,44 +127,46 @@ struct mdict_iterator
+   unsigned short current_idx;
+ };
+ 
+-/* Initialize ITERATOR to point at the first symbol in DICT, and
+-   return that first symbol, or NULL if DICT is empty.  */
++/* Initialize ITERATOR to point at the first symbol in MDICT, and
++   return that first symbol, or NULL if MDICT is empty.  */
+ 
+-extern struct symbol *dict_iterator_first (const struct dictionary *dict,
+-					   struct dict_iterator *iterator);
++extern struct symbol *
++  mdict_iterator_first (const struct multidictionary *mdict,
++			struct mdict_iterator *miterator);
+ 
+-/* Advance ITERATOR, and return the next symbol, or NULL if there are
++/* Advance MITERATOR, and return the next symbol, or NULL if there are
+    no more symbols.  Don't call this if you've previously received
+-   NULL from dict_iterator_first or dict_iterator_next on this
++   NULL from mdict_iterator_first or mdict_iterator_next on this
+    iteration.  */
+ 
+-extern struct symbol *dict_iterator_next (struct dict_iterator *iterator);
++extern struct symbol *mdict_iterator_next (struct mdict_iterator *miterator);
+ 
+-/* Initialize ITERATOR to point at the first symbol in DICT whose
++/* Initialize MITERATOR to point at the first symbol in MDICT whose
+    SYMBOL_SEARCH_NAME is NAME, as tested using COMPARE (which must use
+    the same conventions as strcmp_iw and be compatible with any
+    dictionary hashing function), and return that first symbol, or NULL
+    if there are no such symbols.  */
+ 
+-extern struct symbol *dict_iter_match_first (const struct dictionary *dict,
+-					     const lookup_name_info &name,
+-					     struct dict_iterator *iterator);
++extern struct symbol *
++  mdict_iter_match_first (const struct multidictionary *mdict,
++			  const lookup_name_info &name,
++			  struct mdict_iterator *miterator);
+ 
+-/* Advance ITERATOR to point at the next symbol in DICT whose
++/* Advance MITERATOR to point at the next symbol in MDICT whose
+    SYMBOL_SEARCH_NAME is NAME, as tested using COMPARE (see
+    dict_iter_match_first), or NULL if there are no more such symbols.
+    Don't call this if you've previously received NULL from 
+-   dict_iterator_match_first or dict_iterator_match_next on this
+-   iteration.  And don't call it unless ITERATOR was created by a
+-   previous call to dict_iter_match_first with the same NAME and COMPARE.  */
++   mdict_iterator_match_first or mdict_iterator_match_next on this
++   iteration.  And don't call it unless MITERATOR was created by a
++   previous call to mdict_iter_match_first with the same NAME and COMPARE.  */
+ 
+-extern struct symbol *dict_iter_match_next (const lookup_name_info &name,
+-					    struct dict_iterator *iterator);
++extern struct symbol *mdict_iter_match_next (const lookup_name_info &name,
++					     struct mdict_iterator *miterator);
+ 
+-/* Return some notion of the size of the dictionary: the number of
++/* Return some notion of the size of the multidictionary: the number of
+    symbols if we have that, the number of hash buckets otherwise.  */
+ 
+-extern int dict_size (const struct dictionary *dict);
++extern int mdict_size (const struct multidictionary *mdict);
+ 
+ /* Macro to loop through all symbols in a dictionary DICT, in no
+    particular order.  ITER is a struct dict_iterator (NOTE: __not__ a
+@@ -175,8 +176,8 @@ extern int dict_size (const struct dictionary *dict);
+    early by a break if you desire.  */
+ 
+ #define ALL_DICT_SYMBOLS(dict, iter, sym)			\
+-	for ((sym) = dict_iterator_first ((dict), &(iter));	\
++	for ((sym) = mdict_iterator_first ((dict), &(iter));	\
+ 	     (sym);						\
+-	     (sym) = dict_iterator_next (&(iter)))
++	     (sym) = mdict_iterator_next (&(iter)))
+ 
+ #endif /* DICTIONARY_H */
+diff --git a/gdb/jit.c b/gdb/jit.c
+--- a/gdb/jit.c
++++ b/gdb/jit.c
+@@ -651,14 +651,12 @@ finalize_symtab (struct gdb_symtab *stab, struct objfile *objfile)
+   size_t blockvector_size;
+   CORE_ADDR begin, end;
+   struct blockvector *bv;
+-  enum language language;
+ 
+   actual_nblocks = FIRST_LOCAL_BLOCK + stab->nblocks;
+ 
+   cust = allocate_compunit_symtab (objfile, stab->file_name);
+   allocate_symtab (cust, stab->file_name);
+   add_compunit_symtab_to_objfile (cust);
+-  language = compunit_language (cust);
+ 
+   /* JIT compilers compile in memory.  */
+   COMPUNIT_DIRNAME (cust) = NULL;
+@@ -702,8 +700,8 @@ finalize_symtab (struct gdb_symtab *stab, struct objfile *objfile)
+ 					   TARGET_CHAR_BIT,
+ 					   "void");
+ 
+-      BLOCK_DICT (new_block) = dict_create_linear (&objfile->objfile_obstack,
+-						   language, NULL);
++      BLOCK_MULTIDICT (new_block)
++	= mdict_create_linear (&objfile->objfile_obstack, NULL);
+       /* The address range.  */
+       BLOCK_START (new_block) = (CORE_ADDR) gdb_block_iter->begin;
+       BLOCK_END (new_block) = (CORE_ADDR) gdb_block_iter->end;
+@@ -740,8 +738,8 @@ finalize_symtab (struct gdb_symtab *stab, struct objfile *objfile)
+       new_block = (i == GLOBAL_BLOCK
+ 		   ? allocate_global_block (&objfile->objfile_obstack)
+ 		   : allocate_block (&objfile->objfile_obstack));
+-      BLOCK_DICT (new_block) = dict_create_linear (&objfile->objfile_obstack,
+-						   language, NULL);
++      BLOCK_MULTIDICT (new_block)
++	= mdict_create_linear (&objfile->objfile_obstack, NULL);
+       BLOCK_SUPERBLOCK (new_block) = block_iter;
+       block_iter = new_block;
+ 
+diff --git a/gdb/mdebugread.c b/gdb/mdebugread.c
+--- a/gdb/mdebugread.c
++++ b/gdb/mdebugread.c
+@@ -4534,7 +4534,7 @@ static void
+ add_symbol (struct symbol *s, struct symtab *symtab, struct block *b)
+ {
+   symbol_set_symtab (s, symtab);
+-  dict_add_symbol (BLOCK_DICT (b), s);
++  mdict_add_symbol (BLOCK_MULTIDICT (b), s);
+ }
+ 
+ /* Add a new block B to a symtab S.  */
+@@ -4762,7 +4762,7 @@ new_bvect (int nblocks)
+ }
+ 
+ /* Allocate and zero a new block of language LANGUAGE, and set its
+-   BLOCK_DICT.  If function is non-zero, assume the block is
++   BLOCK_MULTIDICT.  If function is non-zero, assume the block is
+    associated to a function, and make sure that the symbols are stored
+    linearly; otherwise, store them hashed.  */
+ 
+@@ -4775,9 +4775,9 @@ new_block (enum block_type type, enum language language)
+   struct block *retval = XCNEW (struct block);
+ 
+   if (type == FUNCTION_BLOCK)
+-    BLOCK_DICT (retval) = dict_create_linear_expandable (language);
++    BLOCK_MULTIDICT (retval) = mdict_create_linear_expandable (language);
+   else
+-    BLOCK_DICT (retval) = dict_create_hashed_expandable (language);
++    BLOCK_MULTIDICT (retval) = mdict_create_hashed_expandable (language);
+ 
+   return retval;
+ }
+diff --git a/gdb/objfiles.c b/gdb/objfiles.c
+--- a/gdb/objfiles.c
++++ b/gdb/objfiles.c
+@@ -813,40 +813,40 @@ objfile_relocate1 (struct objfile *objfile,
+     }
+ 
+     ALL_OBJFILE_COMPUNITS (objfile, cust)
+-    {
+-      const struct blockvector *bv = COMPUNIT_BLOCKVECTOR (cust);
+-      int block_line_section = COMPUNIT_BLOCK_LINE_SECTION (cust);
+-
+-      if (BLOCKVECTOR_MAP (bv))
+-	addrmap_relocate (BLOCKVECTOR_MAP (bv),
+-			  ANOFFSET (delta, block_line_section));
+-
+-      for (i = 0; i < BLOCKVECTOR_NBLOCKS (bv); ++i)
+-	{
+-	  struct block *b;
+-	  struct symbol *sym;
+-	  struct dict_iterator iter;
+-
+-	  b = BLOCKVECTOR_BLOCK (bv, i);
+-	  BLOCK_START (b) += ANOFFSET (delta, block_line_section);
+-	  BLOCK_END (b) += ANOFFSET (delta, block_line_section);
+-
+-	  if (BLOCK_RANGES (b) != nullptr)
+-	    for (int j = 0; j < BLOCK_NRANGES (b); j++)
++      {
++	const struct blockvector *bv = COMPUNIT_BLOCKVECTOR (cust);
++	int block_line_section = COMPUNIT_BLOCK_LINE_SECTION (cust);
++
++	if (BLOCKVECTOR_MAP (bv))
++	  addrmap_relocate (BLOCKVECTOR_MAP (bv),
++			    ANOFFSET (delta, block_line_section));
++
++	for (int i = 0; i < BLOCKVECTOR_NBLOCKS (bv); ++i)
++	  {
++	    struct block *b;
++	    struct symbol *sym;
++	    struct mdict_iterator miter;
++
++	    b = BLOCKVECTOR_BLOCK (bv, i);
++	    BLOCK_START (b) += ANOFFSET (delta, block_line_section);
++	    BLOCK_END (b) += ANOFFSET (delta, block_line_section);
++
++	    if (BLOCK_RANGES (b) != nullptr)
++	      for (int j = 0; j < BLOCK_NRANGES (b); j++)
++		{
++		  BLOCK_RANGE_START (b, j)
++		    += ANOFFSET (delta, block_line_section);
++		  BLOCK_RANGE_END (b, j) += ANOFFSET (delta, block_line_section);
++		}
++
++	    /* We only want to iterate over the local symbols, not any
++	       symbols in included symtabs.  */
++	    ALL_DICT_SYMBOLS (BLOCK_MULTIDICT (b), miter, sym)
+ 	      {
+-		BLOCK_RANGE_START (b, j)
+-		  += ANOFFSET (delta, block_line_section);
+-		BLOCK_RANGE_END (b, j) += ANOFFSET (delta, block_line_section);
++		relocate_one_symbol (sym, objfile, delta);
+ 	      }
+-
+-	  /* We only want to iterate over the local symbols, not any
+-	     symbols in included symtabs.  */
+-	  ALL_DICT_SYMBOLS (BLOCK_DICT (b), iter, sym)
+-	    {
+-	      relocate_one_symbol (sym, objfile, delta);
+-	    }
+-	}
+-    }
++	  }
++      }
+   }
+ 
+   /* Relocate isolated symbols.  */
+diff --git a/gdb/symmisc.c b/gdb/symmisc.c
+--- a/gdb/symmisc.c
++++ b/gdb/symmisc.c
+@@ -275,7 +275,7 @@ dump_symtab_1 (struct symtab *symtab, struct ui_file *outfile)
+   struct objfile *objfile = SYMTAB_OBJFILE (symtab);
+   struct gdbarch *gdbarch = get_objfile_arch (objfile);
+   int i;
+-  struct dict_iterator iter;
++  struct mdict_iterator miter;
+   int len;
+   struct linetable *l;
+   const struct blockvector *bv;
+@@ -331,7 +331,7 @@ dump_symtab_1 (struct symtab *symtab, struct ui_file *outfile)
+ 	     even if we're using a hashtable, but nothing else but this message
+ 	     wants it.  */
+ 	  fprintf_filtered (outfile, ", %d syms/buckets in ",
+-			    dict_size (BLOCK_DICT (b)));
++			    mdict_size (BLOCK_MULTIDICT (b)));
+ 	  fputs_filtered (paddress (gdbarch, BLOCK_START (b)), outfile);
+ 	  fprintf_filtered (outfile, "..");
+ 	  fputs_filtered (paddress (gdbarch, BLOCK_END (b)), outfile);
+@@ -349,7 +349,7 @@ dump_symtab_1 (struct symtab *symtab, struct ui_file *outfile)
+ 	  /* Now print each symbol in this block (in no particular order, if
+ 	     we're using a hashtable).  Note that we only want this
+ 	     block, not any blocks from included symtabs.  */
+-	  ALL_DICT_SYMBOLS (BLOCK_DICT (b), iter, sym)
++	  ALL_DICT_SYMBOLS (BLOCK_MULTIDICT (b), miter, sym)
+ 	    {
+ 	      TRY
+ 		{

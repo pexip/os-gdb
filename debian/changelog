@@ -1,3 +1,165 @@
+gdb (8.2.1-2) unstable; urgency=medium
+
+  * debian/patches: binutils PR/23919 (Closes: #922745)
+  * debian/patches: fix gdb PR/23712 (Closes: #922030)
+  * debian/rules: include riscv* in multiarch targets (Closes: #922796)
+  * Bump standards version
+  * fix kfreebsd-any build (Closes: #917806)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 22 Feb 2019 09:46:36 +0100
+
+gdb (8.2.1-1) unstable; urgency=medium
+
+  * New upstream version 8.2.1
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 08 Feb 2019 13:24:11 +0100
+
+gdb (8.2-1) unstable; urgency=medium
+
+  * Imported upstream version 8.2, changes in this release:
+    - Support for the following target has been added:
+      + RiscV ELF (riscv*-*-elf)
+    - Support for following targets and native configurations has been removed:
+      + m88k running OpenBSD (m88*-*-openbsd*)
+      + SH-5/SH64 ELF (sh64-*-elf*)
+      + SH-5/SH64 (sh*)
+      + SH-5/SH64 running GNU/Linux (sh*-*-linux*)
+      + SH-5/SH64 running OpenBSD (sh*-*-openbsd*)
+    - Various Python API enhancements
+    - Aarch64/Linux enhancements:
+      + SVE support.
+      + Hardware watchpoints improvements for entities stored at unaligned addresses.
+  * debian/patches: refresh to newer version
+  * drop support for gdb-python2 binary package
+  * Fix "gdb ftbfs with Python 3.7"
+    (Closes: #914744)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 27 Nov 2018 17:08:00 +0100
+
+gdb (8.1-4) unstable; urgency=medium
+
+  * debian/patches/gcore-needs-bash.patch: update with patch from upstream
+    (Closes: #904160)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Mon, 23 Jul 2018 04:55:10 +0200
+
+gdb (8.1-3) unstable; urgency=medium
+
+  * debian/patches: hurd-i386 support fixes
+    (Closes: #881569)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 17 Jul 2018 02:00:09 +0200
+
+gdb (8.1-2) unstable; urgency=medium
+
+  * debian/control.in: install libipt-dev on i386 and x32
+  * debian/control.in: use binary-targets in Rules-Requires-Root
+    (change from previous version)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Mon, 16 Jul 2018 03:10:45 +0200
+
+gdb (8.1-1) unstable; urgency=medium
+
+  [ Héctor Orón Martínez ]
+  * Imported Upstream version 8.1, changes in this release:
+    - Breakpoints on C++ functions are now set on all scopes by default
+      ("wild" matching);
+    - Support for inserting breakpoints on functions marked with C++ ABI tags;
+    - Target floating-point arithmetic emulation during expression evaluation
+      (requires MPFR 3.1 or later);
+    - Various Python Scripting enhancements;
+    - Improved Rust support; in particular, Trait objects can now be inspected
+      when debugging Rust code;
+    - GDB no longer makes assumptions about the type of symbols without
+      debugging information to avoid producing erroneous and often confusing
+      results;
+    - The 'enable' and 'disable' commands now accept a range of breakpoint
+      locations;
+    - New 'starti' command to start the program at the first instruction;
+    - New 'rbreak' command to insert a number of breakpoints via a regular
+      expression pattern (requires Python);
+    - The 'ptype' command now supports printing the offset and size of
+      the fields in a struct;
+    - The 'gcore' command now supports dumping all the memory mappings
+      ('-a' command-line option);
+    - New shortcuts for TUI Single-Key mode: 'i' for stepi, and 'o' for nexti;
+    - GDBserver enhancements:
+      + Support for transmitting environment variables to GDBserver;
+      + Support for starting inferior processes with a specified initial
+         working directory;
+      + On Unix systems, support for globbing expansion and variable
+         substitution of inferior command-line arguments;
+    - Various completion enhancements;
+    - The command used to compile and inject code with the 'compile' command
+      is now configurable;
+    - New '--readnever' command-line option to speed the GDB startup when
+      debugging information is not needed;
+    - Support for the following new native configurations:
+      + FreeBSD/aarch64 (aarch64*-*-freebsd*);
+      + FreeBSD/arm (arm*-*-freebsd*);
+    - Support for the following new targets:
+      + FreeBSD/aarch64 (aarch64*-*-freebsd*);
+      + FreeBSD/arm (arm*-*-freebsd*);
+      + OpenRISC ELF (or1k*-*-elf)
+    - Removed support for the following targets and native configurations:
+      + Solaris2/x86 (i?86-*-solaris2.[0-9]);
+      + Solaris2/sparc (sparc*-*-solaris2.[0-9]);
+    (Closes: #886658, #881569, #894702)
+  * debian/patches: refresh series
+  * debian/copyright: use https instead http
+  * debian/control.in: set Rules-Requires-Root to no
+  * debian/control.in: bump standards version
+  * debian/control.in: thanks Samuel Bronson for past work
+    (Closes: #883814)
+  * debian/control.in: thanks Luca Bruno for past work
+  * debian/control: sync to debian/control.in
+
+  [ James Clarke ]
+  * Use unversioned libunwind-dev build dependency on ia64
+    (Closes: #884105)
+
+  [ Jack Henschel ]
+  * Enable Intel PT
+    (Closes: #872800)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Wed, 11 Jul 2018 19:59:33 +0200
+
+gdb (8.0-1) experimental; urgency=medium
+
+  * Imported Upstream version 8.0, changes in this release:
+    - C++: Support for rvalue references
+    - Python scripting enhancements:
+      + New functions to start, stop and access a running btrace recording.
+      + Rvalue reference support in gdb.Type.
+    - GDB commands interpreter:
+      + User commands now accept an unlimited number of arguments.
+      + The "eval" command now expands user-defined arguments.
+    - DWARF version 5 support
+      (note that its .debug_names index is not supported yet).
+    - GDB/MI enhancements:
+      + New -file-list-shared-libraries command to list the shared libraries
+        in the program.
+      + New -target-flash-erase command, to erase flash memory.
+    - Support for native FreeBSD/mips (mips*-*-freebsd)
+    - Support for the following targets:
+      + Synopsys ARC (arc*-*-elf32)
+      + FreeBSD/mips (mips*-*-freebsd)
+    - Miscellaneous enhancements:
+      + Command-line redirection now supported on MS-Windows hosts.
+      + Support for thread names on MS-Windows.
+      + Support for the PKU register on GNU/Linux.
+      + Support for Target descriptions on sparc32 and sparc64.
+      + New GDB/CLI command to erase flash memory
+      + rdrand and rdseed instructions record/replay support.
+  * Support for the following features have been removed:
+    - Support for Java programs compiled with gcj
+    - Support for the following configurations:
+      + FreeBSD/alpha (alpha*-*-freebsd*)
+      + GNU/kFreeBSD/alpha (alpha*-*-kfreebsd*-gnu)
+  * debian/patches: refresh for new release.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 04 Jun 2017 20:10:39 +0200
+
 gdb (7.12-6) unstable; urgency=medium
 
   * debian/patches: import 7.12 branch fixes

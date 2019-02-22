@@ -1,0 +1,89 @@
+From: =?utf-8?b?SMOpY3RvciBPcsOzbiBNYXJ0w61uZXo=?= <zumbi@debian.org>
+Date: Wed, 20 Feb 2019 13:25:36 +0100
+Subject: gnu-nat.c
+
+===================================================================
+---
+ gdb/gnu-nat.c | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/gdb/gnu-nat.c b/gdb/gnu-nat.c
+index a886c2b..da0fa72 100644
+--- a/gdb/gnu-nat.c
++++ b/gdb/gnu-nat.c
+@@ -67,6 +67,7 @@ extern "C"
+ #include "gdb_obstack.h"
+ #include "tid-parse.h"
+ 
++#include "nat/fork-inferior.h"
+ #include "gnu-nat.h"
+ #include "inf-child.h"
+ 
+@@ -1872,22 +1873,28 @@ S_proc_wait_reply (mach_port_t reply, kern_return_t err,
+   return 0;
+ }
+ 
++/* Note: The third argument to S_proc_getmsgport_reply, S_proc_task2proc_reply and
++   S_proc_pid2proc_reply is of type mach_port_poly_t. Look at gdb/process_reply_S.h
++   derived from process_reply.defs to find out the fourth argument */
++
+ ILL_RPC (S_proc_setmsgport_reply,
+ 	 mach_port_t reply_port, kern_return_t return_code,
+ 	 mach_port_t oldmsgport)
+ ILL_RPC (S_proc_getmsgport_reply,
+ 	 mach_port_t reply_port, kern_return_t return_code,
+-	 mach_port_t msgports)
++	 mach_port_t msgports, mach_msg_type_name_t msgportsPoly)
+ ILL_RPC (S_proc_pid2task_reply,
+ 	 mach_port_t reply_port, kern_return_t return_code, mach_port_t task)
+ ILL_RPC (S_proc_task2pid_reply,
+ 	 mach_port_t reply_port, kern_return_t return_code, pid_t pid)
+ ILL_RPC (S_proc_task2proc_reply,
+-	 mach_port_t reply_port, kern_return_t return_code, mach_port_t proc)
++	 mach_port_t reply_port, kern_return_t return_code, mach_port_t proc,
++	 mach_msg_type_name_t procPoly)
+ ILL_RPC (S_proc_proc2task_reply,
+ 	 mach_port_t reply_port, kern_return_t return_code, mach_port_t task)
+ ILL_RPC (S_proc_pid2proc_reply,
+-	 mach_port_t reply_port, kern_return_t return_code, mach_port_t proc)
++	 mach_port_t reply_port, kern_return_t return_code, mach_port_t proc,
++	 mach_msg_type_name_t procPoly)
+ ILL_RPC (S_proc_getprocinfo_reply,
+ 	 mach_port_t reply_port, kern_return_t return_code,
+ 	 int flags, procinfo_t procinfo, mach_msg_type_number_t procinfoCnt,
+@@ -2358,7 +2365,7 @@ gnu_write_inferior (task_t task, CORE_ADDR addr,
+   mach_msg_type_number_t copy_count;
+   int deallocate = 0;
+ 
+-  char *errstr = "Bug in gnu_write_inferior";
++  const char *errstr = "Bug in gnu_write_inferior";
+ 
+   struct vm_region_list *region_element;
+   struct vm_region_list *region_head = NULL;
+@@ -2775,7 +2782,7 @@ show_thread_default_cmd (const char *args, int from_tty)
+ }
+ 
+ static int
+-parse_int_arg (const char *args, char *cmd_prefix)
++parse_int_arg (const char *args, const char *cmd_prefix)
+ {
+   if (args)
+     {
+@@ -2790,7 +2797,7 @@ parse_int_arg (const char *args, char *cmd_prefix)
+ }
+ 
+ static int
+-_parse_bool_arg (const char *args, char *t_val, char *f_val, char *cmd_prefix)
++_parse_bool_arg (const char *args, const char *t_val, const char *f_val, const char *cmd_prefix)
+ {
+   if (!args || strcmp (args, t_val) == 0)
+     return 1;
+@@ -2806,7 +2813,7 @@ _parse_bool_arg (const char *args, char *t_val, char *f_val, char *cmd_prefix)
+   _parse_bool_arg (args, "on", "off", cmd_prefix)
+ 
+ static void
+-check_empty (const char *args, char *cmd_prefix)
++check_empty (const char *args, const char *cmd_prefix)
+ {
+   if (args)
+     error (_("Garbage after \"%s\" command: `%s'"), cmd_prefix, args);

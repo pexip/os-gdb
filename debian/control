@@ -1,9 +1,10 @@
 Source: gdb
 Maintainer: Héctor Orón Martínez <zumbi@debian.org>
-Uploaders: Luca Bruno <lucab@debian.org>, Samuel Bronson <naesten@gmail.com>, Riku Voipio <riku.voipio@linaro.org>
+Uploaders: Riku Voipio <riku.voipio@linaro.org>
 Section: devel
 Priority: optional
-Standards-Version: 3.9.8
+Standards-Version: 4.3.0
+Rules-Requires-Root: binary-targets
 Build-Depends:
 # Packaging deps
                cdbs (>= 0.4.90),
@@ -35,13 +36,14 @@ Build-Depends:
                liblzma-dev,
                libbabeltrace-dev [amd64 armel armhf i386 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64el powerpc s390x],
                libbabeltrace-ctf-dev [amd64 armel armhf i386 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64el powerpc s390x],
+               libipt-dev [amd64 i386 x32],
                python-dev,
 # Python3 build
                python3-dev,
                libkvm-dev [kfreebsd-any],
-               libunwind7-dev [ia64],
-Vcs-Git: git://anonscm.debian.org/pkg-gdb/gdb.git
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-gdb/gdb.git
+               libunwind-dev [ia64],
+Vcs-Git: https://salsa.debian.org/gdb-team/gdb.git
+Vcs-Browser: https://salsa.debian.org/gdb-team/gdb
 Homepage: http://www.gnu.org/s/gdb/
 
 Package: gdb
@@ -55,23 +57,6 @@ Suggests: gdb-doc,
 Conflicts: gdb
 Replaces: gdb
 Description: GNU Debugger
- GDB is a source-level debugger, capable of breaking programs at
- any specific line, displaying variable values, and determining
- where errors occurred. Currently, gdb supports C, C++, D,
- Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
- Go, and Ada. A must-have for any serious programmer.
-
-Package: gdb-python2
-Architecture: any
-Depends: ${misc:Depends},
-         ${shlibs:Depends}
-Recommends: libc-dbg
-Suggests: gdb-doc,
-          gdbserver [amd64 armel armhf arm64 i386 ia64 m32r m68k mips mipsel mips64el powerpc powerpcspe ppc64 ppc64el s390 s390x x32]
-Provides: gdb
-Conflicts: gdb
-Replaces: gdb
-Description: GNU Debugger (linked against python2)
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
  where errors occurred. Currently, gdb supports C, C++, D,
@@ -96,7 +81,7 @@ Description: GNU Debugger (minimal version)
 
 Package: gdb-multiarch
 Architecture: any
-Depends: gdb (= ${binary:Version}) | gdb-python2 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Depends: gdb (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
 Conflicts: gdb-arm-none-eabi
 Breaks: gdb-arm-none-eabi
 Provides: gdb-arm-none-eabi

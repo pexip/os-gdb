@@ -1,3 +1,9 @@
+gdb (8.2.1-2pexip1) pexip; urgency=medium
+
+  * Migrate to Buster
+
+ -- Vincent Sanders <vince@pexip.com>  Fri, 28 Feb 2020 20:02:57 +0000
+
 gdb (8.2.1-2) unstable; urgency=medium
 
   * debian/patches: binutils PR/23919 (Closes: #922745)

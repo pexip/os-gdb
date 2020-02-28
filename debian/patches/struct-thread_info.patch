@@ -1,0 +1,250 @@
+From: =?utf-8?b?SMOpY3RvciBPcsOzbiBNYXJ0w61uZXo=?= <zumbi@debian.org>
+Date: Wed, 20 Feb 2019 13:25:36 +0100
+Subject: struct-thread_info
+
+===================================================================
+---
+ gdb/breakpoint.c              |  2 +-
+ gdb/infcmd.c                  |  4 ++--
+ gdb/linux-tdep.c              |  2 +-
+ gdb/mi/mi-main.c              |  2 +-
+ gdb/progspace-and-thread.c    |  2 +-
+ gdb/python/py-record-btrace.c |  8 ++++----
+ gdb/remote.c                  |  6 +++---
+ gdb/thread.c                  | 22 +++++++++++-----------
+ 8 files changed, 24 insertions(+), 24 deletions(-)
+
+diff --git a/gdb/breakpoint.c b/gdb/breakpoint.c
+index f63801f..10224b4 100644
+--- a/gdb/breakpoint.c
++++ b/gdb/breakpoint.c
+@@ -12771,7 +12771,7 @@ momentary_bkpt_print_mention (struct breakpoint *b)
+ 
+ longjmp_breakpoint::~longjmp_breakpoint ()
+ {
+-  thread_info *tp = find_thread_global_id (this->thread);
++  struct thread_info *tp = find_thread_global_id (this->thread);
+ 
+   if (tp != NULL)
+     tp->initiating_frame = null_frame_id;
+diff --git a/gdb/infcmd.c b/gdb/infcmd.c
+index 90d1071..ce7bc2f 100644
+--- a/gdb/infcmd.c
++++ b/gdb/infcmd.c
+@@ -663,7 +663,7 @@ run_command_1 (const char *args, int from_tty, enum run_how run_how)
+   /* Queue a pending event so that the program stops immediately.  */
+   if (run_how == RUN_STOP_AT_FIRST_INSN)
+     {
+-      thread_info *thr = inferior_thread ();
++      struct thread_info *thr = inferior_thread ();
+       thr->suspend.waitstatus_pending_p = 1;
+       thr->suspend.waitstatus.kind = TARGET_WAITKIND_STOPPED;
+       thr->suspend.waitstatus.value.sig = GDB_SIGNAL_0;
+@@ -913,7 +913,7 @@ set_step_frame (void)
+   set_step_info (frame, sal);
+ 
+   CORE_ADDR pc = get_frame_pc (frame);
+-  thread_info *tp = inferior_thread ();
++  struct thread_info *tp = inferior_thread ();
+   tp->control.step_start_function = find_pc_function (pc);
+ }
+ 
+diff --git a/gdb/linux-tdep.c b/gdb/linux-tdep.c
+index fd2bc15..aca2b05 100644
+--- a/gdb/linux-tdep.c
++++ b/gdb/linux-tdep.c
+@@ -1652,7 +1652,7 @@ linux_collect_thread_registers (const struct regcache *regcache,
+    buffer.  */
+ 
+ static gdb::byte_vector
+-linux_get_siginfo_data (thread_info *thread, struct gdbarch *gdbarch)
++linux_get_siginfo_data (struct thread_info *thread, struct gdbarch *gdbarch)
+ {
+   struct type *siginfo_type;
+   LONGEST bytes_read;
+diff --git a/gdb/mi/mi-main.c b/gdb/mi/mi-main.c
+index 18ce4e6..8bc4b20 100644
+--- a/gdb/mi/mi-main.c
++++ b/gdb/mi/mi-main.c
+@@ -554,7 +554,7 @@ mi_cmd_thread_select (const char *command, char **argv, int argc)
+     error (_("-thread-select: USAGE: threadnum."));
+ 
+   int num = value_as_long (parse_and_eval (argv[0]));
+-  thread_info *thr = find_thread_global_id (num);
++  struct thread_info *thr = find_thread_global_id (num);
+   if (thr == NULL)
+     error (_("Thread ID %d not known."), num);
+ 
+diff --git a/gdb/progspace-and-thread.c b/gdb/progspace-and-thread.c
+index 0542271..dc6c5f6 100644
+--- a/gdb/progspace-and-thread.c
++++ b/gdb/progspace-and-thread.c
+@@ -28,7 +28,7 @@ switch_to_program_space_and_thread (program_space *pspace)
+ 
+   if (inf != NULL && inf->pid != 0)
+     {
+-      thread_info *tp = any_live_thread_of_inferior (inf);
++      struct thread_info *tp = any_live_thread_of_inferior (inf);
+ 
+       if (tp != NULL)
+ 	{
+diff --git a/gdb/python/py-record-btrace.c b/gdb/python/py-record-btrace.c
+index 057475e..2c5fdf6 100644
+--- a/gdb/python/py-record-btrace.c
++++ b/gdb/python/py-record-btrace.c
+@@ -72,7 +72,7 @@ btrace_insn_from_recpy_insn (const PyObject * const pyobject)
+ {
+   const btrace_insn *insn;
+   const recpy_element_object *obj;
+-  thread_info *tinfo;
++  struct thread_info *tinfo;
+   btrace_insn_iterator iter;
+ 
+   if (Py_TYPE (pyobject) != &recpy_insn_type)
+@@ -115,7 +115,7 @@ btrace_func_from_recpy_func (const PyObject * const pyobject)
+ {
+   const btrace_function *func;
+   const recpy_element_object *obj;
+-  thread_info *tinfo;
++  struct thread_info *tinfo;
+   btrace_call_iterator iter;
+ 
+   if (Py_TYPE (pyobject) != &recpy_func_type)
+@@ -153,7 +153,7 @@ btrace_func_from_recpy_func (const PyObject * const pyobject)
+    gdb.RecordInstruction or gdb.RecordGap object for it accordingly.  */
+ 
+ static PyObject *
+-btpy_insn_or_gap_new (thread_info *tinfo, Py_ssize_t number)
++btpy_insn_or_gap_new (struct thread_info *tinfo, Py_ssize_t number)
+ {
+   btrace_insn_iterator iter;
+   int err_code;
+@@ -339,7 +339,7 @@ PyObject *
+ recpy_bt_func_level (PyObject *self, void *closure)
+ {
+   const btrace_function * const func = btrace_func_from_recpy_func (self);
+-  thread_info *tinfo;
++  struct thread_info *tinfo;
+ 
+   if (func == NULL)
+     return NULL;
+diff --git a/gdb/remote.c b/gdb/remote.c
+index 4a61970..6f8d303 100644
+--- a/gdb/remote.c
++++ b/gdb/remote.c
+@@ -2373,7 +2373,7 @@ remote_target::remote_add_inferior (int fake_pid_p, int pid, int attached,
+   return inf;
+ }
+ 
+-static remote_thread_info *get_remote_thread_info (thread_info *thread);
++static remote_thread_info *get_remote_thread_info (struct thread_info *thread);
+ static remote_thread_info *get_remote_thread_info (ptid_t ptid);
+ 
+ /* Add thread PTID to GDB's thread list.  Tag it as executing/running
+@@ -2498,7 +2498,7 @@ remote_target::remote_notice_new_inferior (ptid_t currthread, int executing)
+ /* Return THREAD's private thread data, creating it if necessary.  */
+ 
+ static remote_thread_info *
+-get_remote_thread_info (thread_info *thread)
++get_remote_thread_info (struct thread_info *thread)
+ {
+   gdb_assert (thread != NULL);
+ 
+@@ -4315,7 +4315,7 @@ remote_target::add_current_inferior_and_thread (char *wait_status)
+   /* Add the main thread and switch to it.  Don't try reading
+      registers yet, since we haven't fetched the target description
+      yet.  */
+-  thread_info *tp = add_thread_silent (curr_ptid);
++  struct thread_info *tp = add_thread_silent (curr_ptid);
+   switch_to_thread_no_regs (tp);
+ }
+ 
+diff --git a/gdb/thread.c b/gdb/thread.c
+index 517a807..61f2c83 100644
+--- a/gdb/thread.c
++++ b/gdb/thread.c
+@@ -68,21 +68,21 @@ static int thread_alive (struct thread_info *);
+ class scoped_inc_dec_ref
+ {
+ public:
+-  explicit scoped_inc_dec_ref (const std::vector<thread_info *> &thrds)
++  explicit scoped_inc_dec_ref (const std::vector<struct thread_info *> &thrds)
+     : m_thrds (thrds)
+   {
+-    for (thread_info *thr : m_thrds)
++    for (struct thread_info *thr : m_thrds)
+       thr->incref ();
+   }
+ 
+   ~scoped_inc_dec_ref ()
+   {
+-    for (thread_info *thr : m_thrds)
++    for (struct thread_info *thr : m_thrds)
+       thr->decref ();
+   }
+ 
+ private:
+-  const std::vector<thread_info *> &m_thrds;
++  const std::vector<struct thread_info *> &m_thrds;
+ };
+ 
+ 
+@@ -199,7 +199,7 @@ clear_thread_inferior_resources (struct thread_info *tp)
+ /* Set the TP's state as exited.  */
+ 
+ static void
+-set_thread_exited (thread_info *tp, int silent)
++set_thread_exited (struct thread_info *tp, int silent)
+ {
+   /* Dead threads don't need to step-over.  Remove from queue.  */
+   if (tp->step_over_next != NULL)
+@@ -242,7 +242,7 @@ init_thread_list (void)
+ static struct thread_info *
+ new_thread (struct inferior *inf, ptid_t ptid)
+ {
+-  thread_info *tp = new thread_info (inf, ptid);
++  struct thread_info *tp = new struct thread_info (inf, ptid);
+ 
+   if (thread_list == NULL)
+     thread_list = tp;
+@@ -1567,7 +1567,7 @@ static bool tp_array_compar_ascending;
+    order is determined by TP_ARRAY_COMPAR_ASCENDING.  */
+ 
+ static bool
+-tp_array_compar (const thread_info *a, const thread_info *b)
++tp_array_compar (const struct thread_info *a, const struct thread_info *b)
+ {
+   if (a->inf->num != b->inf->num)
+     {
+@@ -1615,11 +1615,11 @@ thread_apply_all_command (const char *cmd, int from_tty)
+ 	 thread, in case the command is one that wipes threads.  E.g.,
+ 	 detach, kill, disconnect, etc., or even normally continuing
+ 	 over an inferior or thread exit.  */
+-      std::vector<thread_info *> thr_list_cpy;
++      std::vector<struct thread_info *> thr_list_cpy;
+       thr_list_cpy.reserve (tc);
+ 
+       {
+-	thread_info *tp;
++	struct thread_info *tp;
+ 
+ 	ALL_NON_EXITED_THREADS (tp)
+ 	  {
+@@ -1637,7 +1637,7 @@ thread_apply_all_command (const char *cmd, int from_tty)
+ 
+       scoped_restore_current_thread restore_thread;
+ 
+-      for (thread_info *thr : thr_list_cpy)
++      for (struct thread_info *thr : thr_list_cpy)
+ 	if (thread_alive (thr))
+ 	  {
+ 	    switch_to_thread (thr);
+@@ -1868,7 +1868,7 @@ show_print_thread_events (struct ui_file *file, int from_tty,
+ /* See gdbthread.h.  */
+ 
+ void
+-thread_select (const char *tidstr, thread_info *tp)
++thread_select (const char *tidstr, struct thread_info *tp)
+ {
+   if (!thread_alive (tp))
+     error (_("Thread ID %s has terminated."), tidstr);

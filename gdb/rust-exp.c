@@ -1,8 +1,8 @@
-/* A Bison parser, made by GNU Bison 3.0.2.  */
+/* A Bison parser, made by GNU Bison 3.0.4.  */
 
 /* Bison implementation for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@
 #define YYBISON 1
 
 /* Bison version.  */
-#define YYBISON_VERSION "3.0.2"
+#define YYBISON_VERSION "3.0.4"
 
 /* Skeleton name.  */
 #define YYSKELETON_NAME "yacc.c"
@@ -83,11 +83,8 @@
 
 #define RUSTSTYPE YYSTYPE
 
-extern initialize_file_ftype _initialize_rust_exp;
-
 struct rust_op;
-typedef const struct rust_op *rust_op_ptr;
-DEF_VEC_P (rust_op_ptr);
+typedef std::vector<const struct rust_op *> rust_op_vector;
 
 /* A typed integer constant.  */
 
@@ -101,7 +98,7 @@ struct typed_val_int
 
 struct typed_val_float
 {
-  DOUBLEST dval;
+  gdb_byte val[16];
   struct type *type;
 };
 
@@ -114,12 +111,10 @@ struct set_field
   const struct rust_op *init;
 };
 
-typedef struct set_field set_field;
-
-DEF_VEC_O (set_field);
-
+typedef std::vector<set_field> rust_set_vector;
 
 static int rustyylex (void);
+static void rustyyerror (const char *msg);
 static void rust_push_back (char c);
 static const char *rust_copy_name (const char *, int);
 static struct stoken rust_concat3 (const char *, const char *, const char *);
@@ -154,14 +149,15 @@ static const struct rust_op *ast_cast (const struct rust_op *expr,
 				       const struct rust_op *type);
 static const struct rust_op *ast_call_ish (enum exp_opcode opcode,
 					   const struct rust_op *expr,
-					   VEC (rust_op_ptr) **params);
+					   rust_op_vector *params);
 static const struct rust_op *ast_path (struct stoken name,
-				       VEC (rust_op_ptr) **params);
+				       rust_op_vector *params);
 static const struct rust_op *ast_string (struct stoken str);
 static const struct rust_op *ast_struct (const struct rust_op *name,
-					 VEC (set_field) **fields);
+					 rust_set_vector *fields);
 static const struct rust_op *ast_range (const struct rust_op *lhs,
-					const struct rust_op *rhs);
+					const struct rust_op *rhs,
+					bool inclusive);
 static const struct rust_op *ast_array_type (const struct rust_op *lhs,
 					     struct typed_val_int val);
 static const struct rust_op *ast_slice_type (const struct rust_op *type);
@@ -169,13 +165,13 @@ static const struct rust_op *ast_reference_type (const struct rust_op *type);
 static const struct rust_op *ast_pointer_type (const struct rust_op *type,
 					       int is_mut);
 static const struct rust_op *ast_function_type (const struct rust_op *result,
-						VEC (rust_op_ptr) **params);
-static const struct rust_op *ast_tuple_type (VEC (rust_op_ptr) **params);
+						rust_op_vector *params);
+static const struct rust_op *ast_tuple_type (rust_op_vector *params);
 
-/* The state of the parser, used internally when we are parsing the
-   expression.  */
+/* The current rust parser.  */
 
-static struct parser_state *pstate = NULL;
+struct rust_parser;
+static rust_parser *current_parser;
 
 /* A regular expression for matching Rust numbers.  This is split up
    since it is very long and this gives us a way to comment the
@@ -223,26 +219,85 @@ static const char *number_regex_text =
 
 static regex_t number_regex;
 
-/* True if we're running unit tests.  */
+/* Obstack for data temporarily allocated during parsing.  Points to
+   the obstack in the rust_parser, or to a temporary obstack during
+   unit testing.  */
 
-static int unit_testing;
+static auto_obstack *work_obstack;
 
-/* Obstack for data temporarily allocated during parsing.  */
+/* An instance of this is created before parsing, and destroyed when
+   parsing is finished.  */
 
-static struct obstack work_obstack;
+struct rust_parser
+{
+  rust_parser (struct parser_state *state)
+    : rust_ast (nullptr),
+      pstate (state)
+  {
+    gdb_assert (current_parser == nullptr);
+    current_parser = this;
+    work_obstack = &obstack;
+  }
 
-/* Result of parsing.  Points into work_obstack.  */
+  ~rust_parser ()
+  {
+    /* Clean up the globals we set.  */
+    current_parser = nullptr;
+    work_obstack = nullptr;
+  }
 
-static const struct rust_op *rust_ast;
+  /* Create a new rust_set_vector.  The storage for the new vector is
+     managed by this class.  */
+  rust_set_vector *new_set_vector ()
+  {
+    rust_set_vector *result = new rust_set_vector;
+    set_vectors.push_back (std::unique_ptr<rust_set_vector> (result));
+    return result;
+  }
+
+  /* Create a new rust_ops_vector.  The storage for the new vector is
+     managed by this class.  */
+  rust_op_vector *new_op_vector ()
+  {
+    rust_op_vector *result = new rust_op_vector;
+    op_vectors.push_back (std::unique_ptr<rust_op_vector> (result));
+    return result;
+  }
+
+  /* Return the parser's language.  */
+  const struct language_defn *language () const
+  {
+    return parse_language (pstate);
+  }
+
+  /* Return the parser's gdbarch.  */
+  struct gdbarch *arch () const
+  {
+    return parse_gdbarch (pstate);
+  }
+
+  /* A pointer to this is installed globally.  */
+  auto_obstack obstack;
+
+  /* Result of parsing.  Points into obstack.  */
+  const struct rust_op *rust_ast;
+
+  /* This keeps track of the various vectors we allocate.  */
+  std::vector<std::unique_ptr<rust_set_vector>> set_vectors;
+  std::vector<std::unique_ptr<rust_op_vector>> op_vectors;
+
+  /* The parser state gdb gave us.  */
+  struct parser_state *pstate;
+};
 
 
-#line 240 "rust-exp.c" /* yacc.c:339  */
+#line 295 "rust-exp.c.tmp" /* yacc.c:339  */
 
-# ifndef YY_NULLPTR
+# ifndef YY_NULLPTRPTR
 #  if defined __cplusplus && 201103L <= __cplusplus
-#   define YY_NULLPTR nullptr
+#   define YY_NULLPTRPTR nullptr
 #  else
-#   define YY_NULLPTR 0
+#   define YY_NULLPTRPTR 0
 #  endif
 # endif
 
@@ -287,18 +342,20 @@ extern int yydebug;
     KW_EXTERN = 274,
     KW_CONST = 275,
     KW_FN = 276,
-    DOTDOT = 277,
-    OROR = 278,
-    ANDAND = 279,
-    EQEQ = 280,
-    NOTEQ = 281,
-    LTEQ = 282,
-    GTEQ = 283,
-    LSH = 284,
-    RSH = 285,
-    COLONCOLON = 286,
-    ARROW = 287,
-    UNARY = 288
+    KW_SIZEOF = 277,
+    DOTDOT = 278,
+    DOTDOTEQ = 279,
+    OROR = 280,
+    ANDAND = 281,
+    EQEQ = 282,
+    NOTEQ = 283,
+    LTEQ = 284,
+    GTEQ = 285,
+    LSH = 286,
+    RSH = 287,
+    COLONCOLON = 288,
+    ARROW = 289,
+    UNARY = 290
   };
 #endif
 /* Tokens.  */
@@ -321,25 +378,27 @@ extern int yydebug;
 #define KW_EXTERN 274
 #define KW_CONST 275
 #define KW_FN 276
-#define DOTDOT 277
-#define OROR 278
-#define ANDAND 279
-#define EQEQ 280
-#define NOTEQ 281
-#define LTEQ 282
-#define GTEQ 283
-#define LSH 284
-#define RSH 285
-#define COLONCOLON 286
-#define ARROW 287
-#define UNARY 288
+#define KW_SIZEOF 277
+#define DOTDOT 278
+#define DOTDOTEQ 279
+#define OROR 280
+#define ANDAND 281
+#define EQEQ 282
+#define NOTEQ 283
+#define LTEQ 284
+#define GTEQ 285
+#define LSH 286
+#define RSH 287
+#define COLONCOLON 288
+#define ARROW 289
+#define UNARY 290
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef union YYSTYPE YYSTYPE;
+
 union YYSTYPE
 {
-#line 197 "rust-exp.y" /* yacc.c:355  */
+#line 252 "rust-exp.y" /* yacc.c:355  */
 
   /* A typed integer constant.  */
   struct typed_val_int typed_val_int;
@@ -355,10 +414,10 @@ union YYSTYPE
 
   /* A list of expressions; for example, the arguments to a function
      call.  */
-  VEC (rust_op_ptr) **params;
+  rust_op_vector *params;
 
   /* A list of field initializers.  */
-  VEC (set_field) **field_inits;
+  rust_set_vector *field_inits;
 
   /* A single field initializer.  */
   struct set_field one_field_init;
@@ -370,8 +429,10 @@ union YYSTYPE
      "super::" prefixes on a path.  */
   unsigned int depth;
 
-#line 374 "rust-exp.c" /* yacc.c:355  */
+#line 433 "rust-exp.c.tmp" /* yacc.c:355  */
 };
+
+typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
 #endif
@@ -384,7 +445,7 @@ int yyparse (void);
 
 
 /* Copy the second part of user declarations.  */
-#line 228 "rust-exp.y" /* yacc.c:358  */
+#line 283 "rust-exp.y" /* yacc.c:358  */
 
 
   /* Rust AST operations.  We build a tree of these; then lower them
@@ -407,6 +468,9 @@ struct rust_op
      name occurred at the end of the expression and is eligible for
      completion.  */
   unsigned int completing : 1;
+  /* For OP_RANGE, indicates whether the range is inclusive or
+     exclusive.  */
+  unsigned int inclusive : 1;
   /* Operands of expression.  Which one is used and how depends on the
      particular opcode.  */
   RUSTSTYPE left;
@@ -414,7 +478,7 @@ struct rust_op
 };
 
 
-#line 418 "rust-exp.c" /* yacc.c:358  */
+#line 482 "rust-exp.c.tmp" /* yacc.c:358  */
 
 #ifdef short
 # undef short
@@ -653,23 +717,23 @@ union yyalloc
 #endif /* !YYCOPY_NEEDED */
 
 /* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  58
+#define YYFINAL  62
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   1012
+#define YYLAST   1124
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  57
+#define YYNTOKENS  59
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  35
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  120
+#define YYNRULES  125
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  209
+#define YYNSTATES  219
 
 /* YYTRANSLATE[YYX] -- Symbol number corresponding to YYX as returned
    by yylex, with out-of-bounds checking.  */
 #define YYUNDEFTOK  2
-#define YYMAXUTOK   288
+#define YYMAXUTOK   290
 
 #define YYTRANSLATE(YYX)                                                \
   ((unsigned int) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
@@ -681,16 +745,16 @@ static const yytype_uint8 yytranslate[] =
        0,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,    56,     2,     2,     2,    44,    38,     2,
-      48,    50,    42,    40,    49,    41,    47,    43,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,    53,    55,
-      34,    33,    35,     2,    39,     2,     2,     2,     2,     2,
+       2,     2,     2,    58,     2,     2,     2,    46,    40,     2,
+      50,    52,    44,    42,    51,    43,    49,    45,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,    55,    57,
+      36,    35,    37,     2,    41,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,    46,     2,    54,    37,     2,     2,     2,     2,     2,
+       2,    48,     2,    56,    39,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,    51,    36,    52,     2,     2,     2,     2,
+       2,     2,     2,    53,    38,    54,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -706,26 +770,27 @@ static const yytype_uint8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
        5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
       15,    16,    17,    18,    19,    20,    21,    22,    23,    24,
-      25,    26,    27,    28,    29,    30,    31,    32,    45
+      25,    26,    27,    28,    29,    30,    31,    32,    33,    34,
+      47
 };
 
 #if YYDEBUG
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   352,   352,   365,   366,   367,   368,   369,   370,   371,
-     372,   373,   374,   375,   376,   377,   381,   389,   406,   411,
-     421,   433,   438,   448,   460,   462,   464,   466,   471,   473,
-     475,   477,   482,   484,   486,   488,   517,   519,   528,   540,
-     542,   547,   552,   557,   560,   563,   572,   575,   578,   584,
-     585,   586,   587,   591,   594,   597,   600,   603,   606,   609,
-     612,   615,   618,   621,   624,   627,   630,   633,   636,   639,
-     642,   645,   650,   655,   660,   666,   671,   677,   686,   691,
-     696,   703,   707,   709,   713,   715,   720,   722,   724,   729,
-     730,   732,   734,   736,   748,   750,   756,   758,   766,   767,
-     769,   771,   773,   785,   787,   796,   797,   799,   807,   808,
-     810,   812,   814,   816,   818,   820,   822,   828,   829,   834,
-     843
+       0,   412,   412,   425,   426,   427,   428,   429,   430,   431,
+     432,   433,   434,   436,   437,   438,   442,   450,   467,   472,
+     482,   490,   502,   505,   511,   520,   532,   534,   536,   538,
+     543,   545,   547,   549,   551,   553,   558,   560,   562,   564,
+     591,   593,   602,   614,   616,   621,   626,   631,   634,   637,
+     646,   649,   652,   654,   659,   660,   661,   662,   666,   669,
+     672,   675,   678,   681,   684,   687,   690,   693,   696,   699,
+     702,   705,   708,   711,   714,   717,   720,   725,   730,   735,
+     741,   746,   751,   760,   764,   769,   774,   778,   780,   784,
+     786,   791,   793,   795,   800,   801,   803,   805,   807,   819,
+     821,   827,   829,   837,   838,   840,   842,   844,   856,   858,
+     867,   868,   870,   878,   879,   881,   883,   885,   887,   889,
+     891,   893,   899,   900,   905,   911
 };
 #endif
 
@@ -737,19 +802,20 @@ static const char *const yytname[] =
   "$end", "error", "$undefined", "GDBVAR", "IDENT", "COMPLETE", "INTEGER",
   "DECIMAL_INTEGER", "STRING", "BYTESTRING", "FLOAT", "COMPOUND_ASSIGN",
   "KW_AS", "KW_IF", "KW_TRUE", "KW_FALSE", "KW_SUPER", "KW_SELF", "KW_MUT",
-  "KW_EXTERN", "KW_CONST", "KW_FN", "DOTDOT", "OROR", "ANDAND", "EQEQ",
-  "NOTEQ", "LTEQ", "GTEQ", "LSH", "RSH", "COLONCOLON", "ARROW", "'='",
-  "'<'", "'>'", "'|'", "'^'", "'&'", "'@'", "'+'", "'-'", "'*'", "'/'",
-  "'%'", "UNARY", "'['", "'.'", "'('", "','", "')'", "'{'", "'}'", "':'",
-  "']'", "';'", "'!'", "$accept", "start", "expr", "tuple_expr",
-  "unit_expr", "struct_expr", "struct_expr_tail", "struct_expr_list",
-  "array_expr", "range_expr", "literal", "field_expr", "idx_expr",
-  "unop_expr", "binop_expr", "binop_expr_expr", "type_cast_expr",
-  "assignment_expr", "compound_assignment_expr", "paren_expr", "expr_list",
-  "maybe_expr_list", "paren_expr_list", "call_expr", "maybe_self_path",
-  "super_path", "path_expr", "path_for_expr", "identifier_path_for_expr",
-  "path_for_type", "just_identifiers_for_type", "identifier_path_for_type",
-  "type", "maybe_type_list", "type_list", YY_NULLPTR
+  "KW_EXTERN", "KW_CONST", "KW_FN", "KW_SIZEOF", "DOTDOT", "DOTDOTEQ",
+  "OROR", "ANDAND", "EQEQ", "NOTEQ", "LTEQ", "GTEQ", "LSH", "RSH",
+  "COLONCOLON", "ARROW", "'='", "'<'", "'>'", "'|'", "'^'", "'&'", "'@'",
+  "'+'", "'-'", "'*'", "'/'", "'%'", "UNARY", "'['", "'.'", "'('", "','",
+  "')'", "'{'", "'}'", "':'", "']'", "';'", "'!'", "$accept", "start",
+  "expr", "tuple_expr", "unit_expr", "struct_expr", "struct_expr_tail",
+  "struct_expr_list", "array_expr", "range_expr", "literal", "field_expr",
+  "idx_expr", "unop_expr", "binop_expr", "binop_expr_expr",
+  "type_cast_expr", "assignment_expr", "compound_assignment_expr",
+  "paren_expr", "expr_list", "maybe_expr_list", "paren_expr_list",
+  "call_expr", "maybe_self_path", "super_path", "path_expr",
+  "path_for_expr", "identifier_path_for_expr", "path_for_type",
+  "just_identifiers_for_type", "identifier_path_for_type", "type",
+  "maybe_type_list", "type_list", YY_NULLPTRPTR
 };
 #endif
 
@@ -761,47 +827,48 @@ static const yytype_uint16 yytoknum[] =
        0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
      265,   266,   267,   268,   269,   270,   271,   272,   273,   274,
      275,   276,   277,   278,   279,   280,   281,   282,   283,   284,
-     285,   286,   287,    61,    60,    62,   124,    94,    38,    64,
-      43,    45,    42,    47,    37,   288,    91,    46,    40,    44,
-      41,   123,   125,    58,    93,    59,    33
+     285,   286,   287,   288,   289,    61,    60,    62,   124,    94,
+      38,    64,    43,    45,    42,    47,    37,   290,    91,    46,
+      40,    44,    41,   123,   125,    58,    93,    59,    33
 };
 # endif
 
-#define YYPACT_NINF -147
+#define YYPACT_NINF -181
 
 #define yypact_value_is_default(Yystate) \
-  (!!((Yystate) == (-147)))
+  (!!((Yystate) == (-181)))
 
-#define YYTABLE_NINF -118
+#define YYTABLE_NINF -123
 
 #define yytable_value_is_error(Yytable_value) \
-  (!!((Yytable_value) == (-118)))
+  (!!((Yytable_value) == (-123)))
 
   /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
      STATE-NUM.  */
 static const yytype_int16 yypact[] =
 {
-     376,  -147,  -147,  -147,  -147,  -147,  -147,  -147,  -147,  -147,
-     -20,    27,   116,    27,   172,   376,   376,   376,   223,   274,
-     376,    35,   729,  -147,  -147,  -147,  -147,  -147,  -147,  -147,
-    -147,  -147,  -147,  -147,  -147,  -147,  -147,  -147,  -147,    34,
-    -147,     3,    56,    27,    56,   767,    56,   376,    10,    10,
-      10,    10,   376,   424,     6,  -147,   650,    10,  -147,   376,
-     503,   116,   376,   376,   376,   376,   376,   376,   376,   376,
-     376,   376,   376,   376,   376,   376,   376,   376,   376,   376,
-     376,   376,   376,    38,   325,  -147,    58,    18,     1,    -1,
-      56,    10,   462,    36,   376,   376,  -147,   325,  -147,   805,
-    -147,    69,    98,    57,    98,   508,    68,   503,   392,    34,
-    -147,    -6,  -147,  -147,   767,   838,   871,   904,   904,   904,
-     904,   158,   158,   805,   904,   904,   924,   944,   964,   209,
-     255,   255,   -10,   -10,   -10,   536,  -147,  -147,  -147,   729,
-      61,    62,  -147,    76,    56,    60,   376,  -147,    63,  -147,
-     503,   376,  -147,   574,   729,    64,    98,  -147,   392,  -147,
-     503,  -147,   503,   503,    66,  -147,    67,    78,    25,   112,
-     503,  -147,  -147,  -147,   376,   729,  -147,   -22,   612,  -147,
-    -147,  -147,    87,    43,  -147,  -147,    86,  -147,   503,  -147,
-    -147,    -9,   690,  -147,  -147,  -147,    96,  -147,    82,    85,
-    -147,  -147,  -147,     1,   503,  -147,  -147,  -147,  -147
+     423,  -181,  -181,  -181,  -181,  -181,  -181,  -181,  -181,  -181,
+     -18,    19,     8,   158,   423,    19,   211,   423,   423,   423,
+     264,   317,   423,    49,   826,  -181,  -181,  -181,  -181,  -181,
+    -181,  -181,  -181,  -181,  -181,  -181,  -181,  -181,  -181,  -181,
+    -181,    73,  -181,    57,    85,    19,    85,   423,   866,   866,
+      85,   423,    84,    84,    84,    84,   423,   463,   -25,  -181,
+     701,    84,  -181,   423,   546,   158,   423,   423,   423,   423,
+     423,   423,   423,   423,   423,   423,   423,   423,   423,   423,
+     423,   423,   423,   423,   423,   423,   423,   423,    90,   370,
+    -181,   103,    89,     5,    -1,    85,   743,    84,   503,    -3,
+     423,   423,  -181,   370,  -181,   906,  -181,   108,   109,    96,
+     109,   551,   122,   546,    87,    73,  -181,    63,  -181,  -181,
+     866,   866,   941,   976,  1011,  1011,  1011,  1011,    80,    80,
+     906,  1011,  1011,  1032,  1053,  1074,   144,    -6,    -6,    12,
+      12,    12,   581,  -181,  -181,  -181,   826,    97,    95,  -181,
+     116,    85,   -43,   423,  -181,    98,  -181,   546,  -181,   423,
+    -181,   621,   826,   102,   109,  -181,    87,  -181,   546,  -181,
+     546,   546,    93,  -181,   105,   100,    99,   154,   546,  -181,
+    -181,  -181,     5,   423,   826,  -181,    -5,   661,  -181,  -181,
+    -181,   111,   -27,  -181,  -181,   138,  -181,   546,  -181,  -181,
+      13,  -181,   785,  -181,  -181,  -181,   135,  -181,   114,   115,
+    -181,  -181,  -181,     5,   546,  -181,  -181,  -181,  -181
 };
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -809,45 +876,46 @@ static const yytype_int16 yypact[] =
      means the default is an error.  */
 static const yytype_uint8 yydefact[] =
 {
-      82,    87,    94,    32,    33,    35,    36,    34,    37,    38,
-      88,     0,    31,     0,    82,    82,    82,    82,    82,    82,
-      82,     0,     2,     5,     6,     7,     9,    11,     3,     8,
-      10,    12,    13,    49,    50,    51,    52,    14,    15,     0,
-       4,    86,    89,    83,    93,    30,    92,    82,    47,    43,
-      44,    46,    82,    76,     0,    17,     0,    45,     1,    82,
-      82,    28,    82,    82,    82,    82,    82,    82,    82,    82,
-      82,    82,    82,    82,    82,    82,    82,    82,    82,    82,
-      82,    82,    82,     0,    78,    81,     0,     0,    21,     0,
-      90,    48,    76,     0,    82,    82,    25,    78,    75,    74,
-     103,     0,     0,     0,     0,    82,     0,    82,    82,     0,
-     108,   105,    98,    72,    29,    64,    65,    66,    67,    68,
-      69,    70,    71,    73,    57,    58,    60,    61,    59,    54,
-      62,    63,    53,    55,    56,     0,    39,    40,    41,    76,
-      79,     0,    84,     0,    91,     0,    82,    22,     0,    95,
-      82,    82,    24,     0,    77,     0,    83,   102,    82,   101,
-      82,   112,    82,    82,     0,   119,     0,   118,     0,     0,
-      82,    42,    80,    85,    82,    19,    18,     0,     0,    27,
-      16,    99,     0,     0,   113,   114,     0,   116,    82,   100,
-     104,     0,    20,    97,    96,    26,     0,   111,     0,     0,
-     120,   107,   106,    21,    82,   109,   110,    23,   115
+      87,    92,    99,    36,    37,    39,    40,    38,    41,    42,
+      93,     0,     0,    35,    87,     0,    87,    87,    87,    87,
+      87,    87,    87,     0,     2,     5,     6,     7,     9,    11,
+       3,     8,    10,    12,    13,    54,    55,    56,    57,    14,
+      15,     0,     4,    91,    94,    88,    98,    87,    33,    34,
+      97,    87,    51,    47,    48,    50,    87,    81,     0,    17,
+       0,    49,     1,    87,    87,    30,    87,    87,    87,    87,
+      87,    87,    87,    87,    87,    87,    87,    87,    87,    87,
+      87,    87,    87,    87,    87,    87,    87,    87,     0,    83,
+      86,     0,     0,    22,     0,    95,     0,    52,    81,     0,
+      87,    87,    27,    83,    80,    79,   108,     0,     0,     0,
+       0,    87,     0,    87,    87,     0,   113,   110,   103,    77,
+      31,    32,    69,    70,    71,    72,    73,    74,    75,    76,
+      78,    62,    63,    65,    66,    64,    59,    67,    68,    58,
+      60,    61,     0,    43,    44,    45,    81,    84,     0,    89,
+       0,    96,    21,    87,    23,     0,   100,    87,    53,    87,
+      26,     0,    82,     0,    88,   107,    87,   106,    87,   117,
+      87,    87,     0,   124,     0,   123,     0,     0,    87,    46,
+      85,    90,    22,    87,    19,    18,     0,     0,    29,    16,
+     104,     0,     0,   118,   119,     0,   121,    87,   105,   109,
+       0,    25,    20,   102,   101,    28,     0,   116,     0,     0,
+     125,   112,   111,    22,    87,   114,   115,    24,   120
 };
 
   /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int16 yypgoto[] =
 {
-    -147,  -147,     0,  -147,  -147,  -147,  -147,   -85,  -147,  -147,
-    -147,  -147,  -147,  -147,  -147,  -147,  -147,  -147,  -147,  -147,
-      -8,    44,  -147,  -147,   -59,    31,  -147,  -147,    -4,  -147,
-    -147,   -72,   -54,   -16,  -146
+    -181,  -181,     0,  -181,  -181,  -181,  -181,  -180,  -181,  -181,
+    -181,  -181,  -181,  -181,  -181,  -181,  -181,  -181,  -181,  -181,
+     -19,    75,  -181,  -181,   -59,    61,  -181,  -181,    -4,  -181,
+    -181,   -74,   -54,    18,  -153
 };
 
   /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int16 yydefgoto[] =
 {
-      -1,    21,   139,    23,    24,    25,   147,   148,    26,    27,
-      28,    29,    30,    31,    32,    33,    34,    35,    36,    37,
-     140,   141,    85,    38,    39,    87,    40,    41,    42,   110,
-     111,   112,   165,   166,   167
+      -1,    23,   146,    25,    26,    27,   154,   155,    28,    29,
+      30,    31,    32,    33,    34,    35,    36,    37,    38,    39,
+     147,   148,    90,    40,    41,    92,    42,    43,    44,   116,
+     117,   118,   173,   174,   175
 };
 
   /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -855,214 +923,236 @@ static const yytype_int16 yydefgoto[] =
      number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int16 yytable[] =
 {
-      22,   109,    60,   149,   177,   145,   113,    44,   193,    46,
-      54,    43,    45,   194,    48,    49,    50,    51,    53,    56,
-      57,   201,     2,   146,   191,   169,   202,   188,   170,   100,
-     157,     2,   159,   150,   143,    58,    82,    83,    84,    90,
-     188,   143,   136,   137,    93,   138,   109,    91,   109,   109,
-      86,   161,    92,   164,    88,    95,    82,    83,    84,    99,
-      96,   114,   115,   116,   117,   118,   119,   120,   121,   122,
-     123,   124,   125,   126,   127,   128,   129,   130,   131,   132,
-     133,   134,   135,   144,   181,    95,   162,    89,   163,   142,
-     152,   109,   198,   199,   153,   154,   189,   197,   186,   109,
-     156,   109,   100,   109,   109,   158,   183,   173,   184,   185,
-      95,   109,   172,   174,   180,   176,   190,   187,   207,     1,
-       2,   186,     3,     4,     5,     6,     7,   188,   204,   109,
-       8,     9,   -82,    10,   200,    11,   205,   196,  -118,   206,
-     168,   155,   182,     0,     0,   109,   175,    13,     0,     0,
-     208,   178,     0,     0,    14,     0,    15,    16,    17,     0,
-       0,     0,    18,     0,    19,     0,     0,     0,     0,     0,
-      60,     0,    20,     0,   192,     1,     2,     0,     3,     4,
-       5,     6,     7,     0,     0,     0,     8,     9,     0,    10,
-      47,    11,     0,     0,    12,     0,     0,    76,    77,    78,
-      79,    80,    81,    13,    82,    83,    84,     0,     0,     0,
-      14,     0,    15,    16,    17,     0,     0,     0,    18,     0,
-      19,    60,     0,     0,     0,     0,     1,     2,    20,     3,
-       4,     5,     6,     7,     0,     0,     0,     8,     9,     0,
-      10,    52,    11,     0,     0,    12,     0,     0,     0,    77,
-      78,    79,    80,    81,    13,    82,    83,    84,     0,     0,
-       0,    14,     0,    15,    16,    17,     0,    60,     0,    18,
-       0,    19,     0,     0,     0,     0,     0,     1,     2,    20,
+      24,    58,   201,   156,   186,   115,    64,    46,   182,   152,
+     119,    50,   183,    48,    49,    45,    52,    53,    54,    55,
+      57,    60,    61,     2,    64,   200,   101,   203,   153,   207,
+     195,   102,   204,   217,   165,   157,   167,    99,    84,    85,
+      86,    95,    87,    88,    89,   211,   197,    96,   101,    62,
+     212,    97,   115,   160,   115,   115,    98,   169,    47,   172,
+      87,    88,    89,   105,   197,   120,   121,   122,   123,   124,
+     125,   126,   127,   128,   129,   130,   131,   132,   133,   134,
+     135,   136,   137,   138,   139,   140,   141,   142,   151,    91,
+     190,   106,    64,     2,   143,   144,   177,   145,   115,   178,
+     161,   162,   198,   106,   107,   150,   108,   115,   109,   115,
+      93,   115,   115,   106,   192,   150,   193,   194,    94,   115,
+     110,    81,    82,    83,    84,    85,    86,   111,    87,    88,
+      89,   112,    87,    88,    89,   113,   149,   114,   115,  -122,
+     170,   164,   171,   210,   208,   209,   166,   180,   101,   181,
+     195,   197,   185,   184,   189,   115,    64,   196,   199,   187,
+     218,     1,     2,   206,     3,     4,     5,     6,     7,   214,
+     215,   216,     8,     9,   -87,    10,   176,    11,   163,     0,
+      12,  -123,  -123,   202,   191,     0,    82,    83,    84,    85,
+      86,    15,    87,    88,    89,     0,     0,     0,    16,     0,
+      17,    18,    19,     0,     0,     0,    20,     0,    21,     0,
+       0,     0,     0,     0,     1,     2,    22,     3,     4,     5,
+       6,     7,     0,     0,     0,     8,     9,     0,    10,    51,
+      11,     0,     0,    12,    13,    14,     0,     0,     0,     0,
+       0,     0,     0,     0,    15,     0,     0,     0,     0,     0,
+       0,    16,     0,    17,    18,    19,     0,     0,     0,    20,
+       0,    21,     0,     0,     0,     0,     0,     1,     2,    22,
        3,     4,     5,     6,     7,     0,     0,     0,     8,     9,
-       0,    10,     0,    11,     0,     0,    12,    79,    80,    81,
-       0,    82,    83,    84,     0,    13,     0,     0,     0,     0,
-       0,     0,    14,     0,    15,    16,    17,     0,     0,     0,
-      18,     0,    19,     0,    55,     0,     0,     0,     1,     2,
-      20,     3,     4,     5,     6,     7,     0,     0,     0,     8,
-       9,   -82,    10,     0,    11,     0,     0,    12,     0,     0,
-       0,     0,     0,     0,     0,     0,    13,     0,     0,     0,
-       0,     0,     0,    14,     0,    15,    16,    17,     0,     0,
-       0,    18,     0,    19,     0,     0,     0,     0,     0,     1,
-       2,    20,     3,     4,     5,     6,     7,     0,     0,     0,
-       8,     9,     0,    10,     0,    11,   100,     0,    12,     0,
-       0,     0,     0,     0,     0,     0,     0,    13,     0,   101,
-       0,   102,     0,   103,    14,     0,    15,    16,    17,     0,
-       0,     0,    18,   104,    19,     0,     0,     0,     0,     0,
-     105,     0,    20,     0,   106,    59,    60,     0,   107,     0,
-     108,     0,  -117,     0,     0,     0,    61,    62,    63,    64,
-      65,    66,    67,    68,    69,     0,     0,    70,    71,    72,
-      73,    74,    75,    76,    77,    78,    79,    80,    81,     0,
-      82,    83,    84,    59,    60,     0,     0,     0,     0,    94,
-       0,     0,     0,     0,    61,    62,    63,    64,    65,    66,
-      67,    68,    69,     0,     0,    70,    71,    72,    73,    74,
-      75,    76,    77,    78,    79,    80,    81,   100,    82,    83,
-      84,     0,   100,     0,     0,     0,     0,   151,     0,     0,
-     101,     0,   102,     0,   103,   101,     0,   102,     0,   103,
-       0,     0,     0,     0,   104,     0,     0,     0,     0,   104,
-       0,   105,     0,     0,     0,   106,   105,    59,    60,   107,
-     106,   108,     0,     0,   160,     0,   108,     0,    61,    62,
-      63,    64,    65,    66,    67,    68,    69,     0,     0,    70,
-      71,    72,    73,    74,    75,    76,    77,    78,    79,    80,
-      81,     0,    82,    83,    84,    59,    60,     0,     0,     0,
-     171,     0,     0,     0,     0,     0,    61,    62,    63,    64,
-      65,    66,    67,    68,    69,     0,     0,    70,    71,    72,
-      73,    74,    75,    76,    77,    78,    79,    80,    81,     0,
-      82,    83,    84,    59,    60,     0,     0,     0,   179,     0,
-       0,     0,     0,     0,    61,    62,    63,    64,    65,    66,
-      67,    68,    69,     0,     0,    70,    71,    72,    73,    74,
-      75,    76,    77,    78,    79,    80,    81,     0,    82,    83,
-      84,    59,    60,     0,     0,     0,   195,     0,     0,     0,
-       0,     0,    61,    62,    63,    64,    65,    66,    67,    68,
-      69,     0,     0,    70,    71,    72,    73,    74,    75,    76,
-      77,    78,    79,    80,    81,     0,    82,    83,    84,    97,
-      98,    59,    60,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,    61,    62,    63,    64,    65,    66,    67,    68,
-      69,     0,     0,    70,    71,    72,    73,    74,    75,    76,
-      77,    78,    79,    80,    81,     0,    82,    83,    84,   203,
-      59,    60,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,    61,    62,    63,    64,    65,    66,    67,    68,    69,
-       0,     0,    70,    71,    72,    73,    74,    75,    76,    77,
-      78,    79,    80,    81,     0,    82,    83,    84,    59,    60,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,  -118,
-      62,    63,    64,    65,    66,    67,    68,    69,     0,     0,
-      70,    71,    72,    73,    74,    75,    76,    77,    78,    79,
-      80,    81,     0,    82,    83,    84,    59,    60,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,    62,    63,
-      64,    65,    66,    67,    68,    69,     0,     0,    70,    71,
-      72,    73,    74,    75,    76,    77,    78,    79,    80,    81,
-      60,    82,    83,    84,     0,     0,     0,     0,     0,     0,
-       0,     0,    63,    64,    65,    66,    67,    68,    69,     0,
-       0,     0,    71,    72,    73,    74,    75,    76,    77,    78,
-      79,    80,    81,    60,    82,    83,    84,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,    64,    65,    66,    67,
-      68,    69,     0,     0,     0,    71,    72,    73,    74,    75,
-      76,    77,    78,    79,    80,    81,    60,    82,    83,    84,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,  -118,
-    -118,  -118,  -118,    68,    69,     0,    60,     0,  -118,  -118,
-      73,    74,    75,    76,    77,    78,    79,    80,    81,     0,
-      82,    83,    84,    68,    69,     0,    60,     0,     0,     0,
-       0,    74,    75,    76,    77,    78,    79,    80,    81,     0,
-      82,    83,    84,    68,    69,     0,    60,     0,     0,     0,
-       0,     0,    75,    76,    77,    78,    79,    80,    81,     0,
-      82,    83,    84,    68,    69,     0,     0,     0,     0,     0,
-       0,     0,     0,    76,    77,    78,    79,    80,    81,     0,
-      82,    83,    84
+       0,    10,    56,    11,     0,     0,    12,    13,    14,     0,
+       0,     0,     0,     0,     0,     0,     0,    15,     0,     0,
+       0,     0,     0,     0,    16,     0,    17,    18,    19,     0,
+       0,     0,    20,     0,    21,     0,     0,     0,     0,     0,
+       1,     2,    22,     3,     4,     5,     6,     7,     0,     0,
+       0,     8,     9,     0,    10,     0,    11,     0,     0,    12,
+      13,    14,     0,     0,     0,     0,     0,     0,     0,     0,
+      15,     0,     0,     0,     0,     0,     0,    16,     0,    17,
+      18,    19,     0,     0,     0,    20,     0,    21,     0,    59,
+       0,     0,     0,     1,     2,    22,     3,     4,     5,     6,
+       7,     0,     0,     0,     8,     9,   -87,    10,     0,    11,
+       0,     0,    12,    13,    14,     0,     0,     0,     0,     0,
+       0,     0,     0,    15,     0,     0,     0,     0,     0,     0,
+      16,     0,    17,    18,    19,     0,     0,     0,    20,     0,
+      21,     0,     0,     0,     0,     0,     1,     2,    22,     3,
+       4,     5,     6,     7,     0,     0,     0,     8,     9,     0,
+      10,     0,    11,     0,     0,    12,    13,    14,     0,     0,
+       0,     0,     0,     0,     0,     0,    15,     0,     0,     0,
+       0,     0,     0,    16,     0,    17,    18,    19,     0,     0,
+       0,    20,     0,    21,    63,    64,     0,     0,     0,     0,
+       0,    22,     0,     0,     0,     0,    65,    66,    67,    68,
+      69,    70,    71,    72,    73,    74,     0,     0,    75,    76,
+      77,    78,    79,    80,    81,    82,    83,    84,    85,    86,
+       0,    87,    88,    89,    63,    64,     0,     0,     0,     0,
+     100,     0,     0,     0,     0,     0,    65,    66,    67,    68,
+      69,    70,    71,    72,    73,    74,     0,     0,    75,    76,
+      77,    78,    79,    80,    81,    82,    83,    84,    85,    86,
+     106,    87,    88,    89,     0,   106,     0,     0,     0,     0,
+     159,     0,     0,   107,     0,   108,     0,   109,   107,     0,
+     108,     0,   109,     0,     0,     0,     0,     0,     0,   110,
+       0,     0,     0,     0,   110,     0,   111,     0,     0,     0,
+     112,   111,    63,    64,   113,   112,   114,     0,     0,   168,
+       0,   114,     0,     0,    65,    66,    67,    68,    69,    70,
+      71,    72,    73,    74,     0,     0,    75,    76,    77,    78,
+      79,    80,    81,    82,    83,    84,    85,    86,     0,    87,
+      88,    89,    63,    64,     0,     0,     0,   179,     0,     0,
+       0,     0,     0,     0,    65,    66,    67,    68,    69,    70,
+      71,    72,    73,    74,     0,     0,    75,    76,    77,    78,
+      79,    80,    81,    82,    83,    84,    85,    86,     0,    87,
+      88,    89,    63,    64,     0,     0,     0,   188,     0,     0,
+       0,     0,     0,     0,    65,    66,    67,    68,    69,    70,
+      71,    72,    73,    74,     0,     0,    75,    76,    77,    78,
+      79,    80,    81,    82,    83,    84,    85,    86,     0,    87,
+      88,    89,    63,    64,     0,     0,     0,   205,     0,     0,
+       0,     0,     0,     0,    65,    66,    67,    68,    69,    70,
+      71,    72,    73,    74,     0,     0,    75,    76,    77,    78,
+      79,    80,    81,    82,    83,    84,    85,    86,     0,    87,
+      88,    89,   103,   104,    63,    64,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,    65,    66,    67,    68,
+      69,    70,    71,    72,    73,    74,     0,     0,    75,    76,
+      77,    78,    79,    80,    81,    82,    83,    84,    85,    86,
+       0,    87,    88,    89,     0,   158,    63,    64,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,    65,    66,
+      67,    68,    69,    70,    71,    72,    73,    74,     0,     0,
+      75,    76,    77,    78,    79,    80,    81,    82,    83,    84,
+      85,    86,     0,    87,    88,    89,   213,    63,    64,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,    65,
+      66,    67,    68,    69,    70,    71,    72,    73,    74,     0,
+       0,    75,    76,    77,    78,    79,    80,    81,    82,    83,
+      84,    85,    86,     0,    87,    88,    89,    63,    64,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,  -123,
+    -123,    67,    68,    69,    70,    71,    72,    73,    74,     0,
+       0,    75,    76,    77,    78,    79,    80,    81,    82,    83,
+      84,    85,    86,     0,    87,    88,    89,    63,    64,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,    67,    68,    69,    70,    71,    72,    73,    74,     0,
+       0,    75,    76,    77,    78,    79,    80,    81,    82,    83,
+      84,    85,    86,    64,    87,    88,    89,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,    68,    69,    70,
+      71,    72,    73,    74,     0,     0,     0,    76,    77,    78,
+      79,    80,    81,    82,    83,    84,    85,    86,    64,    87,
+      88,    89,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,    69,    70,    71,    72,    73,    74,     0,
+       0,     0,    76,    77,    78,    79,    80,    81,    82,    83,
+      84,    85,    86,    64,    87,    88,    89,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,  -123,  -123,
+    -123,  -123,    73,    74,    64,     0,     0,  -123,  -123,    78,
+      79,    80,    81,    82,    83,    84,    85,    86,     0,    87,
+      88,    89,     0,    73,    74,    64,     0,     0,     0,     0,
+       0,    79,    80,    81,    82,    83,    84,    85,    86,     0,
+      87,    88,    89,     0,    73,    74,    64,     0,     0,     0,
+       0,     0,     0,    80,    81,    82,    83,    84,    85,    86,
+       0,    87,    88,    89,     0,    73,    74,     0,     0,     0,
+       0,     0,     0,     0,     0,    81,    82,    83,    84,    85,
+      86,     0,    87,    88,    89
 };
 
 static const yytype_int16 yycheck[] =
 {
-       0,    60,    12,     4,   150,     4,    60,    11,    30,    13,
-      18,    31,    12,    35,    14,    15,    16,    17,    18,    19,
-      20,    30,     4,    22,   170,    31,    35,    49,    34,     4,
-     102,     4,   104,    34,    16,     0,    46,    47,    48,    43,
-      49,    16,     4,     5,    52,     7,   105,    47,   107,   108,
-      16,   105,    52,   107,    51,    49,    46,    47,    48,    59,
-      54,    61,    62,    63,    64,    65,    66,    67,    68,    69,
+       0,    20,   182,     4,   157,    64,    12,    11,    51,     4,
+      64,    15,    55,    13,    14,    33,    16,    17,    18,    19,
+      20,    21,    22,     4,    12,   178,    51,    32,    23,    56,
+      57,    56,    37,   213,   108,    36,   110,    56,    44,    45,
+      46,    45,    48,    49,    50,    32,    51,    47,    51,     0,
+      37,    51,   111,    56,   113,   114,    56,   111,    50,   113,
+      48,    49,    50,    63,    51,    65,    66,    67,    68,    69,
       70,    71,    72,    73,    74,    75,    76,    77,    78,    79,
-      80,    81,    82,    87,   156,    49,    18,    31,    20,    31,
-      54,   150,     6,     7,    94,    95,   168,    54,    55,   158,
-      31,   160,     4,   162,   163,    48,   160,    31,   162,   163,
-      49,   170,    50,    53,    50,    52,     4,    50,   203,     3,
-       4,    55,     6,     7,     8,     9,    10,    49,    32,   188,
-      14,    15,    16,    17,   188,    19,    54,    50,    22,    54,
-     109,    97,   158,    -1,    -1,   204,   146,    31,    -1,    -1,
-     204,   151,    -1,    -1,    38,    -1,    40,    41,    42,    -1,
-      -1,    -1,    46,    -1,    48,    -1,    -1,    -1,    -1,    -1,
-      12,    -1,    56,    -1,   174,     3,     4,    -1,     6,     7,
-       8,     9,    10,    -1,    -1,    -1,    14,    15,    -1,    17,
-      18,    19,    -1,    -1,    22,    -1,    -1,    39,    40,    41,
-      42,    43,    44,    31,    46,    47,    48,    -1,    -1,    -1,
-      38,    -1,    40,    41,    42,    -1,    -1,    -1,    46,    -1,
-      48,    12,    -1,    -1,    -1,    -1,     3,     4,    56,     6,
-       7,     8,     9,    10,    -1,    -1,    -1,    14,    15,    -1,
-      17,    18,    19,    -1,    -1,    22,    -1,    -1,    -1,    40,
-      41,    42,    43,    44,    31,    46,    47,    48,    -1,    -1,
-      -1,    38,    -1,    40,    41,    42,    -1,    12,    -1,    46,
-      -1,    48,    -1,    -1,    -1,    -1,    -1,     3,     4,    56,
+      80,    81,    82,    83,    84,    85,    86,    87,    92,    16,
+     164,     4,    12,     4,     4,     5,    33,     7,   157,    36,
+     100,   101,   176,     4,    17,    16,    19,   166,    21,   168,
+      53,   170,   171,     4,   168,    16,   170,   171,    33,   178,
+      33,    41,    42,    43,    44,    45,    46,    40,    48,    49,
+      50,    44,    48,    49,    50,    48,    33,    50,   197,    52,
+      18,    33,    20,   197,     6,     7,    50,    52,    51,    33,
+      57,    51,    54,   153,    52,   214,    12,    52,     4,   159,
+     214,     3,     4,    52,     6,     7,     8,     9,    10,    34,
+      56,    56,    14,    15,    16,    17,   115,    19,   103,    -1,
+      22,    23,    24,   183,   166,    -1,    42,    43,    44,    45,
+      46,    33,    48,    49,    50,    -1,    -1,    -1,    40,    -1,
+      42,    43,    44,    -1,    -1,    -1,    48,    -1,    50,    -1,
+      -1,    -1,    -1,    -1,     3,     4,    58,     6,     7,     8,
+       9,    10,    -1,    -1,    -1,    14,    15,    -1,    17,    18,
+      19,    -1,    -1,    22,    23,    24,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    33,    -1,    -1,    -1,    -1,    -1,
+      -1,    40,    -1,    42,    43,    44,    -1,    -1,    -1,    48,
+      -1,    50,    -1,    -1,    -1,    -1,    -1,     3,     4,    58,
        6,     7,     8,     9,    10,    -1,    -1,    -1,    14,    15,
-      -1,    17,    -1,    19,    -1,    -1,    22,    42,    43,    44,
-      -1,    46,    47,    48,    -1,    31,    -1,    -1,    -1,    -1,
-      -1,    -1,    38,    -1,    40,    41,    42,    -1,    -1,    -1,
-      46,    -1,    48,    -1,    50,    -1,    -1,    -1,     3,     4,
-      56,     6,     7,     8,     9,    10,    -1,    -1,    -1,    14,
-      15,    16,    17,    -1,    19,    -1,    -1,    22,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    31,    -1,    -1,    -1,
-      -1,    -1,    -1,    38,    -1,    40,    41,    42,    -1,    -1,
-      -1,    46,    -1,    48,    -1,    -1,    -1,    -1,    -1,     3,
-       4,    56,     6,     7,     8,     9,    10,    -1,    -1,    -1,
-      14,    15,    -1,    17,    -1,    19,     4,    -1,    22,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    31,    -1,    17,
-      -1,    19,    -1,    21,    38,    -1,    40,    41,    42,    -1,
-      -1,    -1,    46,    31,    48,    -1,    -1,    -1,    -1,    -1,
-      38,    -1,    56,    -1,    42,    11,    12,    -1,    46,    -1,
-      48,    -1,    50,    -1,    -1,    -1,    22,    23,    24,    25,
-      26,    27,    28,    29,    30,    -1,    -1,    33,    34,    35,
-      36,    37,    38,    39,    40,    41,    42,    43,    44,    -1,
-      46,    47,    48,    11,    12,    -1,    -1,    -1,    -1,    55,
-      -1,    -1,    -1,    -1,    22,    23,    24,    25,    26,    27,
-      28,    29,    30,    -1,    -1,    33,    34,    35,    36,    37,
-      38,    39,    40,    41,    42,    43,    44,     4,    46,    47,
-      48,    -1,     4,    -1,    -1,    -1,    -1,    55,    -1,    -1,
-      17,    -1,    19,    -1,    21,    17,    -1,    19,    -1,    21,
-      -1,    -1,    -1,    -1,    31,    -1,    -1,    -1,    -1,    31,
-      -1,    38,    -1,    -1,    -1,    42,    38,    11,    12,    46,
-      42,    48,    -1,    -1,    46,    -1,    48,    -1,    22,    23,
-      24,    25,    26,    27,    28,    29,    30,    -1,    -1,    33,
-      34,    35,    36,    37,    38,    39,    40,    41,    42,    43,
-      44,    -1,    46,    47,    48,    11,    12,    -1,    -1,    -1,
-      54,    -1,    -1,    -1,    -1,    -1,    22,    23,    24,    25,
-      26,    27,    28,    29,    30,    -1,    -1,    33,    34,    35,
-      36,    37,    38,    39,    40,    41,    42,    43,    44,    -1,
-      46,    47,    48,    11,    12,    -1,    -1,    -1,    54,    -1,
-      -1,    -1,    -1,    -1,    22,    23,    24,    25,    26,    27,
-      28,    29,    30,    -1,    -1,    33,    34,    35,    36,    37,
-      38,    39,    40,    41,    42,    43,    44,    -1,    46,    47,
-      48,    11,    12,    -1,    -1,    -1,    54,    -1,    -1,    -1,
-      -1,    -1,    22,    23,    24,    25,    26,    27,    28,    29,
-      30,    -1,    -1,    33,    34,    35,    36,    37,    38,    39,
-      40,    41,    42,    43,    44,    -1,    46,    47,    48,    49,
-      50,    11,    12,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    22,    23,    24,    25,    26,    27,    28,    29,
-      30,    -1,    -1,    33,    34,    35,    36,    37,    38,    39,
-      40,    41,    42,    43,    44,    -1,    46,    47,    48,    49,
-      11,    12,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    22,    23,    24,    25,    26,    27,    28,    29,    30,
-      -1,    -1,    33,    34,    35,    36,    37,    38,    39,    40,
-      41,    42,    43,    44,    -1,    46,    47,    48,    11,    12,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    22,
-      23,    24,    25,    26,    27,    28,    29,    30,    -1,    -1,
-      33,    34,    35,    36,    37,    38,    39,    40,    41,    42,
-      43,    44,    -1,    46,    47,    48,    11,    12,    -1,    -1,
+      -1,    17,    18,    19,    -1,    -1,    22,    23,    24,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    33,    -1,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    42,    43,    44,    -1,
+      -1,    -1,    48,    -1,    50,    -1,    -1,    -1,    -1,    -1,
+       3,     4,    58,     6,     7,     8,     9,    10,    -1,    -1,
+      -1,    14,    15,    -1,    17,    -1,    19,    -1,    -1,    22,
+      23,    24,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      33,    -1,    -1,    -1,    -1,    -1,    -1,    40,    -1,    42,
+      43,    44,    -1,    -1,    -1,    48,    -1,    50,    -1,    52,
+      -1,    -1,    -1,     3,     4,    58,     6,     7,     8,     9,
+      10,    -1,    -1,    -1,    14,    15,    16,    17,    -1,    19,
+      -1,    -1,    22,    23,    24,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    33,    -1,    -1,    -1,    -1,    -1,    -1,
+      40,    -1,    42,    43,    44,    -1,    -1,    -1,    48,    -1,
+      50,    -1,    -1,    -1,    -1,    -1,     3,     4,    58,     6,
+       7,     8,     9,    10,    -1,    -1,    -1,    14,    15,    -1,
+      17,    -1,    19,    -1,    -1,    22,    23,    24,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    33,    -1,    -1,    -1,
+      -1,    -1,    -1,    40,    -1,    42,    43,    44,    -1,    -1,
+      -1,    48,    -1,    50,    11,    12,    -1,    -1,    -1,    -1,
+      -1,    58,    -1,    -1,    -1,    -1,    23,    24,    25,    26,
+      27,    28,    29,    30,    31,    32,    -1,    -1,    35,    36,
+      37,    38,    39,    40,    41,    42,    43,    44,    45,    46,
+      -1,    48,    49,    50,    11,    12,    -1,    -1,    -1,    -1,
+      57,    -1,    -1,    -1,    -1,    -1,    23,    24,    25,    26,
+      27,    28,    29,    30,    31,    32,    -1,    -1,    35,    36,
+      37,    38,    39,    40,    41,    42,    43,    44,    45,    46,
+       4,    48,    49,    50,    -1,     4,    -1,    -1,    -1,    -1,
+      57,    -1,    -1,    17,    -1,    19,    -1,    21,    17,    -1,
+      19,    -1,    21,    -1,    -1,    -1,    -1,    -1,    -1,    33,
+      -1,    -1,    -1,    -1,    33,    -1,    40,    -1,    -1,    -1,
+      44,    40,    11,    12,    48,    44,    50,    -1,    -1,    48,
+      -1,    50,    -1,    -1,    23,    24,    25,    26,    27,    28,
+      29,    30,    31,    32,    -1,    -1,    35,    36,    37,    38,
+      39,    40,    41,    42,    43,    44,    45,    46,    -1,    48,
+      49,    50,    11,    12,    -1,    -1,    -1,    56,    -1,    -1,
+      -1,    -1,    -1,    -1,    23,    24,    25,    26,    27,    28,
+      29,    30,    31,    32,    -1,    -1,    35,    36,    37,    38,
+      39,    40,    41,    42,    43,    44,    45,    46,    -1,    48,
+      49,    50,    11,    12,    -1,    -1,    -1,    56,    -1,    -1,
+      -1,    -1,    -1,    -1,    23,    24,    25,    26,    27,    28,
+      29,    30,    31,    32,    -1,    -1,    35,    36,    37,    38,
+      39,    40,    41,    42,    43,    44,    45,    46,    -1,    48,
+      49,    50,    11,    12,    -1,    -1,    -1,    56,    -1,    -1,
+      -1,    -1,    -1,    -1,    23,    24,    25,    26,    27,    28,
+      29,    30,    31,    32,    -1,    -1,    35,    36,    37,    38,
+      39,    40,    41,    42,    43,    44,    45,    46,    -1,    48,
+      49,    50,    51,    52,    11,    12,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    23,    24,    25,    26,
+      27,    28,    29,    30,    31,    32,    -1,    -1,    35,    36,
+      37,    38,    39,    40,    41,    42,    43,    44,    45,    46,
+      -1,    48,    49,    50,    -1,    52,    11,    12,    -1,    -1,
       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    23,    24,
-      25,    26,    27,    28,    29,    30,    -1,    -1,    33,    34,
+      25,    26,    27,    28,    29,    30,    31,    32,    -1,    -1,
       35,    36,    37,    38,    39,    40,    41,    42,    43,    44,
-      12,    46,    47,    48,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    24,    25,    26,    27,    28,    29,    30,    -1,
-      -1,    -1,    34,    35,    36,    37,    38,    39,    40,    41,
-      42,    43,    44,    12,    46,    47,    48,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    25,    26,    27,    28,
-      29,    30,    -1,    -1,    -1,    34,    35,    36,    37,    38,
-      39,    40,    41,    42,    43,    44,    12,    46,    47,    48,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    25,
-      26,    27,    28,    29,    30,    -1,    12,    -1,    34,    35,
-      36,    37,    38,    39,    40,    41,    42,    43,    44,    -1,
-      46,    47,    48,    29,    30,    -1,    12,    -1,    -1,    -1,
-      -1,    37,    38,    39,    40,    41,    42,    43,    44,    -1,
-      46,    47,    48,    29,    30,    -1,    12,    -1,    -1,    -1,
-      -1,    -1,    38,    39,    40,    41,    42,    43,    44,    -1,
-      46,    47,    48,    29,    30,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    39,    40,    41,    42,    43,    44,    -1,
-      46,    47,    48
+      45,    46,    -1,    48,    49,    50,    51,    11,    12,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    23,
+      24,    25,    26,    27,    28,    29,    30,    31,    32,    -1,
+      -1,    35,    36,    37,    38,    39,    40,    41,    42,    43,
+      44,    45,    46,    -1,    48,    49,    50,    11,    12,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    23,
+      24,    25,    26,    27,    28,    29,    30,    31,    32,    -1,
+      -1,    35,    36,    37,    38,    39,    40,    41,    42,    43,
+      44,    45,    46,    -1,    48,    49,    50,    11,    12,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    25,    26,    27,    28,    29,    30,    31,    32,    -1,
+      -1,    35,    36,    37,    38,    39,    40,    41,    42,    43,
+      44,    45,    46,    12,    48,    49,    50,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    26,    27,    28,
+      29,    30,    31,    32,    -1,    -1,    -1,    36,    37,    38,
+      39,    40,    41,    42,    43,    44,    45,    46,    12,    48,
+      49,    50,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    27,    28,    29,    30,    31,    32,    -1,
+      -1,    -1,    36,    37,    38,    39,    40,    41,    42,    43,
+      44,    45,    46,    12,    48,    49,    50,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    27,    28,
+      29,    30,    31,    32,    12,    -1,    -1,    36,    37,    38,
+      39,    40,    41,    42,    43,    44,    45,    46,    -1,    48,
+      49,    50,    -1,    31,    32,    12,    -1,    -1,    -1,    -1,
+      -1,    39,    40,    41,    42,    43,    44,    45,    46,    -1,
+      48,    49,    50,    -1,    31,    32,    12,    -1,    -1,    -1,
+      -1,    -1,    -1,    40,    41,    42,    43,    44,    45,    46,
+      -1,    48,    49,    50,    -1,    31,    32,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    41,    42,    43,    44,    45,
+      46,    -1,    48,    49,    50
 };
 
   /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
@@ -1070,44 +1160,45 @@ static const yytype_int16 yycheck[] =
 static const yytype_uint8 yystos[] =
 {
        0,     3,     4,     6,     7,     8,     9,    10,    14,    15,
-      17,    19,    22,    31,    38,    40,    41,    42,    46,    48,
-      56,    58,    59,    60,    61,    62,    65,    66,    67,    68,
-      69,    70,    71,    72,    73,    74,    75,    76,    80,    81,
-      83,    84,    85,    31,    85,    59,    85,    18,    59,    59,
-      59,    59,    18,    59,    77,    50,    59,    59,     0,    11,
-      12,    22,    23,    24,    25,    26,    27,    28,    29,    30,
-      33,    34,    35,    36,    37,    38,    39,    40,    41,    42,
-      43,    44,    46,    47,    48,    79,    16,    82,    51,    31,
-      85,    59,    59,    77,    55,    49,    54,    49,    50,    59,
-       4,    17,    19,    21,    31,    38,    42,    46,    48,    81,
-      86,    87,    88,    89,    59,    59,    59,    59,    59,    59,
-      59,    59,    59,    59,    59,    59,    59,    59,    59,    59,
-      59,    59,    59,    59,    59,    59,     4,     5,     7,    59,
-      77,    78,    31,    16,    85,     4,    22,    63,    64,     4,
-      34,    55,    54,    59,    59,    78,    31,    88,    48,    88,
-      46,    89,    18,    20,    89,    89,    90,    91,    82,    31,
-      34,    54,    50,    31,    53,    59,    52,    91,    59,    54,
-      50,    88,    90,    89,    89,    89,    55,    50,    49,    88,
-       4,    91,    59,    30,    35,    54,    50,    54,     6,     7,
-      89,    30,    35,    49,    32,    54,    54,    64,    89
+      17,    19,    22,    23,    24,    33,    40,    42,    43,    44,
+      48,    50,    58,    60,    61,    62,    63,    64,    67,    68,
+      69,    70,    71,    72,    73,    74,    75,    76,    77,    78,
+      82,    83,    85,    86,    87,    33,    87,    50,    61,    61,
+      87,    18,    61,    61,    61,    61,    18,    61,    79,    52,
+      61,    61,     0,    11,    12,    23,    24,    25,    26,    27,
+      28,    29,    30,    31,    32,    35,    36,    37,    38,    39,
+      40,    41,    42,    43,    44,    45,    46,    48,    49,    50,
+      81,    16,    84,    53,    33,    87,    61,    61,    61,    79,
+      57,    51,    56,    51,    52,    61,     4,    17,    19,    21,
+      33,    40,    44,    48,    50,    83,    88,    89,    90,    91,
+      61,    61,    61,    61,    61,    61,    61,    61,    61,    61,
+      61,    61,    61,    61,    61,    61,    61,    61,    61,    61,
+      61,    61,    61,     4,     5,     7,    61,    79,    80,    33,
+      16,    87,     4,    23,    65,    66,     4,    36,    52,    57,
+      56,    61,    61,    80,    33,    90,    50,    90,    48,    91,
+      18,    20,    91,    91,    92,    93,    84,    33,    36,    56,
+      52,    33,    51,    55,    61,    54,    93,    61,    56,    52,
+      90,    92,    91,    91,    91,    57,    52,    51,    90,     4,
+      93,    66,    61,    32,    37,    56,    52,    56,     6,     7,
+      91,    32,    37,    51,    34,    56,    56,    66,    91
 };
 
   /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,    57,    58,    59,    59,    59,    59,    59,    59,    59,
-      59,    59,    59,    59,    59,    59,    60,    61,    62,    63,
-      63,    64,    64,    64,    65,    65,    65,    65,    66,    66,
-      66,    66,    67,    67,    67,    67,    67,    67,    67,    68,
-      68,    68,    69,    70,    70,    70,    70,    70,    70,    71,
-      71,    71,    71,    72,    72,    72,    72,    72,    72,    72,
-      72,    72,    72,    72,    72,    72,    72,    72,    72,    72,
-      72,    72,    73,    74,    75,    76,    77,    77,    78,    78,
-      79,    80,    81,    81,    82,    82,    83,    83,    83,    84,
-      84,    84,    84,    84,    85,    85,    85,    85,    86,    86,
-      86,    86,    86,    87,    87,    88,    88,    88,    89,    89,
-      89,    89,    89,    89,    89,    89,    89,    90,    90,    91,
-      91
+       0,    59,    60,    61,    61,    61,    61,    61,    61,    61,
+      61,    61,    61,    61,    61,    61,    62,    63,    64,    65,
+      65,    65,    66,    66,    66,    66,    67,    67,    67,    67,
+      68,    68,    68,    68,    68,    68,    69,    69,    69,    69,
+      69,    69,    69,    70,    70,    70,    71,    72,    72,    72,
+      72,    72,    72,    72,    73,    73,    73,    73,    74,    74,
+      74,    74,    74,    74,    74,    74,    74,    74,    74,    74,
+      74,    74,    74,    74,    74,    74,    74,    75,    76,    77,
+      78,    79,    79,    80,    80,    81,    82,    83,    83,    84,
+      84,    85,    85,    85,    86,    86,    86,    86,    86,    87,
+      87,    87,    87,    88,    88,    88,    88,    88,    89,    89,
+      90,    90,    90,    91,    91,    91,    91,    91,    91,    91,
+      91,    91,    92,    92,    93,    93
 };
 
   /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
@@ -1115,17 +1206,17 @@ static const yytype_uint8 yyr2[] =
 {
        0,     2,     1,     1,     1,     1,     1,     1,     1,     1,
        1,     1,     1,     1,     1,     1,     5,     2,     4,     2,
-       3,     0,     1,     5,     4,     3,     6,     5,     2,     3,
-       2,     1,     1,     1,     1,     1,     1,     1,     1,     3,
-       3,     3,     4,     2,     2,     2,     2,     2,     3,     1,
-       1,     1,     1,     3,     3,     3,     3,     3,     3,     3,
+       3,     1,     0,     1,     5,     3,     4,     3,     6,     5,
+       2,     3,     3,     2,     2,     1,     1,     1,     1,     1,
+       1,     1,     1,     3,     3,     3,     4,     2,     2,     2,
+       2,     2,     3,     4,     1,     1,     1,     1,     3,     3,
        3,     3,     3,     3,     3,     3,     3,     3,     3,     3,
-       3,     3,     3,     3,     3,     3,     1,     3,     0,     1,
-       3,     2,     0,     2,     2,     3,     1,     1,     1,     1,
-       3,     3,     2,     2,     1,     3,     5,     5,     1,     3,
-       3,     2,     2,     1,     3,     1,     4,     4,     1,     5,
-       5,     4,     2,     3,     3,     6,     3,     0,     1,     1,
-       3
+       3,     3,     3,     3,     3,     3,     3,     3,     3,     3,
+       3,     1,     3,     0,     1,     3,     2,     0,     2,     2,
+       3,     1,     1,     1,     1,     3,     3,     2,     2,     1,
+       3,     5,     5,     1,     3,     3,     2,     2,     1,     3,
+       1,     4,     4,     1,     5,     5,     4,     2,     3,     3,
+       6,     3,     0,     1,     1,     3
 };
 
 
@@ -1409,11 +1500,11 @@ static int
 yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
                 yytype_int16 *yyssp, int yytoken)
 {
-  YYSIZE_T yysize0 = yytnamerr (YY_NULLPTR, yytname[yytoken]);
+  YYSIZE_T yysize0 = yytnamerr (YY_NULLPTRPTR, yytname[yytoken]);
   YYSIZE_T yysize = yysize0;
   enum { YYERROR_VERBOSE_ARGS_MAXIMUM = 5 };
   /* Internationalized format string. */
-  const char *yyformat = YY_NULLPTR;
+  const char *yyformat = YY_NULLPTRPTR;
   /* Arguments of yyformat. */
   char const *yyarg[YYERROR_VERBOSE_ARGS_MAXIMUM];
   /* Number of reported tokens (one for the "unexpected", one per
@@ -1470,7 +1561,7 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
                   }
                 yyarg[yycount++] = yytname[yyx];
                 {
-                  YYSIZE_T yysize1 = yysize + yytnamerr (YY_NULLPTR, yytname[yyx]);
+                  YYSIZE_T yysize1 = yysize + yytnamerr (YY_NULLPTRPTR, yytname[yyx]);
                   if (! (yysize <= yysize1
                          && yysize1 <= YYSTACK_ALLOC_MAXIMUM))
                     return 2;
@@ -1802,48 +1893,48 @@ yyreduce:
   switch (yyn)
     {
         case 2:
-#line 353 "rust-exp.y" /* yacc.c:1646  */
+#line 413 "rust-exp.y" /* yacc.c:1646  */
     {
 		  /* If we are completing and see a valid parse,
 		     rust_ast will already have been set.  */
-		  if (rust_ast == NULL)
-		    rust_ast = (yyvsp[0].op);
+		  if (current_parser->rust_ast == NULL)
+		    current_parser->rust_ast = (yyvsp[0].op);
 		}
-#line 1814 "rust-exp.c" /* yacc.c:1646  */
+#line 1905 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 16:
-#line 382 "rust-exp.y" /* yacc.c:1646  */
+#line 443 "rust-exp.y" /* yacc.c:1646  */
     {
-		  VEC_safe_insert (rust_op_ptr, *(yyvsp[-1].params), 0, (yyvsp[-3].op));
+		  (yyvsp[-1].params)->push_back ((yyvsp[-3].op));
 		  error (_("Tuple expressions not supported yet"));
 		}
-#line 1823 "rust-exp.c" /* yacc.c:1646  */
+#line 1914 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 17:
-#line 390 "rust-exp.y" /* yacc.c:1646  */
+#line 451 "rust-exp.y" /* yacc.c:1646  */
     {
 		  struct typed_val_int val;
 
 		  val.type
-		    = language_lookup_primitive_type (parse_language (pstate),
-						      parse_gdbarch (pstate),
-						      "()");
+		    = (language_lookup_primitive_type
+		       (current_parser->language (), current_parser->arch (),
+			"()"));
 		  val.val = 0;
 		  (yyval.op) = ast_literal (val);
 		}
-#line 1838 "rust-exp.c" /* yacc.c:1646  */
+#line 1929 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 18:
-#line 407 "rust-exp.y" /* yacc.c:1646  */
+#line 468 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = ast_struct ((yyvsp[-3].op), (yyvsp[-1].field_inits)); }
-#line 1844 "rust-exp.c" /* yacc.c:1646  */
+#line 1935 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 19:
-#line 412 "rust-exp.y" /* yacc.c:1646  */
+#line 473 "rust-exp.y" /* yacc.c:1646  */
     {
 		  struct set_field sf;
 
@@ -1853,11 +1944,11 @@ yyreduce:
 
 		  (yyval.one_field_init) = sf;
 		}
-#line 1858 "rust-exp.c" /* yacc.c:1646  */
+#line 1949 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 20:
-#line 422 "rust-exp.y" /* yacc.c:1646  */
+#line 483 "rust-exp.y" /* yacc.c:1646  */
     {
 		  struct set_field sf;
 
@@ -1865,129 +1956,158 @@ yyreduce:
 		  sf.init = (yyvsp[0].op);
 		  (yyval.one_field_init) = sf;
 		}
-#line 1870 "rust-exp.c" /* yacc.c:1646  */
+#line 1961 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 21:
-#line 433 "rust-exp.y" /* yacc.c:1646  */
+#line 491 "rust-exp.y" /* yacc.c:1646  */
     {
-		  VEC (set_field) **result
-		    = OBSTACK_ZALLOC (&work_obstack, VEC (set_field) *);
-		  (yyval.field_inits) = result;
+		  struct set_field sf;
+
+		  sf.name = (yyvsp[0].sval);
+		  sf.init = ast_path ((yyvsp[0].sval), NULL);
+		  (yyval.one_field_init) = sf;
 		}
-#line 1880 "rust-exp.c" /* yacc.c:1646  */
+#line 1973 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 22:
-#line 439 "rust-exp.y" /* yacc.c:1646  */
+#line 502 "rust-exp.y" /* yacc.c:1646  */
     {
-		  VEC (set_field) **result
-		    = OBSTACK_ZALLOC (&work_obstack, VEC (set_field) *);
-
-		  make_cleanup (VEC_cleanup (set_field), result);
-		  VEC_safe_push (set_field, *result, &(yyvsp[0].one_field_init));
-
-		  (yyval.field_inits) = result;
+		  (yyval.field_inits) = current_parser->new_set_vector ();
 		}
-#line 1894 "rust-exp.c" /* yacc.c:1646  */
+#line 1981 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 23:
-#line 449 "rust-exp.y" /* yacc.c:1646  */
+#line 506 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  rust_set_vector *result = current_parser->new_set_vector ();
+		  result->push_back ((yyvsp[0].one_field_init));
+		  (yyval.field_inits) = result;
+		}
+#line 1991 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 24:
+#line 512 "rust-exp.y" /* yacc.c:1646  */
     {
 		  struct set_field sf;
 
 		  sf.name = (yyvsp[-4].sval);
 		  sf.init = (yyvsp[-2].op);
-		  VEC_safe_push (set_field, *(yyvsp[0].field_inits), &sf);
+		  (yyvsp[0].field_inits)->push_back (sf);
 		  (yyval.field_inits) = (yyvsp[0].field_inits);
 		}
-#line 1907 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 24:
-#line 461 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_call_ish (OP_ARRAY, NULL, (yyvsp[-1].params)); }
-#line 1913 "rust-exp.c" /* yacc.c:1646  */
+#line 2004 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 25:
-#line 463 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_call_ish (OP_ARRAY, NULL, (yyvsp[-1].params)); }
-#line 1919 "rust-exp.c" /* yacc.c:1646  */
+#line 521 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  struct set_field sf;
+
+		  sf.name = (yyvsp[-2].sval);
+		  sf.init = ast_path ((yyvsp[-2].sval), NULL);
+		  (yyvsp[0].field_inits)->push_back (sf);
+		  (yyval.field_inits) = (yyvsp[0].field_inits);
+		}
+#line 2017 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 26:
-#line 465 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (OP_RUST_ARRAY, (yyvsp[-3].op), (yyvsp[-1].op)); }
-#line 1925 "rust-exp.c" /* yacc.c:1646  */
+#line 533 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_call_ish (OP_ARRAY, NULL, (yyvsp[-1].params)); }
+#line 2023 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 27:
-#line 467 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (OP_RUST_ARRAY, (yyvsp[-3].op), (yyvsp[-1].op)); }
-#line 1931 "rust-exp.c" /* yacc.c:1646  */
+#line 535 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_call_ish (OP_ARRAY, NULL, (yyvsp[-1].params)); }
+#line 2029 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 28:
-#line 472 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range ((yyvsp[-1].op), NULL); }
-#line 1937 "rust-exp.c" /* yacc.c:1646  */
+#line 537 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (OP_RUST_ARRAY, (yyvsp[-3].op), (yyvsp[-1].op)); }
+#line 2035 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 29:
-#line 474 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range ((yyvsp[-2].op), (yyvsp[0].op)); }
-#line 1943 "rust-exp.c" /* yacc.c:1646  */
+#line 539 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (OP_RUST_ARRAY, (yyvsp[-3].op), (yyvsp[-1].op)); }
+#line 2041 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 30:
-#line 476 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range (NULL, (yyvsp[0].op)); }
-#line 1949 "rust-exp.c" /* yacc.c:1646  */
+#line 544 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_range ((yyvsp[-1].op), NULL, false); }
+#line 2047 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 31:
-#line 478 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range (NULL, NULL); }
-#line 1955 "rust-exp.c" /* yacc.c:1646  */
+#line 546 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_range ((yyvsp[-2].op), (yyvsp[0].op), false); }
+#line 2053 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 32:
-#line 483 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_literal ((yyvsp[0].typed_val_int)); }
-#line 1961 "rust-exp.c" /* yacc.c:1646  */
+#line 548 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_range ((yyvsp[-2].op), (yyvsp[0].op), true); }
+#line 2059 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 33:
-#line 485 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_literal ((yyvsp[0].typed_val_int)); }
-#line 1967 "rust-exp.c" /* yacc.c:1646  */
+#line 550 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_range (NULL, (yyvsp[0].op), false); }
+#line 2065 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 34:
-#line 487 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_dliteral ((yyvsp[0].typed_val_float)); }
-#line 1973 "rust-exp.c" /* yacc.c:1646  */
+#line 552 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_range (NULL, (yyvsp[0].op), true); }
+#line 2071 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 35:
-#line 489 "rust-exp.y" /* yacc.c:1646  */
+#line 554 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_range (NULL, NULL, false); }
+#line 2077 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 36:
+#line 559 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_literal ((yyvsp[0].typed_val_int)); }
+#line 2083 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 37:
+#line 561 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_literal ((yyvsp[0].typed_val_int)); }
+#line 2089 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 38:
+#line 563 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_dliteral ((yyvsp[0].typed_val_float)); }
+#line 2095 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 39:
+#line 565 "rust-exp.y" /* yacc.c:1646  */
     {
 		  const struct rust_op *str = ast_string ((yyvsp[0].sval));
-		  VEC (set_field) **fields;
 		  struct set_field field;
 		  struct typed_val_int val;
 		  struct stoken token;
 
-		  fields = OBSTACK_ZALLOC (&work_obstack, VEC (set_field) *);
-		  make_cleanup (VEC_cleanup (set_field), fields);
+		  rust_set_vector *fields = current_parser->new_set_vector ();
 
 		  /* Wrap the raw string in the &str struct.  */
 		  field.name.ptr = "data_ptr";
 		  field.name.length = strlen (field.name.ptr);
 		  field.init = ast_unary (UNOP_ADDR, ast_string ((yyvsp[0].sval)));
-		  VEC_safe_push (set_field, *fields, &field);
+		  fields->push_back (field);
 
 		  val.type = rust_type ("usize");
 		  val.val = (yyvsp[0].sval).length;
@@ -1995,88 +2115,88 @@ yyreduce:
 		  field.name.ptr = "length";
 		  field.name.length = strlen (field.name.ptr);
 		  field.init = ast_literal (val);
-		  VEC_safe_push (set_field, *fields, &field);
+		  fields->push_back (field);
 
 		  token.ptr = "&str";
 		  token.length = strlen (token.ptr);
 		  (yyval.op) = ast_struct (ast_path (token, NULL), fields);
 		}
-#line 2006 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 36:
-#line 518 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_string ((yyvsp[0].sval)); }
-#line 2012 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 37:
-#line 520 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  struct typed_val_int val;
-
-		  val.type = language_bool_type (parse_language (pstate),
-						 parse_gdbarch (pstate));
-		  val.val = 1;
-		  (yyval.op) = ast_literal (val);
-		}
-#line 2025 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 38:
-#line 529 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  struct typed_val_int val;
-
-		  val.type = language_bool_type (parse_language (pstate),
-						 parse_gdbarch (pstate));
-		  val.val = 0;
-		  (yyval.op) = ast_literal (val);
-		}
-#line 2038 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 39:
-#line 541 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_structop ((yyvsp[-2].op), (yyvsp[0].sval).ptr, 0); }
-#line 2044 "rust-exp.c" /* yacc.c:1646  */
+#line 2126 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 40:
-#line 543 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.op) = ast_structop ((yyvsp[-2].op), (yyvsp[0].sval).ptr, 1);
-		  rust_ast = (yyval.op);
-		}
-#line 2053 "rust-exp.c" /* yacc.c:1646  */
+#line 592 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_string ((yyvsp[0].sval)); }
+#line 2132 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 41:
-#line 548 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_structop_anonymous ((yyvsp[-2].op), (yyvsp[0].typed_val_int)); }
-#line 2059 "rust-exp.c" /* yacc.c:1646  */
+#line 594 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  struct typed_val_int val;
+
+		  val.type = language_bool_type (current_parser->language (),
+						 current_parser->arch ());
+		  val.val = 1;
+		  (yyval.op) = ast_literal (val);
+		}
+#line 2145 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 42:
-#line 553 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_SUBSCRIPT, (yyvsp[-3].op), (yyvsp[-1].op)); }
-#line 2065 "rust-exp.c" /* yacc.c:1646  */
+#line 603 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  struct typed_val_int val;
+
+		  val.type = language_bool_type (current_parser->language (),
+						 current_parser->arch ());
+		  val.val = 0;
+		  (yyval.op) = ast_literal (val);
+		}
+#line 2158 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 43:
-#line 558 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_unary (UNOP_PLUS, (yyvsp[0].op)); }
-#line 2071 "rust-exp.c" /* yacc.c:1646  */
+#line 615 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_structop ((yyvsp[-2].op), (yyvsp[0].sval).ptr, 0); }
+#line 2164 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 44:
-#line 561 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_unary (UNOP_NEG, (yyvsp[0].op)); }
-#line 2077 "rust-exp.c" /* yacc.c:1646  */
+#line 617 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  (yyval.op) = ast_structop ((yyvsp[-2].op), (yyvsp[0].sval).ptr, 1);
+		  current_parser->rust_ast = (yyval.op);
+		}
+#line 2173 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 45:
-#line 564 "rust-exp.y" /* yacc.c:1646  */
+#line 622 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_structop_anonymous ((yyvsp[-2].op), (yyvsp[0].typed_val_int)); }
+#line 2179 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 46:
+#line 627 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_SUBSCRIPT, (yyvsp[-3].op), (yyvsp[-1].op)); }
+#line 2185 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 47:
+#line 632 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_unary (UNOP_PLUS, (yyvsp[0].op)); }
+#line 2191 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 48:
+#line 635 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_unary (UNOP_NEG, (yyvsp[0].op)); }
+#line 2197 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 49:
+#line 638 "rust-exp.y" /* yacc.c:1646  */
     {
 		  /* Note that we provide a Rust-specific evaluator
 		     override for UNOP_COMPLEMENT, so it can do the
@@ -2084,262 +2204,266 @@ yyreduce:
 		     values.  */
 		  (yyval.op) = ast_unary (UNOP_COMPLEMENT, (yyvsp[0].op));
 		}
-#line 2089 "rust-exp.c" /* yacc.c:1646  */
+#line 2209 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 46:
-#line 573 "rust-exp.y" /* yacc.c:1646  */
+  case 50:
+#line 647 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = ast_unary (UNOP_IND, (yyvsp[0].op)); }
-#line 2095 "rust-exp.c" /* yacc.c:1646  */
+#line 2215 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 47:
-#line 576 "rust-exp.y" /* yacc.c:1646  */
+  case 51:
+#line 650 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = ast_unary (UNOP_ADDR, (yyvsp[0].op)); }
-#line 2101 "rust-exp.c" /* yacc.c:1646  */
+#line 2221 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 48:
-#line 579 "rust-exp.y" /* yacc.c:1646  */
+  case 52:
+#line 653 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = ast_unary (UNOP_ADDR, (yyvsp[0].op)); }
-#line 2107 "rust-exp.c" /* yacc.c:1646  */
+#line 2227 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 53:
-#line 592 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_MUL, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2113 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 54:
-#line 595 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_REPEAT, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2119 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 55:
-#line 598 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_DIV, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2125 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 56:
-#line 601 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_REM, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2131 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 57:
-#line 604 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LESS, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2137 "rust-exp.c" /* yacc.c:1646  */
+#line 655 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_unary (UNOP_SIZEOF, (yyvsp[-1].op)); }
+#line 2233 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 58:
-#line 607 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_GTR, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2143 "rust-exp.c" /* yacc.c:1646  */
+#line 667 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_MUL, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2239 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 59:
-#line 610 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_BITWISE_AND, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2149 "rust-exp.c" /* yacc.c:1646  */
+#line 670 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_REPEAT, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2245 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 60:
-#line 613 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_BITWISE_IOR, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2155 "rust-exp.c" /* yacc.c:1646  */
+#line 673 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_DIV, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2251 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 61:
-#line 616 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_BITWISE_XOR, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2161 "rust-exp.c" /* yacc.c:1646  */
+#line 676 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_REM, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2257 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 62:
-#line 619 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_ADD, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2167 "rust-exp.c" /* yacc.c:1646  */
+#line 679 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_LESS, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2263 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 63:
-#line 622 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_SUB, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2173 "rust-exp.c" /* yacc.c:1646  */
+#line 682 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_GTR, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2269 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 64:
-#line 625 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LOGICAL_OR, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2179 "rust-exp.c" /* yacc.c:1646  */
+#line 685 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_BITWISE_AND, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2275 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 65:
-#line 628 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LOGICAL_AND, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2185 "rust-exp.c" /* yacc.c:1646  */
+#line 688 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_BITWISE_IOR, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2281 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 66:
-#line 631 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_EQUAL, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2191 "rust-exp.c" /* yacc.c:1646  */
+#line 691 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_BITWISE_XOR, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2287 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 67:
-#line 634 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_NOTEQUAL, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2197 "rust-exp.c" /* yacc.c:1646  */
+#line 694 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_ADD, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2293 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 68:
-#line 637 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LEQ, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2203 "rust-exp.c" /* yacc.c:1646  */
+#line 697 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_SUB, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2299 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 69:
-#line 640 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_GEQ, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2209 "rust-exp.c" /* yacc.c:1646  */
+#line 700 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_LOGICAL_OR, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2305 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 70:
-#line 643 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LSH, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2215 "rust-exp.c" /* yacc.c:1646  */
+#line 703 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_LOGICAL_AND, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2311 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 71:
-#line 646 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_RSH, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2221 "rust-exp.c" /* yacc.c:1646  */
+#line 706 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_EQUAL, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2317 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 72:
-#line 651 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_cast ((yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2227 "rust-exp.c" /* yacc.c:1646  */
+#line 709 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_NOTEQUAL, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2323 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 73:
-#line 656 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_ASSIGN, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2233 "rust-exp.c" /* yacc.c:1646  */
+#line 712 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_LEQ, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2329 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 74:
-#line 661 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_compound_assignment ((yyvsp[-1].opcode), (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2239 "rust-exp.c" /* yacc.c:1646  */
+#line 715 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_GEQ, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2335 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 75:
-#line 667 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = (yyvsp[-1].op); }
-#line 2245 "rust-exp.c" /* yacc.c:1646  */
+#line 718 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_LSH, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2341 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 76:
-#line 672 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.params) = OBSTACK_ZALLOC (&work_obstack, VEC (rust_op_ptr) *);
-		  make_cleanup (VEC_cleanup (rust_op_ptr), (yyval.params));
-		  VEC_safe_push (rust_op_ptr, *(yyval.params), (yyvsp[0].op));
-		}
-#line 2255 "rust-exp.c" /* yacc.c:1646  */
+#line 721 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_RSH, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2347 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 77:
-#line 678 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  VEC_safe_push (rust_op_ptr, *(yyvsp[-2].params), (yyvsp[0].op));
-		  (yyval.params) = (yyvsp[-2].params);
-		}
-#line 2264 "rust-exp.c" /* yacc.c:1646  */
+#line 726 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_cast ((yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2353 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 78:
-#line 686 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  /* The result can't be NULL.  */
-		  (yyval.params) = OBSTACK_ZALLOC (&work_obstack, VEC (rust_op_ptr) *);
-		  make_cleanup (VEC_cleanup (rust_op_ptr), (yyval.params));
-		}
-#line 2274 "rust-exp.c" /* yacc.c:1646  */
+#line 731 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_operation (BINOP_ASSIGN, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2359 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 79:
-#line 692 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.params) = (yyvsp[0].params); }
-#line 2280 "rust-exp.c" /* yacc.c:1646  */
+#line 736 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_compound_assignment ((yyvsp[-1].opcode), (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2365 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 80:
-#line 699 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.params) = (yyvsp[-1].params); }
-#line 2286 "rust-exp.c" /* yacc.c:1646  */
+#line 742 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = (yyvsp[-1].op); }
+#line 2371 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 81:
-#line 704 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_call_ish (OP_FUNCALL, (yyvsp[-1].op), (yyvsp[0].params)); }
-#line 2292 "rust-exp.c" /* yacc.c:1646  */
+#line 747 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  (yyval.params) = current_parser->new_op_vector ();
+		  (yyval.params)->push_back ((yyvsp[0].op));
+		}
+#line 2380 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 82:
+#line 752 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  (yyvsp[-2].params)->push_back ((yyvsp[0].op));
+		  (yyval.params) = (yyvsp[-2].params);
+		}
+#line 2389 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 83:
+#line 760 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  /* The result can't be NULL.  */
+		  (yyval.params) = current_parser->new_op_vector ();
+		}
+#line 2398 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 84:
-#line 714 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.depth) = 1; }
-#line 2298 "rust-exp.c" /* yacc.c:1646  */
+#line 765 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.params) = (yyvsp[0].params); }
+#line 2404 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 85:
-#line 716 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.depth) = (yyvsp[-2].depth) + 1; }
-#line 2304 "rust-exp.c" /* yacc.c:1646  */
+#line 770 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.params) = (yyvsp[-1].params); }
+#line 2410 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 86:
-#line 721 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = (yyvsp[0].op); }
-#line 2310 "rust-exp.c" /* yacc.c:1646  */
+#line 775 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_call_ish (OP_FUNCALL, (yyvsp[-1].op), (yyvsp[0].params)); }
+#line 2416 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 87:
-#line 723 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_path ((yyvsp[0].sval), NULL); }
-#line 2316 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 88:
-#line 725 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_path (make_stoken ("self"), NULL); }
-#line 2322 "rust-exp.c" /* yacc.c:1646  */
+  case 89:
+#line 785 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.depth) = 1; }
+#line 2422 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 90:
-#line 731 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = super_name ((yyvsp[0].op), 0); }
-#line 2328 "rust-exp.c" /* yacc.c:1646  */
+#line 787 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.depth) = (yyvsp[-2].depth) + 1; }
+#line 2428 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 91:
-#line 733 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = super_name ((yyvsp[0].op), (yyvsp[-1].depth)); }
-#line 2334 "rust-exp.c" /* yacc.c:1646  */
+#line 792 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = (yyvsp[0].op); }
+#line 2434 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 92:
-#line 735 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = crate_name ((yyvsp[0].op)); }
-#line 2340 "rust-exp.c" /* yacc.c:1646  */
+#line 794 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_path ((yyvsp[0].sval), NULL); }
+#line 2440 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 93:
-#line 737 "rust-exp.y" /* yacc.c:1646  */
+#line 796 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_path (make_stoken ("self"), NULL); }
+#line 2446 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 95:
+#line 802 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = super_name ((yyvsp[0].op), 0); }
+#line 2452 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 96:
+#line 804 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = super_name ((yyvsp[0].op), (yyvsp[-1].depth)); }
+#line 2458 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 97:
+#line 806 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = crate_name ((yyvsp[0].op)); }
+#line 2464 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 98:
+#line 808 "rust-exp.y" /* yacc.c:1646  */
     {
 		  /* This is a gdb extension to make it possible to
 		     refer to items in other crates.  It just bypasses
@@ -2348,60 +2472,60 @@ yyreduce:
 		  (yyval.op) = ast_path (rust_concat3 ("::", (yyvsp[0].op)->left.sval.ptr, NULL),
 				 (yyvsp[0].op)->right.params);
 		}
-#line 2353 "rust-exp.c" /* yacc.c:1646  */
+#line 2477 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 94:
-#line 749 "rust-exp.y" /* yacc.c:1646  */
+  case 99:
+#line 820 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = ast_path ((yyvsp[0].sval), NULL); }
-#line 2359 "rust-exp.c" /* yacc.c:1646  */
+#line 2483 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 95:
-#line 751 "rust-exp.y" /* yacc.c:1646  */
+  case 100:
+#line 822 "rust-exp.y" /* yacc.c:1646  */
     {
 		  (yyval.op) = ast_path (rust_concat3 ((yyvsp[-2].op)->left.sval.ptr, "::",
 					       (yyvsp[0].sval).ptr),
 				 NULL);
 		}
-#line 2369 "rust-exp.c" /* yacc.c:1646  */
+#line 2493 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 96:
-#line 757 "rust-exp.y" /* yacc.c:1646  */
+  case 101:
+#line 828 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = ast_path ((yyvsp[-4].op)->left.sval, (yyvsp[-1].params)); }
-#line 2375 "rust-exp.c" /* yacc.c:1646  */
+#line 2499 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 97:
-#line 759 "rust-exp.y" /* yacc.c:1646  */
+  case 102:
+#line 830 "rust-exp.y" /* yacc.c:1646  */
     {
 		  (yyval.op) = ast_path ((yyvsp[-4].op)->left.sval, (yyvsp[-1].params));
 		  rust_push_back ('>');
 		}
-#line 2384 "rust-exp.c" /* yacc.c:1646  */
+#line 2508 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 99:
-#line 768 "rust-exp.y" /* yacc.c:1646  */
+  case 104:
+#line 839 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = super_name ((yyvsp[0].op), 0); }
-#line 2390 "rust-exp.c" /* yacc.c:1646  */
+#line 2514 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 100:
-#line 770 "rust-exp.y" /* yacc.c:1646  */
+  case 105:
+#line 841 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = super_name ((yyvsp[0].op), (yyvsp[-1].depth)); }
-#line 2396 "rust-exp.c" /* yacc.c:1646  */
+#line 2520 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 101:
-#line 772 "rust-exp.y" /* yacc.c:1646  */
+  case 106:
+#line 843 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = crate_name ((yyvsp[0].op)); }
-#line 2402 "rust-exp.c" /* yacc.c:1646  */
+#line 2526 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 102:
-#line 774 "rust-exp.y" /* yacc.c:1646  */
+  case 107:
+#line 845 "rust-exp.y" /* yacc.c:1646  */
     {
 		  /* This is a gdb extension to make it possible to
 		     refer to items in other crates.  It just bypasses
@@ -2410,124 +2534,121 @@ yyreduce:
 		  (yyval.op) = ast_path (rust_concat3 ("::", (yyvsp[0].op)->left.sval.ptr, NULL),
 				 (yyvsp[0].op)->right.params);
 		}
-#line 2415 "rust-exp.c" /* yacc.c:1646  */
+#line 2539 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 103:
-#line 786 "rust-exp.y" /* yacc.c:1646  */
+  case 108:
+#line 857 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = ast_path ((yyvsp[0].sval), NULL); }
-#line 2421 "rust-exp.c" /* yacc.c:1646  */
+#line 2545 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 104:
-#line 788 "rust-exp.y" /* yacc.c:1646  */
+  case 109:
+#line 859 "rust-exp.y" /* yacc.c:1646  */
     {
 		  (yyval.op) = ast_path (rust_concat3 ((yyvsp[-2].op)->left.sval.ptr, "::",
 					       (yyvsp[0].sval).ptr),
 				 NULL);
 		}
-#line 2431 "rust-exp.c" /* yacc.c:1646  */
+#line 2555 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 106:
-#line 798 "rust-exp.y" /* yacc.c:1646  */
+  case 111:
+#line 869 "rust-exp.y" /* yacc.c:1646  */
     { (yyval.op) = ast_path ((yyvsp[-3].op)->left.sval, (yyvsp[-1].params)); }
-#line 2437 "rust-exp.c" /* yacc.c:1646  */
+#line 2561 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
-  case 107:
-#line 800 "rust-exp.y" /* yacc.c:1646  */
+  case 112:
+#line 871 "rust-exp.y" /* yacc.c:1646  */
     {
 		  (yyval.op) = ast_path ((yyvsp[-3].op)->left.sval, (yyvsp[-1].params));
 		  rust_push_back ('>');
 		}
-#line 2446 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 109:
-#line 809 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_array_type ((yyvsp[-3].op), (yyvsp[-1].typed_val_int)); }
-#line 2452 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 110:
-#line 811 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_array_type ((yyvsp[-3].op), (yyvsp[-1].typed_val_int)); }
-#line 2458 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 111:
-#line 813 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_slice_type ((yyvsp[-1].op)); }
-#line 2464 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 112:
-#line 815 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_reference_type ((yyvsp[0].op)); }
-#line 2470 "rust-exp.c" /* yacc.c:1646  */
-    break;
-
-  case 113:
-#line 817 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_pointer_type ((yyvsp[0].op), 1); }
-#line 2476 "rust-exp.c" /* yacc.c:1646  */
+#line 2570 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 114:
-#line 819 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_pointer_type ((yyvsp[0].op), 0); }
-#line 2482 "rust-exp.c" /* yacc.c:1646  */
+#line 880 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_array_type ((yyvsp[-3].op), (yyvsp[-1].typed_val_int)); }
+#line 2576 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 115:
-#line 821 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_function_type ((yyvsp[0].op), (yyvsp[-3].params)); }
-#line 2488 "rust-exp.c" /* yacc.c:1646  */
+#line 882 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_array_type ((yyvsp[-3].op), (yyvsp[-1].typed_val_int)); }
+#line 2582 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 116:
-#line 823 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_tuple_type ((yyvsp[-1].params)); }
-#line 2494 "rust-exp.c" /* yacc.c:1646  */
+#line 884 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_slice_type ((yyvsp[-1].op)); }
+#line 2588 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 117:
-#line 828 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.params) = NULL; }
-#line 2500 "rust-exp.c" /* yacc.c:1646  */
+#line 886 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_reference_type ((yyvsp[0].op)); }
+#line 2594 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 118:
-#line 830 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.params) = (yyvsp[0].params); }
-#line 2506 "rust-exp.c" /* yacc.c:1646  */
+#line 888 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_pointer_type ((yyvsp[0].op), 1); }
+#line 2600 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 119:
-#line 835 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  VEC (rust_op_ptr) **result
-		    = OBSTACK_ZALLOC (&work_obstack, VEC (rust_op_ptr) *);
-
-		  make_cleanup (VEC_cleanup (rust_op_ptr), result);
-		  VEC_safe_push (rust_op_ptr, *result, (yyvsp[0].op));
-		  (yyval.params) = result;
-		}
-#line 2519 "rust-exp.c" /* yacc.c:1646  */
+#line 890 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_pointer_type ((yyvsp[0].op), 0); }
+#line 2606 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
   case 120:
-#line 844 "rust-exp.y" /* yacc.c:1646  */
+#line 892 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_function_type ((yyvsp[0].op), (yyvsp[-3].params)); }
+#line 2612 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 121:
+#line 894 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.op) = ast_tuple_type ((yyvsp[-1].params)); }
+#line 2618 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 122:
+#line 899 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.params) = NULL; }
+#line 2624 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 123:
+#line 901 "rust-exp.y" /* yacc.c:1646  */
+    { (yyval.params) = (yyvsp[0].params); }
+#line 2630 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 124:
+#line 906 "rust-exp.y" /* yacc.c:1646  */
     {
-		  VEC_safe_push (rust_op_ptr, *(yyvsp[-2].params), (yyvsp[0].op));
+		  rust_op_vector *result = current_parser->new_op_vector ();
+		  result->push_back ((yyvsp[0].op));
+		  (yyval.params) = result;
+		}
+#line 2640 "rust-exp.c.tmp" /* yacc.c:1646  */
+    break;
+
+  case 125:
+#line 912 "rust-exp.y" /* yacc.c:1646  */
+    {
+		  (yyvsp[-2].params)->push_back ((yyvsp[0].op));
 		  (yyval.params) = (yyvsp[-2].params);
 		}
-#line 2528 "rust-exp.c" /* yacc.c:1646  */
+#line 2649 "rust-exp.c.tmp" /* yacc.c:1646  */
     break;
 
 
-#line 2532 "rust-exp.c" /* yacc.c:1646  */
+#line 2653 "rust-exp.c.tmp" /* yacc.c:1646  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -2755,7 +2876,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 850 "rust-exp.y" /* yacc.c:1906  */
+#line 918 "rust-exp.y" /* yacc.c:1906  */
 
 
 /* A struct of this type is used to describe a token.  */
@@ -2781,6 +2902,7 @@ static const struct token_info identifier_tokens[] =
   { "true", KW_TRUE, OP_NULL },
   { "extern", KW_EXTERN, OP_NULL },
   { "fn", KW_FN, OP_NULL },
+  { "sizeof", KW_SIZEOF, OP_NULL },
 };
 
 /* Operator tokens, sorted longest first.  */
@@ -2806,6 +2928,7 @@ static const struct token_info operator_tokens[] =
   { "&=", COMPOUND_ASSIGN, BINOP_BITWISE_AND },
   { "|=", COMPOUND_ASSIGN, BINOP_BITWISE_IOR },
   { "^=", COMPOUND_ASSIGN, BINOP_BITWISE_XOR },
+  { "..=", DOTDOTEQ, OP_NULL },
 
   { "::", COLONCOLON, OP_NULL },
   { "..", DOTDOT, OP_NULL },
@@ -2817,7 +2940,7 @@ static const struct token_info operator_tokens[] =
 static const char *
 rust_copy_name (const char *name, int len)
 {
-  return (const char *) obstack_copy0 (&work_obstack, name, len);
+  return (const char *) obstack_copy0 (work_obstack, name, len);
 }
 
 /* Helper function to make an stoken from a C string.  */
@@ -2838,7 +2961,7 @@ make_stoken (const char *p)
 static struct stoken
 rust_concat3 (const char *s1, const char *s2, const char *s3)
 {
-  return make_stoken (obconcat (&work_obstack, s1, s2, s3, (char *) NULL));
+  return make_stoken (obconcat (work_obstack, s1, s2, s3, (char *) NULL));
 }
 
 /* Return an AST node referring to NAME, but relative to the crate's
@@ -2847,16 +2970,15 @@ rust_concat3 (const char *s1, const char *s2, const char *s3)
 static const struct rust_op *
 crate_name (const struct rust_op *name)
 {
-  char *crate = rust_crate_for_block (expression_context_block);
+  std::string crate = rust_crate_for_block (expression_context_block);
   struct stoken result;
 
   gdb_assert (name->opcode == OP_VAR_VALUE);
 
-  if (crate == NULL)
+  if (crate.empty ())
     error (_("Could not find crate for current location"));
-  result = make_stoken (obconcat (&work_obstack, "::", crate, "::",
+  result = make_stoken (obconcat (work_obstack, "::", crate.c_str (), "::",
 				  name->left.sval.ptr, (char *) NULL));
-  xfree (crate);
 
   return ast_path (result, name->right.params);
 }
@@ -2878,17 +3000,14 @@ super_name (const struct rust_op *ident, unsigned int n_supers)
 
   if (n_supers > 0)
     {
-      int i;
       int len;
-      VEC (int) *offsets = NULL;
+      std::vector<int> offsets;
       unsigned int current_len;
-      struct cleanup *cleanup;
 
-      cleanup = make_cleanup (VEC_cleanup (int), &offsets);
       current_len = cp_find_first_component (scope);
       while (scope[current_len] != '\0')
 	{
-	  VEC_safe_push (int, offsets, current_len);
+	  offsets.push_back (current_len);
 	  gdb_assert (scope[current_len] == ':');
 	  /* The "::".  */
 	  current_len += 2;
@@ -2896,35 +3015,31 @@ super_name (const struct rust_op *ident, unsigned int n_supers)
 						  + current_len);
 	}
 
-      len = VEC_length (int, offsets);
+      len = offsets.size ();
       if (n_supers >= len)
 	error (_("Too many super:: uses from '%s'"), scope);
 
-      offset = VEC_index (int, offsets, len - n_supers);
-
-      do_cleanups (cleanup);
+      offset = offsets[len - n_supers];
     }
   else
     offset = strlen (scope);
 
-  obstack_grow (&work_obstack, "::", 2);
-  obstack_grow (&work_obstack, scope, offset);
-  obstack_grow (&work_obstack, "::", 2);
-  obstack_grow0 (&work_obstack, ident->left.sval.ptr, ident->left.sval.length);
+  obstack_grow (work_obstack, "::", 2);
+  obstack_grow (work_obstack, scope, offset);
+  obstack_grow (work_obstack, "::", 2);
+  obstack_grow0 (work_obstack, ident->left.sval.ptr, ident->left.sval.length);
 
-  return ast_path (make_stoken ((const char *) obstack_finish (&work_obstack)),
+  return ast_path (make_stoken ((const char *) obstack_finish (work_obstack)),
 		   ident->right.params);
 }
 
-/* A helper that updates innermost_block as appropriate.  */
+/* A helper that updates the innermost block as appropriate.  */
 
 static void
 update_innermost_block (struct block_symbol sym)
 {
-  if (symbol_read_needs_frame (sym.symbol)
-      && (innermost_block == NULL
-	  || contained_in (sym.block, innermost_block)))
-    innermost_block = sym.block;
+  if (symbol_read_needs_frame (sym.symbol))
+    innermost_block.update (sym);
 }
 
 /* A helper to look up a Rust type, or fail.  This only works for
@@ -2935,13 +3050,8 @@ rust_type (const char *name)
 {
   struct type *type;
 
-  /* When unit testing, we don't bother checking the types, so avoid a
-     possibly-failing lookup here.  */
-  if (unit_testing)
-    return NULL;
-
-  type = language_lookup_primitive_type (parse_language (pstate),
-					 parse_gdbarch (pstate),
+  type = language_lookup_primitive_type (current_parser->language (),
+					 current_parser->arch (),
 					 name);
   if (type == NULL)
     error (_("Could not find Rust type %s"), name);
@@ -3108,7 +3218,7 @@ starts_raw_string (const char *str)
 /* Return true if STR looks like the end of a raw string that had N
    hashes at the start.  */
 
-static int
+static bool
 ends_raw_string (const char *str, int n)
 {
   int i;
@@ -3116,8 +3226,8 @@ ends_raw_string (const char *str, int n)
   gdb_assert (str[0] == '"');
   for (i = 0; i < n; ++i)
     if (str[i + 1] != '#')
-      return 0;
-  return 1;
+      return false;
+  return true;
 }
 
 /* Lex a string constant.  */
@@ -3127,7 +3237,6 @@ lex_string (void)
 {
   int is_byte = lexptr[0] == 'b';
   int raw_length;
-  int len_in_chars = 0;
 
   if (is_byte)
     ++lexptr;
@@ -3154,7 +3263,7 @@ lex_string (void)
 	  value = lexptr[0] & 0xff;
 	  if (is_byte && value > 127)
 	    error (_("Non-ASCII value in raw byte string"));
-	  obstack_1grow (&work_obstack, value);
+	  obstack_1grow (work_obstack, value);
 
 	  ++lexptr;
 	}
@@ -3169,11 +3278,11 @@ lex_string (void)
 	  value = lex_escape (is_byte);
 
 	  if (is_byte)
-	    obstack_1grow (&work_obstack, value);
+	    obstack_1grow (work_obstack, value);
 	  else
 	    convert_between_encodings ("UTF-32", "UTF-8", (gdb_byte *) &value,
 				       sizeof (value), sizeof (value),
-				       &work_obstack, translit_none);
+				       work_obstack, translit_none);
 	}
       else if (lexptr[0] == '\0')
 	error (_("Unexpected EOF in string"));
@@ -3182,19 +3291,19 @@ lex_string (void)
 	  value = lexptr[0] & 0xff;
 	  if (is_byte && value > 127)
 	    error (_("Non-ASCII value in byte string"));
-	  obstack_1grow (&work_obstack, value);
+	  obstack_1grow (work_obstack, value);
 	  ++lexptr;
 	}
     }
 
-  rustyylval.sval.length = obstack_object_size (&work_obstack);
-  rustyylval.sval.ptr = (const char *) obstack_finish (&work_obstack);
+  rustyylval.sval.length = obstack_object_size (work_obstack);
+  rustyylval.sval.ptr = (const char *) obstack_finish (work_obstack);
   return is_byte ? BYTESTRING : STRING;
 }
 
 /* Return true if STRING starts with whitespace followed by a digit.  */
 
-static int
+static bool
 space_then_number (const char *string)
 {
   const char *p = string;
@@ -3202,14 +3311,14 @@ space_then_number (const char *string)
   while (p[0] == ' ' || p[0] == '\t')
     ++p;
   if (p == string)
-    return 0;
+    return false;
 
   return *p >= '0' && *p <= '9';
 }
 
 /* Return true if C can start an identifier.  */
 
-static int
+static bool
 rust_identifier_start_p (char c)
 {
   return ((c >= 'a' && c <= 'z')
@@ -3330,13 +3439,11 @@ lex_number (void)
   int is_integer = 0;
   int could_be_decimal = 1;
   int implicit_i32 = 0;
-  char *type_name = NULL;
+  const char *type_name = NULL;
   struct type *type;
   int end_index;
   int type_index = -1;
-  int i, out;
-  char *number;
-  struct cleanup *cleanup = make_cleanup (null_cleanup, NULL);
+  int i;
 
   match = regexec (&number_regex, lexptr, ARRAY_SIZE (subexps), subexps, 0);
   /* Failure means the regexp is broken.  */
@@ -3384,7 +3491,7 @@ lex_number (void)
   gdb_assert (subexps[0].rm_eo > 0);
   if (lexptr[subexps[0].rm_eo - 1] == '.')
     {
-      const char *next = skip_spaces_const (&lexptr[subexps[0].rm_eo]);
+      const char *next = skip_spaces (&lexptr[subexps[0].rm_eo]);
 
       if (rust_identifier_start_p (*next) || *next == '.')
 	{
@@ -3398,29 +3505,28 @@ lex_number (void)
     }
 
   /* Compute the type name if we haven't already.  */
+  std::string type_name_holder;
   if (type_name == NULL)
     {
       gdb_assert (type_index != -1);
-      type_name = xstrndup (lexptr + subexps[type_index].rm_so,
-			   (subexps[type_index].rm_eo
-			    - subexps[type_index].rm_so));
-      make_cleanup (xfree, type_name);
+      type_name_holder = std::string (lexptr + subexps[type_index].rm_so,
+				      (subexps[type_index].rm_eo
+				       - subexps[type_index].rm_so));
+      type_name = type_name_holder.c_str ();
     }
 
   /* Look up the type.  */
   type = rust_type (type_name);
 
   /* Copy the text of the number and remove the "_"s.  */
-  number = xstrndup (lexptr, end_index);
-  make_cleanup (xfree, number);
-  for (i = out = 0; number[i]; ++i)
+  std::string number;
+  for (i = 0; i < end_index && lexptr[i]; ++i)
     {
-      if (number[i] == '_')
+      if (lexptr[i] == '_')
 	could_be_decimal = 0;
       else
-	number[out++] = number[i];
+	number.push_back (lexptr[i]);
     }
-  number[out] = '\0';
 
   /* Advance past the match.  */
   lexptr += subexps[0].rm_eo;
@@ -3430,6 +3536,8 @@ lex_number (void)
     {
       uint64_t value;
       int radix = 10;
+      int offset = 0;
+
       if (number[0] == '0')
 	{
 	  if (number[1] == 'x')
@@ -3440,12 +3548,12 @@ lex_number (void)
 	    radix = 2;
 	  if (radix != 10)
 	    {
-	      number += 2;
+	      offset = 2;
 	      could_be_decimal = 0;
 	    }
 	}
 
-      value = strtoul (number, NULL, radix);
+      value = strtoul (number.c_str () + offset, NULL, radix);
       if (implicit_i32 && value >= ((uint64_t) 1) << 31)
 	type = rust_type ("i64");
 
@@ -3454,11 +3562,13 @@ lex_number (void)
     }
   else
     {
-      rustyylval.typed_val_float.dval = strtod (number, NULL);
       rustyylval.typed_val_float.type = type;
+      bool parsed = parse_float (number.c_str (), number.length (),
+				 rustyylval.typed_val_float.type,
+				 rustyylval.typed_val_float.val);
+      gdb_assert (parsed);
     }
 
-  do_cleanups (cleanup);
   return is_integer ? (could_be_decimal ? DECIMAL_INTEGER : INTEGER) : FLOAT;
 }
 
@@ -3540,7 +3650,7 @@ static const struct rust_op *
 ast_operation (enum exp_opcode opcode, const struct rust_op *left,
 		const struct rust_op *right)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = opcode;
   result->left.op = left;
@@ -3555,7 +3665,7 @@ static const struct rust_op *
 ast_compound_assignment (enum exp_opcode opcode, const struct rust_op *left,
 			  const struct rust_op *right)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = opcode;
   result->compound_assignment = 1;
@@ -3570,7 +3680,7 @@ ast_compound_assignment (enum exp_opcode opcode, const struct rust_op *left,
 static const struct rust_op *
 ast_literal (struct typed_val_int val)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = OP_LONG;
   result->left.typed_val_int = val;
@@ -3583,9 +3693,9 @@ ast_literal (struct typed_val_int val)
 static const struct rust_op *
 ast_dliteral (struct typed_val_float val)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
-  result->opcode = OP_DOUBLE;
+  result->opcode = OP_FLOAT;
   result->left.typed_val_float = val;
 
   return result;
@@ -3604,7 +3714,7 @@ ast_unary (enum exp_opcode opcode, const struct rust_op *expr)
 static const struct rust_op *
 ast_cast (const struct rust_op *expr, const struct rust_op *type)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = UNOP_CAST;
   result->left.op = expr;
@@ -3619,9 +3729,9 @@ ast_cast (const struct rust_op *expr, const struct rust_op *type)
 
 static const struct rust_op *
 ast_call_ish (enum exp_opcode opcode, const struct rust_op *expr,
-	       VEC (rust_op_ptr) **params)
+	      rust_op_vector *params)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = opcode;
   result->left.op = expr;
@@ -3633,9 +3743,9 @@ ast_call_ish (enum exp_opcode opcode, const struct rust_op *expr,
 /* Make a structure creation operation.  */
 
 static const struct rust_op *
-ast_struct (const struct rust_op *name, VEC (set_field) **fields)
+ast_struct (const struct rust_op *name, rust_set_vector *fields)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = OP_AGGREGATE;
   result->left.op = name;
@@ -3647,9 +3757,9 @@ ast_struct (const struct rust_op *name, VEC (set_field) **fields)
 /* Make an identifier path.  */
 
 static const struct rust_op *
-ast_path (struct stoken path, VEC (rust_op_ptr) **params)
+ast_path (struct stoken path, rust_op_vector *params)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = OP_VAR_VALUE;
   result->left.sval = path;
@@ -3663,7 +3773,7 @@ ast_path (struct stoken path, VEC (rust_op_ptr) **params)
 static const struct rust_op *
 ast_string (struct stoken str)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = OP_STRING;
   result->left.sval = str;
@@ -3676,7 +3786,7 @@ ast_string (struct stoken str)
 static const struct rust_op *
 ast_structop (const struct rust_op *left, const char *name, int completing)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = STRUCTOP_STRUCT;
   result->completing = completing;
@@ -3692,7 +3802,7 @@ static const struct rust_op *
 ast_structop_anonymous (const struct rust_op *left,
 			 struct typed_val_int number)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = STRUCTOP_ANONYMOUS;
   result->left.op = left;
@@ -3704,11 +3814,13 @@ ast_structop_anonymous (const struct rust_op *left,
 /* Make a range operation.  */
 
 static const struct rust_op *
-ast_range (const struct rust_op *lhs, const struct rust_op *rhs)
+ast_range (const struct rust_op *lhs, const struct rust_op *rhs,
+	   bool inclusive)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = OP_RANGE;
+  result->inclusive = inclusive;
   result->left.op = lhs;
   result->right.op = rhs;
 
@@ -3720,7 +3832,7 @@ ast_range (const struct rust_op *lhs, const struct rust_op *rhs)
 static struct rust_op *
 ast_basic_type (enum type_code typecode)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (&work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
 
   result->opcode = OP_TYPE;
   result->typecode = typecode;
@@ -3777,7 +3889,7 @@ ast_pointer_type (const struct rust_op *type, int is_mut)
 /* Create an AST node describing a function type.  */
 
 static const struct rust_op *
-ast_function_type (const struct rust_op *rtype, VEC (rust_op_ptr) **params)
+ast_function_type (const struct rust_op *rtype, rust_op_vector *params)
 {
   struct rust_op *result = ast_basic_type (TYPE_CODE_FUNC);
 
@@ -3789,7 +3901,7 @@ ast_function_type (const struct rust_op *rtype, VEC (rust_op_ptr) **params)
 /* Create an AST node describing a tuple type.  */
 
 static const struct rust_op *
-ast_tuple_type (VEC (rust_op_ptr) **params)
+ast_tuple_type (rust_op_vector *params)
 {
   struct rust_op *result = ast_basic_type (TYPE_CODE_STRUCT);
 
@@ -3846,14 +3958,14 @@ rust_lookup_type (const char *name, const struct block *block)
       return SYMBOL_TYPE (result.symbol);
     }
 
-  type = lookup_typename (parse_language (pstate), parse_gdbarch (pstate),
+  type = lookup_typename (current_parser->language (), current_parser->arch (),
 			  name, NULL, 1);
   if (type != NULL)
     return type;
 
   /* Last chance, try a built-in type.  */
-  return language_lookup_primitive_type (parse_language (pstate),
-					 parse_gdbarch (pstate),
+  return language_lookup_primitive_type (current_parser->language (),
+					 current_parser->arch (),
 					 name);
 }
 
@@ -3865,18 +3977,17 @@ static const char *convert_name (struct parser_state *state,
 /* Convert a vector of rust_ops representing types to a vector of
    types.  */
 
-static VEC (type_ptr) *
-convert_params_to_types (struct parser_state *state, VEC (rust_op_ptr) *params)
+static std::vector<struct type *>
+convert_params_to_types (struct parser_state *state, rust_op_vector *params)
 {
-  int i;
-  const struct rust_op *op;
-  VEC (type_ptr) *result = NULL;
-  struct cleanup *cleanup = make_cleanup (VEC_cleanup (type_ptr), &result);
+  std::vector<struct type *> result;
 
-  for (i = 0; VEC_iterate (rust_op_ptr, params, i, op); ++i)
-    VEC_safe_push (type_ptr, result, convert_ast_to_type (state, op));
+  if (params != nullptr)
+    {
+      for (const rust_op *op : *params)
+        result.push_back (convert_ast_to_type (state, op));
+    }
 
-  discard_cleanups (cleanup);
   return result;
 }
 
@@ -3928,58 +4039,46 @@ convert_ast_to_type (struct parser_state *state,
 
     case TYPE_CODE_FUNC:
       {
-	VEC (type_ptr) *args
-	  = convert_params_to_types (state, *operation->right.params);
-	struct cleanup *cleanup
-	  = make_cleanup (VEC_cleanup (type_ptr), &args);
+	std::vector<struct type *> args
+	  (convert_params_to_types (state, operation->right.params));
 	struct type **argtypes = NULL;
 
 	type = convert_ast_to_type (state, operation->left.op);
-	if (!VEC_empty (type_ptr, args))
-	  argtypes = VEC_address (type_ptr, args);
+	if (!args.empty ())
+	  argtypes = args.data ();
 
 	result
-	  = lookup_function_type_with_arguments (type,
-						 VEC_length (type_ptr, args),
+	  = lookup_function_type_with_arguments (type, args.size (),
 						 argtypes);
 	result = lookup_pointer_type (result);
-
-	do_cleanups (cleanup);
       }
       break;
 
     case TYPE_CODE_STRUCT:
       {
-	VEC (type_ptr) *args
-	  = convert_params_to_types (state, *operation->left.params);
-	struct cleanup *cleanup
-	  = make_cleanup (VEC_cleanup (type_ptr), &args);
+	std::vector<struct type *> args
+	  (convert_params_to_types (state, operation->left.params));
 	int i;
-	struct type *type;
 	const char *name;
 
-	obstack_1grow (&work_obstack, '(');
-	for (i = 0; VEC_iterate (type_ptr, args, i, type); ++i)
+	obstack_1grow (work_obstack, '(');
+	for (i = 0; i < args.size (); ++i)
 	  {
-	    char *type_name = type_to_string (type);
+	    std::string type_name = type_to_string (args[i]);
 
 	    if (i > 0)
-	      obstack_1grow (&work_obstack, ',');
-	    obstack_grow_str (&work_obstack, type_name);
-
-	    xfree (type_name);
+	      obstack_1grow (work_obstack, ',');
+	    obstack_grow_str (work_obstack, type_name.c_str ());
 	  }
 
-	obstack_grow_str0 (&work_obstack, ")");
-	name = (const char *) obstack_finish (&work_obstack);
+	obstack_grow_str0 (work_obstack, ")");
+	name = (const char *) obstack_finish (work_obstack);
 
 	/* We don't allow creating new tuple types (yet), but we do
 	   allow looking up existing tuple types.  */
 	result = rust_lookup_type (name, expression_context_block);
 	if (result == NULL)
 	  error (_("could not find tuple type '%s'"), name);
-
-	do_cleanups (cleanup);
       }
       break;
 
@@ -3998,54 +4097,46 @@ convert_ast_to_type (struct parser_state *state,
 static const char *
 convert_name (struct parser_state *state, const struct rust_op *operation)
 {
-  VEC (type_ptr) *types;
-  struct cleanup *cleanup;
   int i;
-  struct type *type;
 
   gdb_assert (operation->opcode == OP_VAR_VALUE);
 
   if (operation->right.params == NULL)
     return operation->left.sval.ptr;
 
-  types = convert_params_to_types (state, *operation->right.params);
-  cleanup = make_cleanup (VEC_cleanup (type_ptr), &types);
+  std::vector<struct type *> types
+    (convert_params_to_types (state, operation->right.params));
 
-  obstack_grow_str (&work_obstack, operation->left.sval.ptr);
-  obstack_1grow (&work_obstack, '<');
-  for (i = 0; VEC_iterate (type_ptr, types, i, type); ++i)
+  obstack_grow_str (work_obstack, operation->left.sval.ptr);
+  obstack_1grow (work_obstack, '<');
+  for (i = 0; i < types.size (); ++i)
     {
-      char *type_name = type_to_string (type);
+      std::string type_name = type_to_string (types[i]);
 
       if (i > 0)
-	obstack_1grow (&work_obstack, ',');
+	obstack_1grow (work_obstack, ',');
 
-      obstack_grow_str (&work_obstack, type_name);
-      xfree (type_name);
+      obstack_grow_str (work_obstack, type_name.c_str ());
     }
-  obstack_grow_str0 (&work_obstack, ">");
+  obstack_grow_str0 (work_obstack, ">");
 
-  do_cleanups (cleanup);
-
-  return (const char *) obstack_finish (&work_obstack);
+  return (const char *) obstack_finish (work_obstack);
 }
 
 static void convert_ast_to_expression (struct parser_state *state,
 				       const struct rust_op *operation,
-				       const struct rust_op *top);
+				       const struct rust_op *top,
+				       bool want_type = false);
 
 /* A helper function that converts a vec of rust_ops to a gdb
    expression.  */
 
 static void
 convert_params_to_expression (struct parser_state *state,
-			      VEC (rust_op_ptr) *params,
+			      rust_op_vector *params,
 			      const struct rust_op *top)
 {
-  int i;
-  rust_op_ptr elem;
-
-  for (i = 0; VEC_iterate (rust_op_ptr, params, i, elem); ++i)
+  for (const rust_op *elem : *params)
     convert_ast_to_expression (state, elem, top);
 }
 
@@ -4053,12 +4144,16 @@ convert_params_to_expression (struct parser_state *state,
    OPERATION is the operation to lower.  TOP is a pointer to the
    top-most operation; it is used to handle the special case where the
    top-most expression is an identifier and can be optionally lowered
-   to OP_TYPE.  */
+   to OP_TYPE.  WANT_TYPE is a flag indicating that, if the expression
+   is the name of a type, then emit an OP_TYPE for it (rather than
+   erroring).  If WANT_TYPE is set, then the similar TOP handling is
+   not done.  */
 
 static void
 convert_ast_to_expression (struct parser_state *state,
 			   const struct rust_op *operation,
-			   const struct rust_op *top)
+			   const struct rust_op *top,
+			   bool want_type)
 {
   switch (operation->opcode)
     {
@@ -4069,11 +4164,11 @@ convert_ast_to_expression (struct parser_state *state,
       write_exp_elt_opcode (state, OP_LONG);
       break;
 
-    case OP_DOUBLE:
-      write_exp_elt_opcode (state, OP_DOUBLE);
+    case OP_FLOAT:
+      write_exp_elt_opcode (state, OP_FLOAT);
       write_exp_elt_type (state, operation->left.typed_val_float.type);
-      write_exp_elt_dblcst (state, operation->left.typed_val_float.dval);
-      write_exp_elt_opcode (state, OP_DOUBLE);
+      write_exp_elt_floatcst (state, operation->left.typed_val_float.val);
+      write_exp_elt_opcode (state, OP_FLOAT);
       break;
 
     case STRUCTOP_STRUCT:
@@ -4096,6 +4191,11 @@ convert_ast_to_expression (struct parser_state *state,
 	write_exp_elt_longcst (state, operation->right.typed_val_int.val);
 	write_exp_elt_opcode (state, STRUCTOP_ANONYMOUS);
       }
+      break;
+
+    case UNOP_SIZEOF:
+      convert_ast_to_expression (state, operation->left.op, top, true);
+      write_exp_elt_opcode (state, UNOP_SIZEOF);
       break;
 
     case UNOP_PLUS:
@@ -4181,18 +4281,14 @@ convert_ast_to_expression (struct parser_state *state,
 	      {
 		/* This is actually a tuple struct expression, not a
 		   call expression.  */
-		rust_op_ptr elem;
-		int i;
-		VEC (rust_op_ptr) *params = *operation->right.params;
+		rust_op_vector *params = operation->right.params;
 
 		if (TYPE_CODE (type) != TYPE_CODE_NAMESPACE)
 		  {
 		    if (!rust_tuple_struct_type_p (type))
 		      error (_("Type %s is not a tuple struct"), varname);
 
-		    for (i = 0;
-			 VEC_iterate (rust_op_ptr, params, i, elem);
-			 ++i)
+		    for (int i = 0; i < params->size (); ++i)
 		      {
 			char *cell = get_print_cell ();
 
@@ -4201,35 +4297,31 @@ convert_ast_to_expression (struct parser_state *state,
 			write_exp_string (state, make_stoken (cell));
 			write_exp_elt_opcode (state, OP_NAME);
 
-			convert_ast_to_expression (state, elem, top);
+			convert_ast_to_expression (state, (*params)[i], top);
 		      }
 
 		    write_exp_elt_opcode (state, OP_AGGREGATE);
 		    write_exp_elt_type (state, type);
-		    write_exp_elt_longcst (state,
-					   2 * VEC_length (rust_op_ptr,
-							   params));
+		    write_exp_elt_longcst (state, 2 * params->size ());
 		    write_exp_elt_opcode (state, OP_AGGREGATE);
 		    break;
 		  }
 	      }
 	  }
 	convert_ast_to_expression (state, operation->left.op, top);
-	convert_params_to_expression (state, *operation->right.params, top);
+	convert_params_to_expression (state, operation->right.params, top);
 	write_exp_elt_opcode (state, OP_FUNCALL);
-	write_exp_elt_longcst (state, VEC_length (rust_op_ptr,
-						  *operation->right.params));
+	write_exp_elt_longcst (state, operation->right.params->size ());
 	write_exp_elt_longcst (state, OP_FUNCALL);
       }
       break;
 
     case OP_ARRAY:
       gdb_assert (operation->left.op == NULL);
-      convert_params_to_expression (state, *operation->right.params, top);
+      convert_params_to_expression (state, operation->right.params, top);
       write_exp_elt_opcode (state, OP_ARRAY);
       write_exp_elt_longcst (state, 0);
-      write_exp_elt_longcst (state, VEC_length (rust_op_ptr,
-						*operation->right.params) - 1);
+      write_exp_elt_longcst (state, operation->right.params->size () - 1);
       write_exp_elt_longcst (state, OP_ARRAY);
       break;
 
@@ -4247,7 +4339,7 @@ convert_ast_to_expression (struct parser_state *state,
 	varname = convert_name (state, operation);
 	sym = rust_lookup_symbol (varname, expression_context_block,
 				  VAR_DOMAIN);
-	if (sym.symbol != NULL)
+	if (sym.symbol != NULL && SYMBOL_CLASS (sym.symbol) != LOC_TYPEDEF)
 	  {
 	    write_exp_elt_opcode (state, OP_VAR_VALUE);
 	    write_exp_elt_block (state, sym.block);
@@ -4256,13 +4348,20 @@ convert_ast_to_expression (struct parser_state *state,
 	  }
 	else
 	  {
-	    struct type *type;
+	    struct type *type = NULL;
 
-	    type = rust_lookup_type (varname, expression_context_block);
+	    if (sym.symbol != NULL)
+	      {
+		gdb_assert (SYMBOL_CLASS (sym.symbol) == LOC_TYPEDEF);
+		type = SYMBOL_TYPE (sym.symbol);
+	      }
+	    if (type == NULL)
+	      type = rust_lookup_type (varname, expression_context_block);
 	    if (type == NULL)
 	      error (_("No symbol '%s' in current context"), varname);
 
-	    if (TYPE_CODE (type) == TYPE_CODE_STRUCT
+	    if (!want_type
+		&& TYPE_CODE (type) == TYPE_CODE_STRUCT
 		&& TYPE_NFIELDS (type) == 0)
 	      {
 		/* A unit-like struct.  */
@@ -4271,41 +4370,42 @@ convert_ast_to_expression (struct parser_state *state,
 		write_exp_elt_longcst (state, 0);
 		write_exp_elt_opcode (state, OP_AGGREGATE);
 	      }
-	    else if (operation == top)
+	    else if (want_type || operation == top)
 	      {
 		write_exp_elt_opcode (state, OP_TYPE);
 		write_exp_elt_type (state, type);
 		write_exp_elt_opcode (state, OP_TYPE);
-		break;
 	      }
+	    else
+	      error (_("Found type '%s', which can't be "
+		       "evaluated in this context"),
+		     varname);
 	  }
       }
       break;
 
     case OP_AGGREGATE:
       {
-	int i;
 	int length;
-	struct set_field *init;
-	VEC (set_field) *fields = *operation->right.field_inits;
+	rust_set_vector *fields = operation->right.field_inits;
 	struct type *type;
 	const char *name;
 
 	length = 0;
-	for (i = 0; VEC_iterate (set_field, fields, i, init); ++i)
+	for (const set_field &init : *fields)
 	  {
-	    if (init->name.ptr != NULL)
+	    if (init.name.ptr != NULL)
 	      {
 		write_exp_elt_opcode (state, OP_NAME);
-		write_exp_string (state, init->name);
+		write_exp_string (state, init.name);
 		write_exp_elt_opcode (state, OP_NAME);
 		++length;
 	      }
 
-	    convert_ast_to_expression (state, init->init, top);
+	    convert_ast_to_expression (state, init.init, top);
 	    ++length;
 
-	    if (init->name.ptr == NULL)
+	    if (init.name.ptr == NULL)
 	      {
 		/* This is handled differently from Ada in our
 		   evaluator.  */
@@ -4351,13 +4451,22 @@ convert_ast_to_expression (struct parser_state *state,
 	  {
 	    convert_ast_to_expression (state, operation->right.op, top);
 	    if (kind == BOTH_BOUND_DEFAULT)
-	      kind = LOW_BOUND_DEFAULT;
+	      kind = (operation->inclusive
+		      ? LOW_BOUND_DEFAULT : LOW_BOUND_DEFAULT_EXCLUSIVE);
 	    else
 	      {
 		gdb_assert (kind == HIGH_BOUND_DEFAULT);
-		kind = NONE_BOUND_DEFAULT;
+		kind = (operation->inclusive
+			? NONE_BOUND_DEFAULT : NONE_BOUND_DEFAULT_EXCLUSIVE);
 	      }
 	  }
+	else
+	  {
+	    /* Nothing should make an inclusive range without an upper
+	       bound.  */
+	    gdb_assert (!operation->inclusive);
+	  }
+
 	write_exp_elt_opcode (state, OP_RANGE);
 	write_exp_elt_longcst (state, kind);
 	write_exp_elt_opcode (state, OP_RANGE);
@@ -4377,35 +4486,26 @@ int
 rust_parse (struct parser_state *state)
 {
   int result;
-  struct cleanup *cleanup;
 
-  obstack_init (&work_obstack);
-  cleanup = make_cleanup_obstack_free (&work_obstack);
-  rust_ast = NULL;
+  /* This sets various globals and also clears them on
+     destruction.  */
+  rust_parser parser (state);
 
-  pstate = state;
   result = rustyyparse ();
 
-  if (!result || (parse_completion && rust_ast != NULL))
-    {
-      const struct rust_op *ast = rust_ast;
+  if (!result || (parse_completion && parser.rust_ast != NULL))
+    convert_ast_to_expression (state, parser.rust_ast, parser.rust_ast);
 
-      rust_ast = NULL;
-      gdb_assert (ast != NULL);
-      convert_ast_to_expression (state, ast, ast);
-    }
-
-  do_cleanups (cleanup);
   return result;
 }
 
 /* The parser error handler.  */
 
-void
-rustyyerror (char *msg)
+static void
+rustyyerror (const char *msg)
 {
   const char *where = prev_lexptr ? prev_lexptr : lexptr;
-  error (_("%s in expression, near `%s'."), (msg ? msg : "Error"), where);
+  error (_("%s in expression, near `%s'."), msg, where);
 }
 
 
@@ -4562,8 +4662,13 @@ rust_lex_tests (void)
 {
   int i;
 
-  obstack_init (&work_obstack);
-  unit_testing = 1;
+  auto_obstack test_obstack;
+  scoped_restore obstack_holder = make_scoped_restore (&work_obstack,
+						       &test_obstack);
+
+  // Set up dummy "parser", so that rust_type works.
+  struct parser_state ps (0, &rust_language_defn, target_gdbarch ());
+  rust_parser parser (&ps);
 
   rust_lex_test_one ("", 0);
   rust_lex_test_one ("    \t  \n \r  ", 0);
@@ -4652,9 +4757,6 @@ rust_lex_tests (void)
 
   rust_lex_test_completion ();
   rust_lex_test_push_back ();
-
-  obstack_free (&work_obstack, NULL);
-  unit_testing = 0;
 }
 
 #endif /* GDB_SELF_TEST */
@@ -4668,6 +4770,6 @@ _initialize_rust_exp (void)
   gdb_assert (code == 0);
 
 #if GDB_SELF_TEST
-  register_self_test (rust_lex_tests);
+  selftests::register_test ("rust-lex", rust_lex_tests);
 #endif
 }

@@ -1,3 +1,7 @@
+From: =?utf-8?b?SMOpY3RvciBPcsOzbiBNYXJ0w61uZXo=?= <zumbi@debian.org>
+Date: Wed, 20 Feb 2019 13:25:36 +0100
+Subject: gdb-fortran-main
+
 Daniel,
 
 Although the proper way of adding case insensitivity to symbol lookup is 
@@ -15,16 +19,16 @@ testcases.
 P.S: if there is a symbol named "MAIN__" in sources of other languages, it 
 might disturb the debugging.  But I am not sure how much it is.
 ---
- gdb/symtab.c                       |  8 ++++++--
+ gdb/symtab.c                       |  9 +++++++--
  gdb/testsuite/gdb.fortran/lang.exp | 40 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 46 insertions(+), 2 deletions(-)
+ 2 files changed, 47 insertions(+), 2 deletions(-)
  create mode 100644 gdb/testsuite/gdb.fortran/lang.exp
 
-Index: gdb/gdb/symtab.c
-===================================================================
---- gdb.orig/gdb/symtab.c	2016-12-12 17:00:24.776172223 +0100
-+++ gdb/gdb/symtab.c	2016-12-12 17:00:24.772172183 +0100
-@@ -5983,8 +5983,13 @@
+diff --git a/gdb/symtab.c b/gdb/symtab.c
+index 09af184..44d2d90 100644
+--- a/gdb/symtab.c
++++ b/gdb/symtab.c
+@@ -5633,8 +5633,13 @@ find_main_name (void)
      }
  
    /* The languages above didn't identify the name of the main procedure.
@@ -40,10 +44,11 @@ Index: gdb/gdb/symtab.c
  }
  
  char *
-Index: gdb/gdb/testsuite/gdb.fortran/lang.exp
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ gdb/gdb/testsuite/gdb.fortran/lang.exp	2016-12-12 17:00:24.772172183 +0100
+diff --git a/gdb/testsuite/gdb.fortran/lang.exp b/gdb/testsuite/gdb.fortran/lang.exp
+new file mode 100644
+index 0000000..a0463c7
+--- /dev/null
++++ b/gdb/testsuite/gdb.fortran/lang.exp
 @@ -0,0 +1,40 @@
 +# Copyright 2005 Free Software Foundation, Inc.
 +

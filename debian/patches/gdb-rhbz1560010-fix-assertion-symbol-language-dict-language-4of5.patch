@@ -1,0 +1,91 @@
+From FEDORA_PATCHES Mon Sep 17 00:00:00 2001
+From: Sergio Durigan Junior <sergiodj@redhat.com>
+Date: Fri, 11 Jan 2019 11:29:25 -0500
+Subject: 
+ gdb-rhbz1560010-fix-assertion-symbol-language-dict-language-4of5.patch
+
+;; Fix 'Assertion `SYMBOL_LANGUAGE (sym) == DICT_LANGUAGE (dict)->la_language' failed.'
+;; Keith Seitz, RHBZ#1560010.
+
+gdb/23712: Remove dw2_add_symbol_to_list
+
+Finally, we can remove dw2_add_symbol_to_list since the wrapper function
+originally introduced to catch this multi-language scenario is no longer
+needed.  With multi-language dictionaries, we can now support adding
+symbols of multiple languages, negating the need for the assertion
+entirely.
+
+This patch should now fix gdb/23712 (and symtab/23010).  At least it will
+if the NULL buildsym_compunit problem doesn't strike first (see gdb/23773).
+
+gdb/ChangeLog:
+
+	PR gdb/23712
+	PR symtab/23010
+	* dwarf2read.c (dw2_add_symbol_to_list): Remove.
+	(fixup_go_packaging, new_symbol): Use add_symbol_to_list.
+
+Index: gdb/gdb/dwarf2read.c
+===================================================================
+--- gdb.orig/gdb/dwarf2read.c	2019-02-20 14:06:29.312159004 +0100
++++ gdb/gdb/dwarf2read.c	2019-02-20 14:06:29.308158945 +0100
+@@ -9700,23 +9700,6 @@
+   cu->method_list.clear ();
+ }
+ 
+-/* A wrapper for add_symbol_to_list to ensure that SYMBOL's language is
+-   the same as all other symbols in LISTHEAD.  If a new symbol is added
+-   with a different language, this function asserts.  */
+-
+-static inline void
+-dw2_add_symbol_to_list (struct symbol *symbol, struct pending **listhead)
+-{
+-  /* Only assert if LISTHEAD already contains symbols of a different
+-     language (dict_create_hashed/insert_symbol_hashed requires that all
+-     symbols in this list are of the same language).  */
+-  gdb_assert ((*listhead) == NULL
+-	      || (SYMBOL_LANGUAGE ((*listhead)->symbol[0])
+-		  == SYMBOL_LANGUAGE (symbol)));
+-
+-  add_symbol_to_list (symbol, listhead);
+-}
+-
+ /* Go objects should be embedded in a DW_TAG_module DIE,
+    and it's not clear if/how imported objects will appear.
+    To keep Go support simple until that's worked out,
+@@ -9788,7 +9771,7 @@
+       SYMBOL_ACLASS_INDEX (sym) = LOC_TYPEDEF;
+       SYMBOL_TYPE (sym) = type;
+ 
+-      dw2_add_symbol_to_list (sym, &global_symbols);
++      add_symbol_to_list (sym, &global_symbols);
+ 
+       xfree (package_name);
+     }
+@@ -21233,7 +21216,7 @@
+ 	  SYMBOL_TYPE (sym) = objfile_type (objfile)->builtin_core_addr;
+ 	  SYMBOL_DOMAIN (sym) = LABEL_DOMAIN;
+ 	  SYMBOL_ACLASS_INDEX (sym) = LOC_LABEL;
+-	  dw2_add_symbol_to_list (sym, cu->list_in_scope);
++	  add_symbol_to_list (sym, cu->list_in_scope);
+ 	  break;
+ 	case DW_TAG_subprogram:
+ 	  /* SYMBOL_BLOCK_VALUE (sym) will be filled in later by
+@@ -21491,7 +21474,7 @@
+ 	case DW_TAG_common_block:
+ 	  SYMBOL_ACLASS_INDEX (sym) = LOC_COMMON_BLOCK;
+ 	  SYMBOL_DOMAIN (sym) = COMMON_BLOCK_DOMAIN;
+-	  dw2_add_symbol_to_list (sym, cu->list_in_scope);
++	  add_symbol_to_list (sym, cu->list_in_scope);
+ 	  break;
+ 	default:
+ 	  /* Not a tag we recognize.  Hopefully we aren't processing
+@@ -21511,7 +21494,7 @@
+ 	}
+ 
+       if (list_to_add != NULL)
+-	dw2_add_symbol_to_list (sym, list_to_add);
++	add_symbol_to_list (sym, list_to_add);
+ 
+       /* For the benefit of old versions of GCC, check for anonymous
+ 	 namespaces based on the demangled name.  */

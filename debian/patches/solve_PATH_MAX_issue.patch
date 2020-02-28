@@ -1,14 +1,24 @@
-Description: Patch out a PATH_MAX usage, for Hurd's benefit
+From: =?utf-8?b?SMOpY3RvciBPcsOzbiBNYXJ0w61uZXo=?= <zumbi@debian.org>
+Date: Wed, 20 Feb 2019 13:25:36 +0100
+Subject: Patch out a PATH_MAX usage, for Hurd's benefit
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 
 Author: Svante Signell <svante.signell@gmail.com>
 Bug-Debian: http://bugs.debian.org/709508
 Forwarded: http://sourceware.org/ml/gdb-patches/2013-05/msg00878.html
 Reviewed-By: Héctor Orón Martínez <zumbi@debian.org>
 Last-Update: 2013-06-08
+---
+ gdb/nto-tdep.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
+diff --git a/gdb/nto-tdep.c b/gdb/nto-tdep.c
+index 82a4fcb..12923fc 100644
 --- a/gdb/nto-tdep.c
 +++ b/gdb/nto-tdep.c
-@@ -152,10 +152,12 @@
+@@ -155,10 +155,12 @@ nto_find_and_open_solib (const char *solib, unsigned o_flags,
  void
  nto_init_solib_absolute_prefix (void)
  {
@@ -22,7 +32,7 @@ Last-Update: 2013-06-08
  
    nto_root = nto_target ();
    if (strcmp (gdbarch_bfd_arch_info (target_gdbarch ())->arch_name, "i386") == 0)
-@@ -178,9 +180,13 @@
+@@ -181,9 +183,13 @@ nto_init_solib_absolute_prefix (void)
  	       == BFD_ENDIAN_BIG ? "be" : "le";
      }
  

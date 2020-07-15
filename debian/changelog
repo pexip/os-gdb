@@ -1,3 +1,9 @@
+gdb (8.2.1-2+b3pexip2) pexip; urgency=medium
+
+  * Rebuild in buster environment
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Wed, 15 Jul 2020 21:11:09 +0000
+
 gdb (8.2.1-2+b3pexip1) pexip; urgency=medium
 
   * Migrate to Buster

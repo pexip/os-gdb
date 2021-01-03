@@ -1,6 +1,6 @@
 /* GDB parameters implemented in Python
 
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -27,7 +27,6 @@
 #include "completer.h"
 #include "language.h"
 #include "arch-utils.h"
-#include "py-ref.h"
 
 /* Parameter constants and their values.  */
 struct parm_constant
@@ -56,7 +55,10 @@ struct parm_constant parm_constants[] =
 /* A union that can hold anything described by enum var_types.  */
 union parmpy_variable
 {
-  /* Hold an integer value, for boolean and integer types.  */
+  /* Hold a boolean value.  */
+  bool boolval;
+
+  /* Hold an integer value.  */
   int intval;
 
   /* Hold an auto_boolean.  */
@@ -199,7 +201,7 @@ set_parameter_value (parmpy_object *self, PyObject *value)
       cmp = PyObject_IsTrue (value);
       if (cmp < 0)
 	  return -1;
-      self->value.intval = cmp;
+      self->value.boolval = cmp;
       break;
 
     case var_auto_boolean:
@@ -396,10 +398,7 @@ get_set_value (const char *args, int from_tty,
     {
       set_doc_string = call_doc_function (obj, set_doc_func.get (), NULL);
       if (! set_doc_string)
-	{
-	  gdbpy_print_stack ();
-	  return;
-	}
+	gdbpy_handle_exception ();
     }
 
   const char *str = set_doc_string.get ();
@@ -479,7 +478,7 @@ add_setshow_generic (int parmclass, enum command_class cmdclass,
     case var_boolean:
 
       add_setshow_boolean_cmd (cmd_name, cmdclass,
-			       &self->value.intval, set_doc, show_doc,
+			       &self->value.boolval, set_doc, show_doc,
 			       help_doc, get_set_value, get_show_value,
 			       set_list, show_list);
 
@@ -570,12 +569,12 @@ add_setshow_generic (int parmclass, enum command_class cmdclass,
   /* Lookup created parameter, and register Python object against the
      parameter context.  Perform this task against both lists.  */
   tmp_name = cmd_name;
-  param = lookup_cmd (&tmp_name, *show_list, "", 0, 1);
+  param = lookup_cmd (&tmp_name, *show_list, "", NULL, 0, 1);
   if (param)
     set_cmd_context (param, self);
 
   tmp_name = cmd_name;
-  param = lookup_cmd (&tmp_name, *set_list, "", 0, 1);
+  param = lookup_cmd (&tmp_name, *set_list, "", NULL, 0, 1);
   if (param)
     set_cmd_context (param, self);
 }
@@ -730,23 +729,20 @@ parmpy_init (PyObject *self, PyObject *args, PyObject *kwds)
 
   Py_INCREF (self);
 
-  TRY
+  try
     {
       add_setshow_generic (parmclass, (enum command_class) cmdtype,
 			   cmd_name, obj,
 			   set_doc.get (), show_doc.get (),
 			   doc.get (), set_list, show_list);
     }
-  CATCH (except, RETURN_MASK_ALL)
+  catch (const gdb_exception &except)
     {
       xfree (cmd_name);
       Py_DECREF (self);
-      PyErr_Format (except.reason == RETURN_QUIT
-		    ? PyExc_KeyboardInterrupt : PyExc_RuntimeError,
-		    "%s", except.message);
+      gdbpy_convert_exception (except);
       return -1;
     }
-  END_CATCH
 
   return 0;
 }

@@ -53,13 +53,13 @@ glibc-debuginfo-2.7-2.x86_64: /usr/lib/debug/lib64/libc.so.6.debug:
  create mode 100644 gdb/testsuite/gdb.dwarf2/dw2-errno2.c
  create mode 100644 gdb/testsuite/gdb.dwarf2/dw2-errno2.exp
 
-diff --git a/gdb/printcmd.c b/gdb/printcmd.c
-index 3c6e4be..7c1022a 100644
---- a/gdb/printcmd.c
-+++ b/gdb/printcmd.c
-@@ -1182,6 +1182,10 @@ print_command_1 (const char *exp, int voidprint)
+Index: gdb/gdb/printcmd.c
+===================================================================
+--- gdb.orig/gdb/printcmd.c
++++ gdb/gdb/printcmd.c
+@@ -1210,6 +1210,10 @@ print_command_1 (const char *args, int v
  
-   if (exp && *exp)
+   if (exp != nullptr && *exp)
      {
 +      /* '*((int *(*) (void)) __errno_location) ()' is incompatible with
 +         function descriptors.  */
@@ -68,20 +68,10 @@ index 3c6e4be..7c1022a 100644
        expression_up expr = parse_expression (exp);
        val = evaluate_expression (expr.get ());
      }
-@@ -1189,7 +1193,7 @@ print_command_1 (const char *exp, int voidprint)
-     val = access_value_history (0);
- 
-   if (voidprint || (val && value_type (val) &&
--		    TYPE_CODE (value_type (val)) != TYPE_CODE_VOID))
-+    TYPE_CODE (value_type (val)) != TYPE_CODE_VOID))
-     print_value (val, &fmt);
- }
- 
-diff --git a/gdb/testsuite/gdb.dwarf2/dw2-errno.c b/gdb/testsuite/gdb.dwarf2/dw2-errno.c
-new file mode 100644
-index 0000000..7bd10d0
+Index: gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.c
+===================================================================
 --- /dev/null
-+++ b/gdb/testsuite/gdb.dwarf2/dw2-errno.c
++++ gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.c
 @@ -0,0 +1,28 @@
 +/* This testcase is part of GDB, the GNU debugger.
 +
@@ -111,11 +101,10 @@ index 0000000..7bd10d0
 +
 +  return 0;	/* breakpoint */
 +}
-diff --git a/gdb/testsuite/gdb.dwarf2/dw2-errno.exp b/gdb/testsuite/gdb.dwarf2/dw2-errno.exp
-new file mode 100644
-index 0000000..1f13cc1
+Index: gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.exp
+===================================================================
 --- /dev/null
-+++ b/gdb/testsuite/gdb.dwarf2/dw2-errno.exp
++++ gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.exp
 @@ -0,0 +1,60 @@
 +# Copyright 2007 Free Software Foundation, Inc.
 +
@@ -177,11 +166,10 @@ index 0000000..1f13cc1
 +
 +# TODO: Test the error on resolving ERRNO with only libc loaded.
 +# Just how to find the current libc filename?
-diff --git a/gdb/testsuite/gdb.dwarf2/dw2-errno2.c b/gdb/testsuite/gdb.dwarf2/dw2-errno2.c
-new file mode 100644
-index 0000000..7bd10d0
+Index: gdb/gdb/testsuite/gdb.dwarf2/dw2-errno2.c
+===================================================================
 --- /dev/null
-+++ b/gdb/testsuite/gdb.dwarf2/dw2-errno2.c
++++ gdb/gdb/testsuite/gdb.dwarf2/dw2-errno2.c
 @@ -0,0 +1,28 @@
 +/* This testcase is part of GDB, the GNU debugger.
 +
@@ -211,11 +199,10 @@ index 0000000..7bd10d0
 +
 +  return 0;	/* breakpoint */
 +}
-diff --git a/gdb/testsuite/gdb.dwarf2/dw2-errno2.exp b/gdb/testsuite/gdb.dwarf2/dw2-errno2.exp
-new file mode 100644
-index 0000000..6fbe09e
+Index: gdb/gdb/testsuite/gdb.dwarf2/dw2-errno2.exp
+===================================================================
 --- /dev/null
-+++ b/gdb/testsuite/gdb.dwarf2/dw2-errno2.exp
++++ gdb/gdb/testsuite/gdb.dwarf2/dw2-errno2.exp
 @@ -0,0 +1,71 @@
 +# Copyright 2007 Free Software Foundation, Inc.
 +

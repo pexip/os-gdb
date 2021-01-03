@@ -14,11 +14,11 @@ Last-Update: 2013-06-08
  gdb/nto-tdep.c | 12 +++++++++---
  1 file changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/gdb/nto-tdep.c b/gdb/nto-tdep.c
-index 82a4fcb..12923fc 100644
---- a/gdb/nto-tdep.c
-+++ b/gdb/nto-tdep.c
-@@ -155,10 +155,12 @@ nto_find_and_open_solib (const char *solib, unsigned o_flags,
+Index: gdb/gdb/nto-tdep.c
+===================================================================
+--- gdb.orig/gdb/nto-tdep.c
++++ gdb/gdb/nto-tdep.c
+@@ -156,10 +156,12 @@ nto_find_and_open_solib (const char *sol
  void
  nto_init_solib_absolute_prefix (void)
  {
@@ -32,7 +32,7 @@ index 82a4fcb..12923fc 100644
  
    nto_root = nto_target ();
    if (strcmp (gdbarch_bfd_arch_info (target_gdbarch ())->arch_name, "i386") == 0)
-@@ -181,9 +183,13 @@ nto_init_solib_absolute_prefix (void)
+@@ -182,9 +184,13 @@ nto_init_solib_absolute_prefix (void)
  	       == BFD_ENDIAN_BIG ? "be" : "le";
      }
  

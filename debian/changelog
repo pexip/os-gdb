@@ -1,3 +1,154 @@
+gdb (10.1-1.7) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * Update to the gdb-10-branch 20210103 (copyright updates).
+  * Fix building the gdb-source package. Closes: #978391.
+  * Call dh_dwz before dh_strip.
+  * Add x86_64-linux-gnux32 as a target for gdb-multiarch.
+
+ -- Matthias Klose <doko@debian.org>  Sun, 03 Jan 2021 12:07:38 +0100
+
+gdb (10.1-1.5) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Don't build gdb-source when only building architecture dependent packages.
+  * Don't run the tests when only building arch-indep packages.
+  * Support the nodoc profile. Closes: #870646.
+
+ -- Matthias Klose <doko@debian.org>  Thu, 17 Dec 2020 10:06:12 +0100
+
+gdb (10.1-1.4) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Update to the gdb-10-branch 20201212.
+  * debian/rules: Get rid off the cdbs named macro names. Addresses: #973355.
+  * gdb-multiarch: Don't call install with -s, build a proper dbgsym package.
+    Closes: #968533.
+  * gdb-source: Compress with xz instead of bz2.
+  * Make the build of the minimal variant optional (built by default).
+  * Allow building a gdb-doc package (disabled by default).
+  * Build with babeltrace everywhere.
+  * Also build gdbserver on riscv64.
+  * Bump standards version.
+
+ -- Matthias Klose <doko@debian.org>  Sat, 12 Dec 2020 10:23:22 +0100
+
+gdb (10.1-1.3) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Convert to debhelper v10, not using the sequencer. Addresses: #973355.
+  * Search for DWZ files in debug-file-directories as well, patch taken
+    from the trunk.
+  * Only build with debuginfod on linux targets.
+
+ -- Matthias Klose <doko@debian.org>  Sun, 06 Dec 2020 22:42:31 +0100
+
+gdb (10.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * bump debhelper compat to 10
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 08 Nov 2020 16:34:21 +0100
+
+gdb (10.0.50.20200913-1~exp1) experimental; urgency=medium
+
+  * New upstream version 10.0.50.20200913
+  * enable debuginfod support
+  * debian/patches: refresh
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sat, 19 Sep 2020 19:21:55 +0200
+
+gdb (9.2-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Wed, 27 May 2020 17:39:34 +0200
+
+gdb (9.1-3) unstable; urgency=medium
+
+  * debian/patches/fix-symbol-reread-hang.patch: new patch
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 03 Apr 2020 19:28:25 +0200
+
+gdb (9.1-2) unstable; urgency=medium
+
+  [ Christian Biesinger ]
+  * Load gdbinit files from /etc/gdb/gdbinit.d/*. Files need to have a
+    .gdb/.py extension.
+  * Fix W-compiler-flags-hidden.
+    Set V=1 when building so the full compile commandline is shown.
+    Fixes W-compiler-flags-hidden.html from
+    https://qa.debian.org/bls/packages/g/gdb.html
+
+  [ Sergio Durigan Junior ]
+  * Enable libxxhash during build.
+  * Create directory /etc/gdb/gdbinit.d.
+    With the new "--with-system-gdbinit-dir" option, we also need to make
+    sure the new directory exists.
+  * Backport patch to fix printf convenience var regression.
+    This was a regression upstream that caused failures on
+    libapp-stacktrace-perl. (Closes: #936055)
+  * Adjust python-config.patch to use the new "--embed" from Python 3.8's config.
+    This adjustment is needed because python3.8-config implements a new
+    '--embed' option, which should be used by applications building an
+    embedded Python interpreter.  For more info, see
+    <https://bugs.python.org/issue36721>.
+  * Enable libmpfr during build.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Tue, 03 Mar 2020 23:49:25 -0500
+
+gdb (9.1-1) unstable; urgency=medium
+
+  [ Héctor Orón Martínez ]
+  * New upstream version 9.1 (Closes: #906822)
+  * debian/control{,.in}: python2 removal (Closes: #936591)
+  * debian/patches: refresh
+    + debian/patches/load-versioned-libcc1.patch: add SONAME to
+      gcc-cp-interface.h (Closes: #950778)
+    + debian/patches/gdb-PATH_MAX.patch: drop
+  * debian/control{,.in}: build depend on pkg-config
+  * debian/control{,.in}: add Sergio Durigan Junior as uploader
+  * debian/README.source: point to xz upstream source instead bz2
+  * debian/gcore.1: update (Closes: #904628)
+
+  [ Debian Janitor ]
+  * Trim trailing whitespace.
+  * Use secure URI in debian/watch.
+  * Make "Files: *" paragraph the first in the copyright file.
+  * Rely on pre-initialized dpkg-architecture variables.
+
+  [ Christian Biesinger ]
+  * debian/control: update homepage to an https URL
+  * debian/{control,rules}: Enable source highlighting (Closes: #942552)
+
+  [ Vagrant Cascadian ]
+  * debian/rules: Use tar arguments to ensure consistant tarballs, setting file
+    mode, uid/gid, timestamps and sort order. (Closes: #950606)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 09 Feb 2020 14:15:45 +0100
+
+gdb (8.3.1-1) unstable; urgency=medium
+
+  * New upstream version 8.3.1 (Closes: #865607)
+  * debian/control: drop flex-old build depend. (Closes: #932514)
+  * debian/salsa-ci.yml: add support for continous integration
+  * debian/control: bump standards version, no changes
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 11 Oct 2019 13:26:07 +0200
+
+gdb (8.3-1) unstable; urgency=medium
+
+  * New upstream version 8.3.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Mon, 22 Jul 2019 04:36:24 +0200
+
+gdb (8.2.50.20190222-1) experimental; urgency=medium
+
+  * New upstream version 8.2.50.20190222
+  * debian/patches: rebase patchset
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 22 Feb 2019 11:38:18 +0100
+
 gdb (8.2.1-2) unstable; urgency=medium
 
   * debian/patches: binutils PR/23919 (Closes: #922745)
@@ -359,7 +510,7 @@ gdb (7.8.2-1) experimental; urgency=medium
       + PR binutils/17677 (_bfd_elf_get_synthetic_symtab runs in O(n^2) complexity)
       + PR gdb/16215 (SPARC: can't compute CFA for this frame)
       + PR gdb/17525 (target-async: breakpoint commands not executed when program run from -x script)
-      + PR cli/17828 ([7.8 regression] -batch -ex r breaks terminal) 
+      + PR cli/17828 ([7.8 regression] -batch -ex r breaks terminal)
   * d/{control*,gdb64*,rules}: drop gdb64 support.
 
  -- Hector Oron <zumbi@debian.org>  Thu, 22 Jan 2015 02:24:52 +0100
@@ -736,7 +887,7 @@ gdb (7.6.1-1) unstable; urgency=low
       * PR gdb/15604 (gdbserver socket leak 7.5 regression)
   * Backport ARM Linux `catch syscall' support from my upstream
     patch. (Closes: #709937)
-  
+
  -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 08 Oct 2013 17:23:45 +0000
 
 gdb (7.6-5) unstable; urgency=low
@@ -940,7 +1091,7 @@ gdb (7.5.1-1) experimental; urgency=low
   * Add support for debug info compressed with bzip2 and lzma/xz:
     Build-Depend on libbz2-dev and liblzma-dev.
   * Add myself to Uploaders.
-  
+
  -- Samuel Bronson <naesten@gmail.com>  Wed, 20 Feb 2013 17:22:51 -0500
 
 gdb (7.4.1+dfsg-0.1) unstable; urgency=low
@@ -1009,7 +1160,7 @@ gdb (7.4really-1) unstable; urgency=low
 
 gdb (7.4-1~cvs20111117.2) experimental; urgency=low
 
-  * Add build dependency on lib64ncurses5-dev for multilib targets. 
+  * Add build dependency on lib64ncurses5-dev for multilib targets.
 
  -- Hector Oron <zumbi@debian.org>  Fri, 18 Nov 2011 19:35:17 +0000
 
@@ -1075,7 +1226,7 @@ gdb (7.3-1) unstable; urgency=low
       * Thread debugging of core dumps now supported on GNU/Linux
       * Ranged breakpoints support (PowerPC BookE running Linux 2.6.34 or later)
       * Support for Ada task switching inside programs using the Ravenscar profile
-    - See gdb/NEWS for more detailed information.  
+    - See gdb/NEWS for more detailed information.
 
  -- Hector Oron <zumbi@debian.org>  Tue, 23 Aug 2011 11:13:36 +0100
 
@@ -1094,11 +1245,11 @@ gdb (7.3.50~cvs20110627-1) experimental; urgency=low
 
   * Upstream pre-release based on CVS date 20110627.
   * Drop Daniel Jacobowitz as Maintainer.
-      - Thanks for all this years. 
+      - Thanks for all this years.
   * Add myself as Maintainer.
   * Bump standards version.
   * Add local-option for unapply-patches.
-  * Add prelink build depend, needed for tests run. 
+  * Add prelink build depend, needed for tests run.
 
  -- Hector Oron <zumbi@debian.org>  Tue, 28 Jun 2011 10:30:52 +0100
 
@@ -1288,7 +1439,7 @@ gdb (6.8.50.20081120.python-1) experimental; urgency=low
   and m68k-nat-build-fix.patch, merged upstream.
   * Build depend on procps for testsuite cleanup calls to "kill".
   * Remove use of -p0 in series file (Closes: #484945).
-	
+
  -- Daniel Jacobowitz <dan@debian.org>  Fri, 28 Nov 2008 14:28:47 -0500
 
 gdb (6.8-3) unstable; urgency=low

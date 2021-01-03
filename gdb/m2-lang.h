@@ -1,6 +1,6 @@
 /* Modula 2 language support definitions for GDB, the GNU debugger.
 
-   Copyright (C) 1992-2018 Free Software Foundation, Inc.
+   Copyright (C) 1992-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -17,6 +17,9 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
+#ifndef M2_LANG_H
+#define M2_LANG_H
+
 struct type_print_options;
 struct parser_state;
 
@@ -32,10 +35,10 @@ extern void m2_print_typedef (struct type *, struct symbol *,
 extern int m2_is_long_set (struct type *type);
 extern int m2_is_unbounded_array (struct type *type);
 
-extern void m2_val_print (struct type *, int, CORE_ADDR,
-			  struct ui_file *, int,
-			  struct value *,
-			  const struct value_print_options *);
+/* Implement la_value_print_inner for Modula-2.  */
+
+extern void m2_value_print_inner (struct value *, struct ui_file *, int,
+				  const struct value_print_options *);
 
 extern int get_long_set_bounds (struct type *type, LONGEST *low,
 				LONGEST *high);
@@ -54,3 +57,4 @@ struct builtin_m2_type
 /* Return the Modula-2 type table for the specified architecture.  */
 extern const struct builtin_m2_type *builtin_m2_type (struct gdbarch *gdbarch);
 
+#endif /* M2_LANG_H */

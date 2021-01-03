@@ -1,6 +1,6 @@
 /* Target dependent code for GDB on TI C6x systems.
 
-   Copyright (C) 2010-2018 Free Software Foundation, Inc.
+   Copyright (C) 2010-2020 Free Software Foundation, Inc.
    Contributed by Andrew Jenner <andrew@codesourcery.com>
    Contributed by Yao Qi <yao@codesourcery.com>
 
@@ -24,7 +24,7 @@
 #include "frame-unwind.h"
 #include "frame-base.h"
 #include "trad-frame.h"
-#include "dwarf2-frame.h"
+#include "dwarf2/frame.h"
 #include "symtab.h"
 #include "inferior.h"
 #include "gdbtypes.h"
@@ -147,7 +147,6 @@ tic6x_analyze_prologue (struct gdbarch *gdbarch, const CORE_ADDR start_pc,
 			struct tic6x_unwind_cache *cache,
 			struct frame_info *this_frame)
 {
-  unsigned long inst;
   unsigned int src_reg, base_reg, dst_reg;
   int i;
   CORE_ADDR pc = start_pc;
@@ -242,7 +241,7 @@ tic6x_analyze_prologue (struct gdbarch *gdbarch, const CORE_ADDR start_pc,
     }
   /* Step 2: Skip insn on setting up dsbt if it is.  Usually, it looks like,
      ldw .D2T2 *+b14(0),b14 */
-  inst = tic6x_fetch_instruction (gdbarch, pc);
+  unsigned long inst = tic6x_fetch_instruction (gdbarch, pc);
   /* The s bit determines which file dst will be loaded into, same effect as
      other places.  */
   dst_reg = tic6x_register_number ((inst >> 23) & 0x1f, (inst >> 1) & 1, 0);
@@ -376,15 +375,6 @@ tic6x_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
   frame_unwind_register (next_frame,  TIC6X_PC_REGNUM, buf);
   return extract_typed_address (buf, builtin_type (gdbarch)->builtin_func_ptr);
 }
-
-/* This is the implementation of gdbarch method unwind_sp.  */
-
-static CORE_ADDR
-tic6x_unwind_sp (struct gdbarch *gdbarch, struct frame_info *this_frame)
-{
-  return frame_unwind_register_unsigned (this_frame, TIC6X_SP_REGNUM);
-}
-
 
 /* Frame base handling.  */
 
@@ -794,7 +784,7 @@ tic6x_return_value (struct gdbarch *gdbarch, struct value *function,
       if (type != NULL)
 	{
 	  type = check_typedef (type);
-	  if (language_pass_by_reference (type))
+	  if (!(language_pass_by_reference (type).trivially_copyable))
 	    return RETURN_VALUE_STRUCT_CONVENTION;
 	}
     }
@@ -812,23 +802,13 @@ tic6x_return_value (struct gdbarch *gdbarch, struct value *function,
   return RETURN_VALUE_REGISTER_CONVENTION;
 }
 
-/* This is the implementation of gdbarch method dummy_id.  */
-
-static struct frame_id
-tic6x_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
-{
-  return frame_id_build
-    (get_frame_register_unsigned (this_frame, TIC6X_SP_REGNUM),
-     get_frame_pc (this_frame));
-}
-
 /* Get the alignment requirement of TYPE.  */
 
 static int
 tic6x_arg_type_alignment (struct type *type)
 {
   int len = TYPE_LENGTH (check_typedef (type));
-  enum type_code typecode = TYPE_CODE (check_typedef (type));
+  enum type_code typecode = check_typedef (type)->code ();
 
   if (typecode == TYPE_CODE_STRUCT || typecode == TYPE_CODE_UNION)
     {
@@ -876,13 +856,13 @@ static CORE_ADDR
 tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		       struct regcache *regcache, CORE_ADDR bp_addr,
 		       int nargs, struct value **args, CORE_ADDR sp,
-		       int struct_return, CORE_ADDR struct_addr)
+		       function_call_return_method return_method,
+		       CORE_ADDR struct_addr)
 {
   int argreg = 0;
   int argnum;
   int stack_offset = 4;
   int references_offset = 4;
-  CORE_ADDR func_addr = find_function_addr (function, NULL);
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   struct type *func_type = value_type (function);
   /* The first arg passed on stack.  Mostly the first 10 args are passed by
@@ -896,21 +876,21 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   /* The caller must pass an argument in A3 containing a destination address
      for the returned value.  The callee returns the object by copying it to
      the address in A3.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     regcache_cooked_write_unsigned (regcache, 3, struct_addr);
 
   /* Determine the type of this function.  */
   func_type = check_typedef (func_type);
-  if (TYPE_CODE (func_type) == TYPE_CODE_PTR)
+  if (func_type->code () == TYPE_CODE_PTR)
     func_type = check_typedef (TYPE_TARGET_TYPE (func_type));
 
-  gdb_assert (TYPE_CODE (func_type) == TYPE_CODE_FUNC
-	      || TYPE_CODE (func_type) == TYPE_CODE_METHOD);
+  gdb_assert (func_type->code () == TYPE_CODE_FUNC
+	      || func_type->code () == TYPE_CODE_METHOD);
 
   /* For a variadic C function, the last explicitly declared argument and all
      remaining arguments are passed on the stack.  */
   if (TYPE_VARARGS (func_type))
-    first_arg_on_stack = TYPE_NFIELDS (func_type) - 1;
+    first_arg_on_stack = func_type->num_fields () - 1;
 
   /* Now make space on the stack for the args.  */
   for (argnum = 0; argnum < nargs; argnum++)
@@ -935,7 +915,7 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
       struct value *arg = args[argnum];
       struct type *arg_type = check_typedef (value_type (arg));
       int len = TYPE_LENGTH (arg_type);
-      enum type_code typecode = TYPE_CODE (arg_type);
+      enum type_code typecode = arg_type->code ();
 
       val = value_contents (arg);
 
@@ -1068,7 +1048,6 @@ tic6x_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 	      if (typecode == TYPE_CODE_COMPLEX)
 		{
 		  /* The argument is being passed by reference on stack.  */
-		  CORE_ADDR addr;
 		  references_offset = align_up (references_offset, 8);
 
 		  addr = sp + references_offset;
@@ -1285,7 +1264,6 @@ tic6x_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 				       tic6x_sw_breakpoint_from_kind);
 
   set_gdbarch_unwind_pc (gdbarch, tic6x_unwind_pc);
-  set_gdbarch_unwind_sp (gdbarch, tic6x_unwind_sp);
 
   /* Unwinding.  */
   dwarf2_append_unwinders (gdbarch);
@@ -1303,8 +1281,6 @@ tic6x_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_frame_align (gdbarch, tic6x_frame_align);
 
   set_gdbarch_return_value (gdbarch, tic6x_return_value);
-
-  set_gdbarch_dummy_id (gdbarch, tic6x_dummy_id);
 
   /* Enable inferior call support.  */
   set_gdbarch_push_dummy_call (gdbarch, tic6x_push_dummy_call);
@@ -1325,8 +1301,9 @@ tic6x_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   return gdbarch;
 }
 
+void _initialize_tic6x_tdep ();
 void
-_initialize_tic6x_tdep (void)
+_initialize_tic6x_tdep ()
 {
   register_gdbarch_init (bfd_arch_tic6x, tic6x_gdbarch_init);
 }

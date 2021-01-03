@@ -1,6 +1,6 @@
 /* Target-dependent code for GNU/Linux on MIPS processors.
 
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -38,7 +38,7 @@
 #include "glibc-tdep.h"
 #include "linux-tdep.h"
 #include "xml-syscall.h"
-#include "gdb_signals.h"
+#include "gdbsupport/gdb_signals.h"
 
 #include "features/mips-linux.c"
 #include "features/mips-dsp-linux.c"
@@ -562,7 +562,7 @@ mips_linux_core_read_description (struct gdbarch *gdbarch,
   if (! section)
     return NULL;
 
-  switch (bfd_section_size (abfd, section))
+  switch (bfd_section_size (section))
     {
     case sizeof (mips_elf_gregset_t):
       return mips_tdesc_gp32;
@@ -633,16 +633,14 @@ mips_linux_in_dynsym_stub (CORE_ADDR pc)
   if (n64)
     {
       /* 'daddu t7,ra' or 'or t7, ra, zero'*/
-      if (insn != 0x03e0782d || insn != 0x03e07825)
+      if (insn != 0x03e0782d && insn != 0x03e07825)
 	return 0;
-
     }
   else
     {
       /* 'addu t7,ra'  or 'or t7, ra, zero'*/
-      if (insn != 0x03e07821 || insn != 0x03e07825)
+      if (insn != 0x03e07821 && insn != 0x03e07825)
 	return 0;
-
     }
 
   insn = extract_unsigned_integer (p + 8, 4, byte_order);
@@ -755,9 +753,9 @@ static const struct tramp_frame mips_linux_o32_sigframe = {
   SIGTRAMP_FRAME,
   4,
   {
-    { MIPS_INST_LI_V0_SIGRETURN, -1 },
-    { MIPS_INST_SYSCALL, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { MIPS_INST_LI_V0_SIGRETURN, ULONGEST_MAX },
+    { MIPS_INST_SYSCALL, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   mips_linux_o32_sigframe_init,
   mips_linux_sigframe_validate
@@ -767,9 +765,9 @@ static const struct tramp_frame mips_linux_o32_rt_sigframe = {
   SIGTRAMP_FRAME,
   4,
   {
-    { MIPS_INST_LI_V0_RT_SIGRETURN, -1 },
-    { MIPS_INST_SYSCALL, -1 },
-    { TRAMP_SENTINEL_INSN, -1 } },
+    { MIPS_INST_LI_V0_RT_SIGRETURN, ULONGEST_MAX },
+    { MIPS_INST_SYSCALL, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX } },
   mips_linux_o32_sigframe_init,
   mips_linux_sigframe_validate
 };
@@ -778,9 +776,9 @@ static const struct tramp_frame mips_linux_n32_rt_sigframe = {
   SIGTRAMP_FRAME,
   4,
   {
-    { MIPS_INST_LI_V0_N32_RT_SIGRETURN, -1 },
-    { MIPS_INST_SYSCALL, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { MIPS_INST_LI_V0_N32_RT_SIGRETURN, ULONGEST_MAX },
+    { MIPS_INST_SYSCALL, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   mips_linux_n32n64_sigframe_init,
   mips_linux_sigframe_validate
@@ -790,9 +788,9 @@ static const struct tramp_frame mips_linux_n64_rt_sigframe = {
   SIGTRAMP_FRAME,
   4,
   {
-    { MIPS_INST_LI_V0_N64_RT_SIGRETURN, -1 },
-    { MIPS_INST_SYSCALL, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { MIPS_INST_LI_V0_N64_RT_SIGRETURN, ULONGEST_MAX },
+    { MIPS_INST_SYSCALL, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   mips_linux_n32n64_sigframe_init,
   mips_linux_sigframe_validate
@@ -802,11 +800,11 @@ static const struct tramp_frame micromips_linux_o32_sigframe = {
   SIGTRAMP_FRAME,
   2,
   {
-    { MICROMIPS_INST_LI_V0, -1 },
-    { MIPS_NR_sigreturn, -1 },
-    { MICROMIPS_INST_POOL32A, -1 },
-    { MICROMIPS_INST_SYSCALL, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { MICROMIPS_INST_LI_V0, ULONGEST_MAX },
+    { MIPS_NR_sigreturn, ULONGEST_MAX },
+    { MICROMIPS_INST_POOL32A, ULONGEST_MAX },
+    { MICROMIPS_INST_SYSCALL, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   mips_linux_o32_sigframe_init,
   micromips_linux_sigframe_validate
@@ -816,11 +814,11 @@ static const struct tramp_frame micromips_linux_o32_rt_sigframe = {
   SIGTRAMP_FRAME,
   2,
   {
-    { MICROMIPS_INST_LI_V0, -1 },
-    { MIPS_NR_rt_sigreturn, -1 },
-    { MICROMIPS_INST_POOL32A, -1 },
-    { MICROMIPS_INST_SYSCALL, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { MICROMIPS_INST_LI_V0, ULONGEST_MAX },
+    { MIPS_NR_rt_sigreturn, ULONGEST_MAX },
+    { MICROMIPS_INST_POOL32A, ULONGEST_MAX },
+    { MICROMIPS_INST_SYSCALL, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   mips_linux_o32_sigframe_init,
   micromips_linux_sigframe_validate
@@ -830,11 +828,11 @@ static const struct tramp_frame micromips_linux_n32_rt_sigframe = {
   SIGTRAMP_FRAME,
   2,
   {
-    { MICROMIPS_INST_LI_V0, -1 },
-    { MIPS_NR_N32_rt_sigreturn, -1 },
-    { MICROMIPS_INST_POOL32A, -1 },
-    { MICROMIPS_INST_SYSCALL, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { MICROMIPS_INST_LI_V0, ULONGEST_MAX },
+    { MIPS_NR_N32_rt_sigreturn, ULONGEST_MAX },
+    { MICROMIPS_INST_POOL32A, ULONGEST_MAX },
+    { MICROMIPS_INST_SYSCALL, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   mips_linux_n32n64_sigframe_init,
   micromips_linux_sigframe_validate
@@ -844,11 +842,11 @@ static const struct tramp_frame micromips_linux_n64_rt_sigframe = {
   SIGTRAMP_FRAME,
   2,
   {
-    { MICROMIPS_INST_LI_V0, -1 },
-    { MIPS_NR_N64_rt_sigreturn, -1 },
-    { MICROMIPS_INST_POOL32A, -1 },
-    { MICROMIPS_INST_SYSCALL, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { MICROMIPS_INST_LI_V0, ULONGEST_MAX },
+    { MIPS_NR_N64_rt_sigreturn, ULONGEST_MAX },
+    { MICROMIPS_INST_POOL32A, ULONGEST_MAX },
+    { MICROMIPS_INST_SYSCALL, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   mips_linux_n32n64_sigframe_init,
   micromips_linux_sigframe_validate
@@ -1437,7 +1435,7 @@ mips_gdb_signal_to_target (struct gdbarch *gdbarch,
 }
 
 /* Translate signals based on MIPS signal values.
-   Adapted from gdb/common/signals.c.  */
+   Adapted from gdb/gdbsupport/signals.c.  */
 
 static enum gdb_signal
 mips_gdb_signal_from_target (struct gdbarch *gdbarch, int signal)
@@ -1642,8 +1640,9 @@ mips_linux_init_abi (struct gdbarch_info info,
     }
 }
 
+void _initialize_mips_linux_tdep ();
 void
-_initialize_mips_linux_tdep (void)
+_initialize_mips_linux_tdep ()
 {
   const struct bfd_arch_info *arch_info;
 

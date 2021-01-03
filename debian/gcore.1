@@ -1,20 +1,26 @@
-.TH gcore "1" "May 2007" "gdb 6.8" "GNU Tools"
+.TH gcore "1" "Feb 2020" "gdb 9.1" "GNU Tools"
 .SH NAME
-gcore \- Generate a core file for a running process
+gcore \- Generate core files for running processes
 .SH SYNOPSIS
 .B gcore
-[-o \fIfilename\fR] \fIpid\fR
+[-a] [-o \fIfilename\fR] \fIpid[s]\fR
 .SH DESCRIPTION
 .\" Add any additional description here
 .PP
-gcore generates a core file for the process specified by its process ID,
-\fIpid\fR. By default, the core file is written to core.\fIpid\fR, in the
+gcore generates a core file for the process(es) specified by process IDs,
+\fIpid[s]\fR. By default, each core file is written to core.\fIpid\fR, in the
 current directory.
 .TP
+\fB\-a\fR
+(Linux only) ignore /proc/PID/coredump_filter and also dump memory mappings
+marked with the 'VM_DONTDUMP' flag. See info node Core File Generation for
+longer explanation.
+.TP
 \fB\-o\fR \fIfilename\fR
-write core file to \fIfilename\fR instead of core.\fIpid\fR
+write core file to \fIfilename\fR if one PID, or \fIfilename.pid\fR if
+multiple PIDs, instead of default core.\fIpid\fR
 .SH COPYING
-Copyright \(co 2003, 2005, 2007, 2008 Free Software Foundation, Inc.
+Copyright \(co 2003, 2005, 2007, 2008, 2018, 2020 Free Software Foundation, Inc.
 .PP
 Permission is granted to make and distribute verbatim copies of this manual
 provided the copyright notice and this permission notice are preserved on

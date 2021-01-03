@@ -1,6 +1,6 @@
 /* Select target systems and architectures at runtime for GDB.
 
-   Copyright (C) 1990-2018 Free Software Foundation, Inc.
+   Copyright (C) 1990-2020 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support.
 
@@ -40,16 +40,17 @@
 #include "inline-frame.h"
 #include "tracepoint.h"
 #include "gdb/fileio.h"
-#include "agent.h"
+#include "gdbsupport/agent.h"
 #include "auxv.h"
 #include "target-debug.h"
 #include "top.h"
 #include "event-top.h"
 #include <algorithm>
-#include "byte-vector.h"
+#include "gdbsupport/byte-vector.h"
 #include "terminal.h"
-#include <algorithm>
 #include <unordered_map>
+#include "target-connection.h"
+#include "valprint.h"
 
 static void generic_tls_error (void) ATTRIBUTE_NORETURN;
 
@@ -66,9 +67,6 @@ static void default_rcmd (struct target_ops *, const char *, struct ui_file *);
 static ptid_t default_get_ada_task_ptid (struct target_ops *self,
 					 long lwp, long tid);
 
-static int default_follow_fork (struct target_ops *self, int follow_child,
-				int detach_fork);
-
 static void default_mourn_inferior (struct target_ops *self);
 
 static int default_search_memory (struct target_ops *ops,
@@ -82,15 +80,9 @@ static int default_verify_memory (struct target_ops *self,
 				  const gdb_byte *data,
 				  CORE_ADDR memaddr, ULONGEST size);
 
-static struct address_space *default_thread_address_space
-     (struct target_ops *self, ptid_t ptid);
-
 static void tcomplain (void) ATTRIBUTE_NORETURN;
 
 static struct target_ops *find_default_run_target (const char *);
-
-static struct gdbarch *default_thread_architecture (struct target_ops *ops,
-						    ptid_t ptid);
 
 static int dummy_find_memory_regions (struct target_ops *self,
 				      find_memory_region_ftype ignore1,
@@ -99,7 +91,7 @@ static int dummy_find_memory_regions (struct target_ops *self,
 static char *dummy_make_corefile_notes (struct target_ops *self,
 					bfd *ignore1, int *ignore2);
 
-static const char *default_pid_to_str (struct target_ops *ops, ptid_t ptid);
+static std::string default_pid_to_str (struct target_ops *ops, ptid_t ptid);
 
 static enum exec_direction_kind default_execution_direction
     (struct target_ops *self);
@@ -113,15 +105,9 @@ static enum exec_direction_kind default_execution_direction
 static std::unordered_map<const target_info *, target_open_ftype *>
   target_factories;
 
-/* The initial current target, so that there is always a semi-valid
-   current target.  */
+/* The singleton debug target.  */
 
-static struct target_ops *the_dummy_target;
 static struct target_ops *the_debug_target;
-
-/* The target stack.  */
-
-static target_stack g_target_stack;
 
 /* Top of target stack.  */
 /* The target structure we are currently using to talk to a process
@@ -130,17 +116,17 @@ static target_stack g_target_stack;
 target_ops *
 current_top_target ()
 {
-  return g_target_stack.top ();
+  return current_inferior ()->top_target ();
 }
 
 /* Command list for target.  */
 
 static struct cmd_list_element *targetlist = NULL;
 
-/* Nonzero if we should trust readonly sections from the
+/* True if we should trust readonly sections from the
    executable when reading memory.  */
 
-static int trust_readonly = 0;
+static bool trust_readonly = false;
 
 /* Nonzero if we should show true memory content including
    memory breakpoint inserted by gdb.  */
@@ -149,19 +135,19 @@ static int show_memory_breakpoints = 0;
 
 /* These globals control whether GDB attempts to perform these
    operations; they are useful for targets that need to prevent
-   inadvertant disruption, such as in non-stop mode.  */
+   inadvertent disruption, such as in non-stop mode.  */
 
-int may_write_registers = 1;
+bool may_write_registers = true;
 
-int may_write_memory = 1;
+bool may_write_memory = true;
 
-int may_insert_breakpoints = 1;
+bool may_insert_breakpoints = true;
 
-int may_insert_tracepoints = 1;
+bool may_insert_tracepoints = true;
 
-int may_insert_fast_tracepoints = 1;
+bool may_insert_fast_tracepoints = true;
 
-int may_stop = 1;
+bool may_stop = true;
 
 /* Non-zero if we want to see trace of target level stuff.  */
 
@@ -182,90 +168,6 @@ show_targetdebug (struct ui_file *file, int from_tty,
 {
   fprintf_filtered (file, _("Target debugging is %s.\n"), value);
 }
-
-/* The user just typed 'target' without the name of a target.  */
-
-static void
-target_command (const char *arg, int from_tty)
-{
-  fputs_filtered ("Argument required (target name).  Try `help target'\n",
-		  gdb_stdout);
-}
-
-#if GDB_SELF_TEST
-namespace selftests {
-
-/* A mock process_stratum target_ops that doesn't read/write registers
-   anywhere.  */
-
-static const target_info test_target_info = {
-  "test",
-  N_("unit tests target"),
-  N_("You should never see this"),
-};
-
-const target_info &
-test_target_ops::info () const
-{
-  return test_target_info;
-}
-
-} /* namespace selftests */
-#endif /* GDB_SELF_TEST */
-
-/* Default target_has_* methods for process_stratum targets.  */
-
-int
-default_child_has_all_memory ()
-{
-  /* If no inferior selected, then we can't read memory here.  */
-  if (inferior_ptid == null_ptid)
-    return 0;
-
-  return 1;
-}
-
-int
-default_child_has_memory ()
-{
-  /* If no inferior selected, then we can't read memory here.  */
-  if (inferior_ptid == null_ptid)
-    return 0;
-
-  return 1;
-}
-
-int
-default_child_has_stack ()
-{
-  /* If no inferior selected, there's no stack.  */
-  if (inferior_ptid == null_ptid)
-    return 0;
-
-  return 1;
-}
-
-int
-default_child_has_registers ()
-{
-  /* Can't read registers from no inferior.  */
-  if (inferior_ptid == null_ptid)
-    return 0;
-
-  return 1;
-}
-
-int
-default_child_has_execution (ptid_t the_ptid)
-{
-  /* If there's no thread selected, then we can't make it run through
-     hoops.  */
-  if (the_ptid == null_ptid)
-    return 0;
-
-  return 1;
-}
-
 
 int
 target_has_all_memory_1 (void)
@@ -307,20 +209,22 @@ target_has_registers_1 (void)
   return 0;
 }
 
-int
-target_has_execution_1 (ptid_t the_ptid)
+bool
+target_has_execution_1 (inferior *inf)
 {
-  for (target_ops *t = current_top_target (); t != NULL; t = t->beneath ())
-    if (t->has_execution (the_ptid))
-      return 1;
+  for (target_ops *t = inf->top_target ();
+       t != nullptr;
+       t = inf->find_target_beneath (t))
+    if (t->has_execution (inf))
+      return true;
 
-  return 0;
+  return false;
 }
 
 int
 target_has_execution_current (void)
 {
-  return target_has_execution_1 (inferior_ptid);
+  return target_has_execution_1 (current_inferior ());
 }
 
 /* This is used to implement the various target commands.  */
@@ -357,13 +261,13 @@ add_target (const target_info &t, target_open_ftype *func,
   func_slot = func;
 
   if (targetlist == NULL)
-    add_prefix_cmd ("target", class_run, target_command, _("\
+    add_basic_prefix_cmd ("target", class_run, _("\
 Connect to a target machine or process.\n\
 The first argument is the type or protocol of the target machine.\n\
 Remaining arguments are interpreted by the target protocol.  For more\n\
 information on the arguments for a particular protocol, type\n\
 `help target ' followed by the protocol name."),
-		    &targetlist, "target ", 0, &cmdlist);
+			  &targetlist, "target ", 0, &cmdlist);
   c = add_cmd (t.shortname, no_class, t.doc, &targetlist);
   set_cmd_context (c, (void *) &t);
   set_cmd_sfunc (c, open_target);
@@ -473,9 +377,8 @@ target_terminal::restore_inferior (void)
 
   {
     scoped_restore_current_inferior restore_inferior;
-    struct inferior *inf;
 
-    ALL_INFERIORS (inf)
+    for (::inferior *inf : all_inferiors ())
       {
 	if (inf->terminal_state == target_terminal_state::is_ours_for_output)
 	  {
@@ -501,14 +404,13 @@ static void
 target_terminal_is_ours_kind (target_terminal_state desired_state)
 {
   scoped_restore_current_inferior restore_inferior;
-  struct inferior *inf;
 
   /* Must do this in two passes.  First, have all inferiors save the
      current terminal settings.  Then, after all inferiors have add a
      chance to safely save the terminal settings, restore GDB's
      terminal settings.  */
 
-  ALL_INFERIORS (inf)
+  for (inferior *inf : all_inferiors ())
     {
       if (inf->terminal_state == target_terminal_state::is_inferior)
 	{
@@ -517,7 +419,7 @@ target_terminal_is_ours_kind (target_terminal_state desired_state)
 	}
     }
 
-  ALL_INFERIORS (inf)
+  for (inferior *inf : all_inferiors ())
     {
       /* Note we don't check is_inferior here like above because we
 	 need to handle 'is_ours_for_output -> is_ours' too.  Careful
@@ -587,13 +489,16 @@ target_terminal::info (const char *arg, int from_tty)
 bool
 target_supports_terminal_ours (void)
 {
-  /* This can be called before there is any target, so we must check
-     for nullptr here.  */
-  target_ops *top = current_top_target ();
+  /* The current top target is the target at the top of the target
+     stack of the current inferior.  While normally there's always an
+     inferior, we must check for nullptr here because we can get here
+     very early during startup, before the initial inferior is first
+     created.  */
+  inferior *inf = current_inferior ();
 
-  if (top == nullptr)
+  if (inf == nullptr)
     return false;
-  return top->supports_terminal_ours ();
+  return inf->top_target ()->supports_terminal_ours ();
 }
 
 static void
@@ -642,21 +547,39 @@ to_execution_direction must be implemented for reverse async");
 /* See target.h.  */
 
 void
+decref_target (target_ops *t)
+{
+  t->decref ();
+  if (t->refcount () == 0)
+    {
+      if (t->stratum () == process_stratum)
+	connection_list_remove (as_process_stratum_target (t));
+      target_close (t);
+    }
+}
+
+/* See target.h.  */
+
+void
 target_stack::push (target_ops *t)
 {
+  t->incref ();
+
+  strata stratum = t->stratum ();
+
+  if (stratum == process_stratum)
+    connection_list_add (as_process_stratum_target (t));
+
   /* If there's already a target at this stratum, remove it.  */
-  if (m_stack[t->to_stratum] != NULL)
-    {
-      target_ops *prev = m_stack[t->to_stratum];
-      m_stack[t->to_stratum] = NULL;
-      target_close (prev);
-    }
+
+  if (m_stack[stratum] != NULL)
+    unpush (m_stack[stratum]);
 
   /* Now add the new one.  */
-  m_stack[t->to_stratum] = t;
+  m_stack[stratum] = t;
 
-  if (m_top < t->to_stratum)
-    m_top = t->to_stratum;
+  if (m_top < stratum)
+    m_top = stratum;
 }
 
 /* See target.h.  */
@@ -664,7 +587,16 @@ target_stack::push (target_ops *t)
 void
 push_target (struct target_ops *t)
 {
-  g_target_stack.push (t);
+  current_inferior ()->push_target (t);
+}
+
+/* See target.h.  */
+
+void
+push_target (target_ops_up &&t)
+{
+  current_inferior ()->push_target (t.get ());
+  t.release ();
 }
 
 /* See target.h.  */
@@ -672,7 +604,7 @@ push_target (struct target_ops *t)
 int
 unpush_target (struct target_ops *t)
 {
-  return g_target_stack.unpush (t);
+  return current_inferior ()->unpush_target (t);
 }
 
 /* See target.h.  */
@@ -680,19 +612,18 @@ unpush_target (struct target_ops *t)
 bool
 target_stack::unpush (target_ops *t)
 {
-  struct target_ops **cur;
-  struct target_ops *tmp;
+  gdb_assert (t != NULL);
 
-  if (t->to_stratum == dummy_stratum)
+  strata stratum = t->stratum ();
+
+  if (stratum == dummy_stratum)
     internal_error (__FILE__, __LINE__,
 		    _("Attempt to unpush the dummy target"));
-
-  gdb_assert (t != NULL);
 
   /* Look for the specified target.  Note that a target can only occur
      once in the target stack.  */
 
-  if (m_stack[t->to_stratum] != t)
+  if (m_stack[stratum] != t)
     {
       /* If T wasn't pushed, quit.  Only open targets should be
 	 closed.  */
@@ -700,15 +631,18 @@ target_stack::unpush (target_ops *t)
     }
 
   /* Unchain the target.  */
-  m_stack[t->to_stratum] = NULL;
+  m_stack[stratum] = NULL;
 
-  if (m_top == t->to_stratum)
-    m_top = t->beneath ()->to_stratum;
+  if (m_top == stratum)
+    m_top = t->beneath ()->stratum ();
 
-  /* Finally close the target.  Note we do this after unchaining, so
-     any target method calls from within the target_close
-     implementation don't end up in T anymore.  */
-  target_close (t);
+  /* Finally close the target, if there are no inferiors
+     referencing this target still.  Note we do this after unchaining,
+     so any target method calls from within the target_close
+     implementation don't end up in T anymore.  Do leave the target
+     open if we have are other inferiors referencing this target
+     still.  */
+  decref_target (t);
 
   return true;
 }
@@ -731,7 +665,7 @@ unpush_target_and_assert (struct target_ops *target)
 void
 pop_all_targets_above (enum strata above_stratum)
 {
-  while ((int) (current_top_target ()->to_stratum) > (int) above_stratum)
+  while ((int) (current_top_target ()->stratum ()) > (int) above_stratum)
     unpush_target_and_assert (current_top_target ());
 }
 
@@ -740,7 +674,7 @@ pop_all_targets_above (enum strata above_stratum)
 void
 pop_all_targets_at_and_above (enum strata stratum)
 {
-  while ((int) (current_top_target ()->to_stratum) >= (int) stratum)
+  while ((int) (current_top_target ()->stratum ()) >= (int) stratum)
     unpush_target_and_assert (current_top_target ());
 }
 
@@ -750,12 +684,13 @@ pop_all_targets (void)
   pop_all_targets_above (dummy_stratum);
 }
 
-/* Return 1 if T is now pushed in the target stack.  Return 0 otherwise.  */
+/* Return true if T is now pushed in the current inferior's target
+   stack.  Return false otherwise.  */
 
-int
-target_is_pushed (struct target_ops *t)
+bool
+target_is_pushed (target_ops *t)
 {
-  return g_target_stack.is_pushed (t);
+  return current_inferior ()->target_is_pushed (t);
 }
 
 /* Default implementation of to_get_thread_local_address.  */
@@ -774,24 +709,29 @@ target_translate_tls_address (struct objfile *objfile, CORE_ADDR offset)
 {
   volatile CORE_ADDR addr = 0;
   struct target_ops *target = current_top_target ();
+  struct gdbarch *gdbarch = target_gdbarch ();
 
-  if (gdbarch_fetch_tls_load_module_address_p (target_gdbarch ()))
+  if (gdbarch_fetch_tls_load_module_address_p (gdbarch))
     {
       ptid_t ptid = inferior_ptid;
 
-      TRY
+      try
 	{
 	  CORE_ADDR lm_addr;
 	  
 	  /* Fetch the load module address for this objfile.  */
-	  lm_addr = gdbarch_fetch_tls_load_module_address (target_gdbarch (),
+	  lm_addr = gdbarch_fetch_tls_load_module_address (gdbarch,
 	                                                   objfile);
 
-	  addr = target->get_thread_local_address (ptid, lm_addr, offset);
+	  if (gdbarch_get_thread_local_address_p (gdbarch))
+	    addr = gdbarch_get_thread_local_address (gdbarch, ptid, lm_addr,
+						     offset);
+	  else
+	    addr = target->get_thread_local_address (ptid, lm_addr, offset);
 	}
       /* If an error occurred, print TLS related messages here.  Otherwise,
          throw the error to some higher catcher.  */
-      CATCH (ex, RETURN_MASK_ALL)
+      catch (const gdb_exception &ex)
 	{
 	  int objfile_is_library = (objfile->flags & OBJF_SHARED);
 
@@ -815,35 +755,34 @@ target_translate_tls_address (struct objfile *objfile, CORE_ADDR offset)
 		         " thread-local variables in\n"
 		         "the shared library `%s'\n"
 		         "for %s"),
-		       objfile_name (objfile), target_pid_to_str (ptid));
+		       objfile_name (objfile),
+		       target_pid_to_str (ptid).c_str ());
 	      else
 		error (_("The inferior has not yet allocated storage for"
 		         " thread-local variables in\n"
 		         "the executable `%s'\n"
 		         "for %s"),
-		       objfile_name (objfile), target_pid_to_str (ptid));
+		       objfile_name (objfile),
+		       target_pid_to_str (ptid).c_str ());
 	      break;
 	    case TLS_GENERIC_ERROR:
 	      if (objfile_is_library)
 		error (_("Cannot find thread-local storage for %s, "
 		         "shared library %s:\n%s"),
-		       target_pid_to_str (ptid),
-		       objfile_name (objfile), ex.message);
+		       target_pid_to_str (ptid).c_str (),
+		       objfile_name (objfile), ex.what ());
 	      else
 		error (_("Cannot find thread-local storage for %s, "
 		         "executable file %s:\n%s"),
-		       target_pid_to_str (ptid),
-		       objfile_name (objfile), ex.message);
+		       target_pid_to_str (ptid).c_str (),
+		       objfile_name (objfile), ex.what ());
 	      break;
 	    default:
-	      throw_exception (ex);
+	      throw;
 	      break;
 	    }
 	}
-      END_CATCH
     }
-  /* It wouldn't be wrong here to try a gdbarch method, too; finding
-     TLS is an ABI-specific thing.  But we don't do that yet.  */
   else
     error (_("Cannot find thread-local variables on this target"));
 
@@ -865,81 +804,24 @@ target_xfer_status_to_string (enum target_xfer_status status)
 };
 
 
-#undef	MIN
-#define MIN(A, B) (((A) <= (B)) ? (A) : (B))
+/* See target.h.  */
 
-/* target_read_string -- read a null terminated string, up to LEN bytes,
-   from MEMADDR in target.  Set *ERRNOP to the errno code, or 0 if successful.
-   Set *STRING to a pointer to malloc'd memory containing the data; the caller
-   is responsible for freeing it.  Return the number of bytes successfully
-   read.  */
-
-int
-target_read_string (CORE_ADDR memaddr, gdb::unique_xmalloc_ptr<char> *string,
-		    int len, int *errnop)
+gdb::unique_xmalloc_ptr<char>
+target_read_string (CORE_ADDR memaddr, int len, int *bytes_read)
 {
-  int tlen, offset, i;
-  gdb_byte buf[4];
-  int errcode = 0;
-  char *buffer;
-  int buffer_allocated;
-  char *bufptr;
-  unsigned int nbytes_read = 0;
+  gdb::unique_xmalloc_ptr<gdb_byte> buffer;
 
-  gdb_assert (string);
+  int ignore;
+  if (bytes_read == nullptr)
+    bytes_read = &ignore;
 
-  /* Small for testing.  */
-  buffer_allocated = 4;
-  buffer = (char *) xmalloc (buffer_allocated);
-  bufptr = buffer;
+  /* Note that the endian-ness does not matter here.  */
+  int errcode = read_string (memaddr, -1, 1, len, BFD_ENDIAN_LITTLE,
+			     &buffer, bytes_read);
+  if (errcode != 0)
+    return {};
 
-  while (len > 0)
-    {
-      tlen = MIN (len, 4 - (memaddr & 3));
-      offset = memaddr & 3;
-
-      errcode = target_read_memory (memaddr & ~3, buf, sizeof buf);
-      if (errcode != 0)
-	{
-	  /* The transfer request might have crossed the boundary to an
-	     unallocated region of memory.  Retry the transfer, requesting
-	     a single byte.  */
-	  tlen = 1;
-	  offset = 0;
-	  errcode = target_read_memory (memaddr, buf, 1);
-	  if (errcode != 0)
-	    goto done;
-	}
-
-      if (bufptr - buffer + tlen > buffer_allocated)
-	{
-	  unsigned int bytes;
-
-	  bytes = bufptr - buffer;
-	  buffer_allocated *= 2;
-	  buffer = (char *) xrealloc (buffer, buffer_allocated);
-	  bufptr = buffer + bytes;
-	}
-
-      for (i = 0; i < tlen; i++)
-	{
-	  *bufptr++ = buf[i + offset];
-	  if (buf[i + offset] == '\000')
-	    {
-	      nbytes_read += i + 1;
-	      goto done;
-	    }
-	}
-
-      memaddr += tlen;
-      len -= tlen;
-      nbytes_read += tlen;
-    }
-done:
-  string->reset (buffer);
-  if (errnop != NULL)
-    *errnop = errcode;
-  return nbytes_read;
+  return gdb::unique_xmalloc_ptr<char> ((char *) buffer.release ());
 }
 
 struct target_section_table *
@@ -1043,8 +925,11 @@ raw_memory_xfer_partial (struct target_ops *ops, gdb_byte *readbuf,
       if (res == TARGET_XFER_UNAVAILABLE)
 	break;
 
-      /* We want to continue past core files to executables, but not
-	 past a running target's memory.  */
+      /* Don't continue past targets which have all the memory.
+         At one time, this code was necessary to read data from
+	 executables / shared libraries when data for the requested
+	 addresses weren't available in the core file.  But now the
+	 core target handles this case itself.  */
       if (ops->has_all_memory ())
 	break;
 
@@ -1098,11 +983,17 @@ memory_xfer_partial_1 (struct target_ops *ops, enum target_object object,
 	  const char *section_name = section->the_bfd_section->name;
 
 	  memaddr = overlay_mapped_address (memaddr, section);
+
+	  auto match_cb = [=] (const struct target_section *s)
+	    {
+	      return (strcmp (section_name, s->the_bfd_section->name) == 0);
+	    };
+
 	  return section_table_xfer_memory_partial (readbuf, writebuf,
 						    memaddr, len, xfered_len,
 						    table->sections,
 						    table->sections_end,
-						    section_name);
+						    match_cb);
 	}
     }
 
@@ -1114,16 +1005,13 @@ memory_xfer_partial_1 (struct target_ops *ops, enum target_object object,
 
       secp = target_section_by_addr (ops, memaddr);
       if (secp != NULL
-	  && (bfd_get_section_flags (secp->the_bfd_section->owner,
-				     secp->the_bfd_section)
-	      & SEC_READONLY))
+	  && (bfd_section_flags (secp->the_bfd_section) & SEC_READONLY))
 	{
 	  table = target_get_section_table (ops);
 	  return section_table_xfer_memory_partial (readbuf, writebuf,
 						    memaddr, len, xfered_len,
 						    table->sections,
-						    table->sections_end,
-						    NULL);
+						    table->sections_end);
 	}
     }
 
@@ -1967,7 +1855,7 @@ info_target_command (const char *args, int from_tty)
       if (!t->has_memory ())
 	continue;
 
-      if ((int) (t->to_stratum) <= (int) dummy_stratum)
+      if ((int) (t->stratum ()) <= (int) dummy_stratum)
 	continue;
       if (has_all_mem)
 	printf_unfiltered (_("\tWhile running this, "
@@ -2025,27 +1913,6 @@ target_pre_inferior (int from_tty)
   agent_capability_invalidate ();
 }
 
-/* Callback for iterate_over_inferiors.  Gets rid of the given
-   inferior.  */
-
-static int
-dispose_inferior (struct inferior *inf, void *args)
-{
-  thread_info *thread = any_thread_of_inferior (inf);
-  if (thread != NULL)
-    {
-      switch_to_thread (thread);
-
-      /* Core inferiors actually should be detached, not killed.  */
-      if (target_has_execution)
-	target_kill ();
-      else
-	target_detach (inf, 0);
-    }
-
-  return 0;
-}
-
 /* This is to be called by the open routine before it does
    anything.  */
 
@@ -2054,12 +1921,19 @@ target_preopen (int from_tty)
 {
   dont_repeat ();
 
-  if (have_inferiors ())
+  if (current_inferior ()->pid != 0)
     {
       if (!from_tty
-	  || !have_live_inferiors ()
+	  || !target_has_execution
 	  || query (_("A program is being debugged already.  Kill it? ")))
-	iterate_over_inferiors (dispose_inferior, NULL);
+	{
+	  /* Core inferiors actually should be detached, not
+	     killed.  */
+	  if (target_has_execution)
+	    target_kill ();
+	  else
+	    target_detach (current_inferior (), 0);
+	}
       else
 	error (_("Program not killed."));
     }
@@ -2078,6 +1952,11 @@ target_preopen (int from_tty)
 void
 target_detach (inferior *inf, int from_tty)
 {
+  /* After we have detached, we will clear the register cache for this inferior
+     by calling registers_changed_ptid.  We must save the pid_ptid before
+     detaching, as the target detach method will clear inf->pid.  */
+  ptid_t save_pid_ptid = ptid_t (inf->pid);
+
   /* As long as some to_detach implementations rely on the current_inferior
      (either directly, or indirectly, like through target_gdbarch or by
      reading memory), INF needs to be the current inferior.  When that
@@ -2096,7 +1975,22 @@ target_detach (inferior *inf, int from_tty)
 
   prepare_for_detach ();
 
+  /* Hold a strong reference because detaching may unpush the
+     target.  */
+  auto proc_target_ref = target_ops_ref::new_reference (inf->process_target ());
+
   current_top_target ()->detach (inf, from_tty);
+
+  process_stratum_target *proc_target
+    = as_process_stratum_target (proc_target_ref.get ());
+
+  registers_changed_ptid (proc_target, save_pid_ptid);
+
+  /* We have to ensure we have no frame cache left.  Normally,
+     registers_changed_ptid (save_pid_ptid) calls reinit_frame_cache when
+     inferior_ptid matches save_pid_ptid, but in our case, it does not
+     call it, as inferior_ptid has been reset.  */
+  reinit_frame_cache ();
 }
 
 void
@@ -2115,7 +2009,12 @@ target_disconnect (const char *args, int from_tty)
 ptid_t
 target_wait (ptid_t ptid, struct target_waitstatus *status, int options)
 {
-  return current_top_target ()->wait (ptid, status, options);
+  target_ops *target = current_top_target ();
+
+  if (!target->can_async_p ())
+    gdb_assert ((options & TARGET_WNOHANG) == 0);
+
+  return target->wait (ptid, status, options);
 }
 
 /* See target.h.  */
@@ -2129,7 +2028,7 @@ default_target_wait (struct target_ops *ops,
   return minus_one_ptid;
 }
 
-const char *
+std::string
 target_pid_to_str (ptid_t ptid)
 {
   return current_top_target ()->pid_to_str (ptid);
@@ -2138,6 +2037,8 @@ target_pid_to_str (ptid_t ptid)
 const char *
 target_thread_name (struct thread_info *info)
 {
+  gdb_assert (info->inf == current_inferior ());
+
   return current_top_target ()->thread_name (info);
 }
 
@@ -2150,19 +2051,29 @@ target_thread_handle_to_thread_info (const gdb_byte *thread_handle,
 						     handle_len, inf);
 }
 
+/* See target.h.  */
+
+gdb::byte_vector
+target_thread_info_to_thread_handle (struct thread_info *tip)
+{
+  return current_top_target ()->thread_info_to_thread_handle (tip);
+}
+
 void
 target_resume (ptid_t ptid, int step, enum gdb_signal signal)
 {
+  process_stratum_target *curr_target = current_inferior ()->process_target ();
+
   target_dcache_invalidate ();
 
   current_top_target ()->resume (ptid, step, signal);
 
-  registers_changed_ptid (ptid);
+  registers_changed_ptid (curr_target, ptid);
   /* We only set the internal executing state here.  The user/frontend
      running state is set at a higher level.  This also clears the
      thread's stop_pc as side effect.  */
-  set_executing (ptid, 1);
-  clear_inline_frame_state (ptid);
+  set_executing (curr_target, ptid, true);
+  clear_inline_frame_state (curr_target, ptid);
 }
 
 /* If true, target_commit_resume is a nop.  */
@@ -2188,20 +2099,20 @@ make_scoped_defer_target_commit_resume ()
 }
 
 void
-target_pass_signals (int numsigs, unsigned char *pass_signals)
+target_pass_signals (gdb::array_view<const unsigned char> pass_signals)
 {
-  current_top_target ()->pass_signals (numsigs, pass_signals);
+  current_top_target ()->pass_signals (pass_signals);
 }
 
 void
-target_program_signals (int numsigs, unsigned char *program_signals)
+target_program_signals (gdb::array_view<const unsigned char> program_signals)
 {
-  current_top_target ()->program_signals (numsigs, program_signals);
+  current_top_target ()->program_signals (program_signals);
 }
 
-static int
-default_follow_fork (struct target_ops *self, int follow_child,
-		     int detach_fork)
+static bool
+default_follow_fork (struct target_ops *self, bool follow_child,
+		     bool detach_fork)
 {
   /* Some target returned a fork event, but did not know how to follow it.  */
   internal_error (__FILE__, __LINE__,
@@ -2211,8 +2122,8 @@ default_follow_fork (struct target_ops *self, int follow_child,
 /* Look through the list of possible targets for a target that can
    follow forks.  */
 
-int
-target_follow_fork (int follow_child, int detach_fork)
+bool
+target_follow_fork (bool follow_child, bool detach_fork)
 {
   return current_top_target ()->follow_fork (follow_child, detach_fork);
 }
@@ -2220,7 +2131,7 @@ target_follow_fork (int follow_child, int detach_fork)
 /* Target wrapper for follow exec hook.  */
 
 void
-target_follow_exec (struct inferior *inf, char *execd_pathname)
+target_follow_exec (struct inferior *inf, const char *execd_pathname)
 {
   current_top_target ()->follow_exec (inf, execd_pathname);
 }
@@ -2403,7 +2314,7 @@ target_require_runnable (void)
       /* Do not worry about targets at certain strata that can not
 	 create inferiors.  Assume they will be pushed again if
 	 necessary, and continue to the process_stratum.  */
-      if (t->to_stratum > process_stratum)
+      if (t->stratum () > process_stratum)
 	continue;
 
       error (_("The \"%s\" target does not support \"run\".  "
@@ -2419,7 +2330,7 @@ target_require_runnable (void)
 
 /* Whether GDB is allowed to fall back to the default run target for
    "run", "attach", etc. when no target is connected yet.  */
-static int auto_connect_native_target = 1;
+static bool auto_connect_native_target = true;
 
 static void
 show_auto_connect_native_target (struct ui_file *file, int from_tty,
@@ -2587,23 +2498,6 @@ target_get_osdata (const char *type)
   return target_read_stralloc (t, TARGET_OBJECT_OSDATA, type);
 }
 
-static struct address_space *
-default_thread_address_space (struct target_ops *self, ptid_t ptid)
-{
-  struct inferior *inf;
-
-  /* Fall-back to the "main" address space of the inferior.  */
-  inf = find_inferior_ptid (ptid);
-
-  if (inf == NULL || inf->aspace == NULL)
-    internal_error (__FILE__, __LINE__,
-		    _("Can't determine the current "
-		      "address space of thread %s\n"),
-		    target_pid_to_str (ptid));
-
-  return inf->aspace;
-}
-
 /* Determine the current address space of thread PTID.  */
 
 struct address_space *
@@ -2622,7 +2516,7 @@ target_thread_address_space (ptid_t ptid)
 target_ops *
 target_ops::beneath () const
 {
-  return g_target_stack.find_beneath (this);
+  return current_inferior ()->find_target_beneath (this);
 }
 
 void
@@ -2838,13 +2732,11 @@ target_ops::fileio_readlink (struct inferior *inf, const char *filename,
   return {};
 }
 
-/* Helper for target_fileio_open and
-   target_fileio_open_warn_if_slow.  */
+/* See target.h.  */
 
-static int
-target_fileio_open_1 (struct inferior *inf, const char *filename,
-		      int flags, int mode, int warn_if_slow,
-		      int *target_errno)
+int
+target_fileio_open (struct inferior *inf, const char *filename,
+		    int flags, int mode, bool warn_if_slow, int *target_errno)
 {
   for (target_ops *t = default_fileio_target (); t != NULL; t = t->beneath ())
     {
@@ -2872,27 +2764,6 @@ target_fileio_open_1 (struct inferior *inf, const char *filename,
 
   *target_errno = FILEIO_ENOSYS;
   return -1;
-}
-
-/* See target.h.  */
-
-int
-target_fileio_open (struct inferior *inf, const char *filename,
-		    int flags, int mode, int *target_errno)
-{
-  return target_fileio_open_1 (inf, filename, flags, mode, 0,
-			       target_errno);
-}
-
-/* See target.h.  */
-
-int
-target_fileio_open_warn_if_slow (struct inferior *inf,
-				 const char *filename,
-				 int flags, int mode, int *target_errno)
-{
-  return target_fileio_open_1 (inf, filename, flags, mode, 1,
-			       target_errno);
 }
 
 /* See target.h.  */
@@ -3099,7 +2970,7 @@ target_fileio_read_alloc_1 (struct inferior *inf, const char *filename,
   int target_errno;
 
   scoped_target_fd fd (target_fileio_open (inf, filename, FILEIO_O_RDONLY,
-					   0700, &target_errno));
+					   0700, false, &target_errno));
   if (fd.get () == -1)
     return -1;
 
@@ -3167,7 +3038,7 @@ target_fileio_read_stralloc (struct inferior *inf, const char *filename)
     return gdb::unique_xmalloc_ptr<char> (nullptr);
 
   if (transferred == 0)
-    return gdb::unique_xmalloc_ptr<char> (xstrdup (""));
+    return make_unique_xstrdup ("");
 
   bufstr[transferred] = 0;
 
@@ -3200,21 +3071,13 @@ default_watchpoint_addr_within_range (struct target_ops *target,
   return addr >= start && addr < start + length;
 }
 
-static struct gdbarch *
-default_thread_architecture (struct target_ops *ops, ptid_t ptid)
-{
-  inferior *inf = find_inferior_ptid (ptid);
-  gdb_assert (inf != NULL);
-  return inf->gdbarch;
-}
-
 /* See target.h.  */
 
 target_ops *
 target_stack::find_beneath (const target_ops *t) const
 {
   /* Look for a non-empty slot at stratum levels beneath T's.  */
-  for (int stratum = t->to_stratum - 1; stratum >= 0; --stratum)
+  for (int stratum = t->stratum () - 1; stratum >= 0; --stratum)
     if (m_stack[stratum] != NULL)
       return m_stack[stratum];
 
@@ -3226,7 +3089,7 @@ target_stack::find_beneath (const target_ops *t) const
 struct target_ops *
 find_target_at (enum strata stratum)
 {
-  return g_target_stack.at (stratum);
+  return current_inferior ()->target_at (stratum);
 }
 
 
@@ -3248,8 +3111,7 @@ target_announce_detach (int from_tty)
 
   pid = inferior_ptid.pid ();
   printf_unfiltered (_("Detaching from program: %s, %s\n"), exec_file,
-		     target_pid_to_str (ptid_t (pid)));
-  gdb_flush (gdb_stdout);
+		     target_pid_to_str (ptid_t (pid)).c_str ());
 }
 
 /* The inferior process has died.  Long live the inferior!  */
@@ -3259,7 +3121,7 @@ generic_mourn_inferior (void)
 {
   inferior *inf = current_inferior ();
 
-  inferior_ptid = null_ptid;
+  switch_to_no_thread ();
 
   /* Mark breakpoints uninserted in case something tries to delete a
      breakpoint while we delete the inferior's threads (which would
@@ -3286,16 +3148,13 @@ generic_mourn_inferior (void)
 /* Convert a normal process ID to a string.  Returns the string in a
    static buffer.  */
 
-const char *
+std::string
 normal_pid_to_str (ptid_t ptid)
 {
-  static char buf[32];
-
-  xsnprintf (buf, sizeof buf, "process %d", ptid.pid ());
-  return buf;
+  return string_printf ("process %d", ptid.pid ());
 }
 
-static const char *
+static std::string
 default_pid_to_str (struct target_ops *ops, ptid_t ptid)
 {
   return normal_pid_to_str (ptid);
@@ -3321,6 +3180,18 @@ dummy_make_corefile_notes (struct target_ops *self,
 
 #include "target-delegates.c"
 
+/* The initial current target, so that there is always a semi-valid
+   current target.  */
+
+static dummy_target the_dummy_target;
+
+/* See target.h.  */
+
+target_ops *
+get_dummy_target ()
+{
+  return &the_dummy_target;
+}
 
 static const target_info dummy_target_info = {
   "None",
@@ -3328,14 +3199,16 @@ static const target_info dummy_target_info = {
   ""
 };
 
-dummy_target::dummy_target ()
+strata
+dummy_target::stratum () const
 {
-  to_stratum = dummy_stratum;
+  return dummy_stratum;
 }
 
-debug_target::debug_target ()
+strata
+debug_target::stratum () const
 {
-  to_stratum = debug_stratum;
+  return debug_stratum;
 }
 
 const target_info &
@@ -3406,7 +3279,33 @@ target_interrupt ()
 void
 target_pass_ctrlc (void)
 {
-  current_top_target ()->pass_ctrlc ();
+  /* Pass the Ctrl-C to the first target that has a thread
+     running.  */
+  for (inferior *inf : all_inferiors ())
+    {
+      target_ops *proc_target = inf->process_target ();
+      if (proc_target == NULL)
+	continue;
+
+      for (thread_info *thr : inf->non_exited_threads ())
+	{
+	  /* A thread can be THREAD_STOPPED and executing, while
+	     running an infcall.  */
+	  if (thr->state == THREAD_RUNNING || thr->executing)
+	    {
+	      /* We can get here quite deep in target layers.  Avoid
+		 switching thread context or anything that would
+		 communicate with the target (e.g., to fetch
+		 registers), or flushing e.g., the frame cache.  We
+		 just switch inferior in order to be able to call
+		 through the target_stack.  */
+	      scoped_restore_current_inferior restore_inferior;
+	      set_current_inferior (inf);
+	      current_top_target ()->pass_ctrlc ();
+	      return;
+	    }
+	}
+    }
 }
 
 /* See target.h.  */
@@ -3423,9 +3322,9 @@ void
 target_stop_and_wait (ptid_t ptid)
 {
   struct target_waitstatus status;
-  int was_non_stop = non_stop;
+  bool was_non_stop = non_stop;
 
-  non_stop = 1;
+  non_stop = true;
   target_stop (ptid);
 
   memset (&status, 0, sizeof (status));
@@ -3450,51 +3349,47 @@ target_continue (ptid_t ptid, enum gdb_signal signal)
   target_resume (ptid, 0, signal);
 }
 
-/* Concatenate ELEM to LIST, a comma separate list, and return the
-   result.  The LIST incoming argument is released.  */
+/* Concatenate ELEM to LIST, a comma-separated list.  */
 
-static char *
-str_comma_list_concat_elem (char *list, const char *elem)
+static void
+str_comma_list_concat_elem (std::string *list, const char *elem)
 {
-  if (list == NULL)
-    return xstrdup (elem);
-  else
-    return reconcat (list, list, ", ", elem, (char *) NULL);
+  if (!list->empty ())
+    list->append (", ");
+
+  list->append (elem);
 }
 
 /* Helper for target_options_to_string.  If OPT is present in
    TARGET_OPTIONS, append the OPT_STR (string version of OPT) in RET.
-   Returns the new resulting string.  OPT is removed from
-   TARGET_OPTIONS.  */
+   OPT is removed from TARGET_OPTIONS.  */
 
-static char *
-do_option (int *target_options, char *ret,
+static void
+do_option (int *target_options, std::string *ret,
 	   int opt, const char *opt_str)
 {
   if ((*target_options & opt) != 0)
     {
-      ret = str_comma_list_concat_elem (ret, opt_str);
+      str_comma_list_concat_elem (ret, opt_str);
       *target_options &= ~opt;
     }
-
-  return ret;
 }
 
-char *
+/* See target.h.  */
+
+std::string
 target_options_to_string (int target_options)
 {
-  char *ret = NULL;
+  std::string ret;
 
 #define DO_TARG_OPTION(OPT) \
-  ret = do_option (&target_options, ret, OPT, #OPT)
+  do_option (&target_options, &ret, OPT, #OPT)
 
   DO_TARG_OPTION (TARGET_WNOHANG);
 
   if (target_options != 0)
-    ret = str_comma_list_concat_elem (ret, "unknown???");
+    str_comma_list_concat_elem (&ret, "unknown???");
 
-  if (ret == NULL)
-    ret = xstrdup ("");
   return ret;
 }
 
@@ -3864,9 +3759,9 @@ flash_erase_command (const char *cmd, int from_tty)
 	  ui_out_emit_tuple tuple_emitter (current_uiout, "erased-regions");
 
           current_uiout->message (_("Erasing flash memory region at address "));
-          current_uiout->field_fmt ("address", "%s", paddress (gdbarch, m.lo));
+          current_uiout->field_core_addr ("address", gdbarch, m.lo);
           current_uiout->message (", size = ");
-          current_uiout->field_fmt ("size", "%s", hex_string (m.hi - m.lo));
+          current_uiout->field_string ("size", hex_string (m.hi - m.lo));
           current_uiout->message ("\n");
         }
     }
@@ -3887,7 +3782,7 @@ maintenance_print_target_stack (const char *cmd, int from_tty)
 
   for (target_ops *t = current_top_target (); t != NULL; t = t->beneath ())
     {
-      if (t->to_stratum == debug_stratum)
+      if (t->stratum () == debug_stratum)
 	continue;
       printf_filtered ("  - %s (%s)\n", t->shortname (), t->longname ());
     }
@@ -3912,11 +3807,11 @@ target_thread_events (int enable)
 
 /* Controls if targets can report that they can/are async.  This is
    just for maintainers to use when debugging gdb.  */
-int target_async_permitted = 1;
+bool target_async_permitted = true;
 
 /* The set command writes to this variable.  If the inferior is
    executing, target_async_permitted is *not* updated.  */
-static int target_async_permitted_1 = 1;
+static bool target_async_permitted_1 = true;
 
 static void
 maint_set_target_async_command (const char *args, int from_tty,
@@ -3959,6 +3854,26 @@ target_is_non_stop_p (void)
 	  || target_non_stop_enabled == AUTO_BOOLEAN_TRUE
 	  || (target_non_stop_enabled == AUTO_BOOLEAN_AUTO
 	      && target_always_non_stop_p ()));
+}
+
+/* See target.h.  */
+
+bool
+exists_non_stop_target ()
+{
+  if (target_is_non_stop_p ())
+    return true;
+
+  scoped_restore_current_thread restore_thread;
+
+  for (inferior *inf : all_inferiors ())
+    {
+      switch_to_inferior_no_thread (inf);
+      if (target_is_non_stop_p ())
+	return true;
+    }
+
+  return false;
 }
 
 /* Controls if targets can report that they always run in non-stop
@@ -4004,12 +3919,12 @@ maint_show_target_non_stop_command (struct ui_file *file, int from_tty,
 
 /* Temporary copies of permission settings.  */
 
-static int may_write_registers_1 = 1;
-static int may_write_memory_1 = 1;
-static int may_insert_breakpoints_1 = 1;
-static int may_insert_tracepoints_1 = 1;
-static int may_insert_fast_tracepoints_1 = 1;
-static int may_stop_1 = 1;
+static bool may_write_registers_1 = true;
+static bool may_write_memory_1 = true;
+static bool may_insert_breakpoints_1 = true;
+static bool may_insert_tracepoints_1 = true;
+static bool may_insert_fast_tracepoints_1 = true;
+static bool may_stop_1 = true;
 
 /* Make the user-set values match the real values again.  */
 
@@ -4057,12 +3972,11 @@ set_write_memory_permission (const char *args, int from_tty,
   update_observer_mode ();
 }
 
-void
-initialize_targets (void)
-{
-  the_dummy_target = new dummy_target ();
-  push_target (the_dummy_target);
+void _initialize_target ();
 
+void
+_initialize_target ()
+{
   the_debug_target = new debug_target ();
 
   add_info ("target", info_target_command, targ_desc);

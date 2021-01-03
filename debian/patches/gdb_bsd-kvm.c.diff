@@ -1,8 +1,8 @@
-Index: gdb-8.2/gdb/bsd-kvm.c
+Index: gdb/gdb/bsd-kvm.c
 ===================================================================
---- gdb-8.2.orig/gdb/bsd-kvm.c
-+++ gdb-8.2/gdb/bsd-kvm.c
-@@ -237,7 +237,7 @@ bsd_kvm_target::fetch_registers (struct
+--- gdb.orig/gdb/bsd-kvm.c	2019-02-22 11:36:33.514594292 +0100
++++ gdb/gdb/bsd-kvm.c	2019-02-22 11:36:33.514594292 +0100
+@@ -238,7 +238,7 @@
    /* On dumping core, BSD kernels store the faulting context (PCB)
       in the variable "dumppcb".  */
    memset (nl, 0, sizeof nl);
@@ -11,7 +11,7 @@ Index: gdb-8.2/gdb/bsd-kvm.c
  
    if (kvm_nlist (core_kd, nl) == -1)
      error (("%s"), kvm_geterr (core_kd));
-@@ -255,7 +255,7 @@ bsd_kvm_target::fetch_registers (struct
+@@ -256,7 +256,7 @@
       "proc0paddr".  */
  
    memset (nl, 0, sizeof nl);
@@ -20,7 +20,7 @@ Index: gdb-8.2/gdb/bsd-kvm.c
  
    if (kvm_nlist (core_kd, nl) == -1)
      error (("%s"), kvm_geterr (core_kd));
-@@ -279,7 +279,7 @@ bsd_kvm_target::fetch_registers (struct
+@@ -280,7 +280,7 @@
       variable "thread0".  */
  
    memset (nl, 0, sizeof nl);

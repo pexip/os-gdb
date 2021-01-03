@@ -1,6 +1,6 @@
 /* Target-dependent code for the Matsushita MN10300 for GDB, the GNU debugger.
 
-   Copyright (C) 2003-2018 Free Software Foundation, Inc.
+   Copyright (C) 2003-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,6 +30,7 @@
 #include "trad-frame.h"
 #include "tramp-frame.h"
 #include "linux-tdep.h"
+#include "gdbarch.h"
 
 /* Transliterated from <asm-mn10300/elf.h>...  */
 #define MN10300_ELF_NGREG 28
@@ -472,13 +473,13 @@ static const struct tramp_frame am33_linux_sigframe = {
   1,
   {
     /* mov     119,d0 */
-    { 0x2c, -1 },
-    { 0x77, -1 },
-    { 0x00, -1 },
+    { 0x2c, ULONGEST_MAX },
+    { 0x77, ULONGEST_MAX },
+    { 0x00, ULONGEST_MAX },
     /* syscall 0 */
-    { 0xf0, -1 },
-    { 0xe0, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { 0xf0, ULONGEST_MAX },
+    { 0xe0, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   am33_linux_sigframe_cache_init
 };
@@ -488,13 +489,13 @@ static const struct tramp_frame am33_linux_rt_sigframe = {
   1,
   {
     /* mov     173,d0 */
-    { 0x2c, -1 },
-    { 0xad, -1 },
-    { 0x00, -1 },
+    { 0x2c, ULONGEST_MAX },
+    { 0xad, ULONGEST_MAX },
+    { 0x00, ULONGEST_MAX },
     /* syscall 0 */
-    { 0xf0, -1 },
-    { 0xe0, -1 },
-    { TRAMP_SENTINEL_INSN, -1 }
+    { 0xf0, ULONGEST_MAX },
+    { 0xe0, ULONGEST_MAX },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX }
   },
   am33_linux_sigframe_cache_init
 };
@@ -714,8 +715,9 @@ am33_linux_init_osabi (struct gdbarch_info info, struct gdbarch *gdbarch)
   tramp_frame_prepend_unwinder (gdbarch, &am33_linux_rt_sigframe);
 }
 
+void _initialize_mn10300_linux_tdep ();
 void
-_initialize_mn10300_linux_tdep (void)
+_initialize_mn10300_linux_tdep ()
 {
   gdbarch_register_osabi (bfd_arch_mn10300, 0,
 			  GDB_OSABI_LINUX, am33_linux_init_osabi);

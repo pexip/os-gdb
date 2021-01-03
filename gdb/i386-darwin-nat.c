@@ -1,5 +1,5 @@
 /* Darwin support for GDB, the GNU debugger.
-   Copyright (C) 1997-2018 Free Software Foundation, Inc.
+   Copyright (C) 1997-2020 Free Software Foundation, Inc.
 
    Contributed by Apple Computer, Inc.
 
@@ -280,7 +280,6 @@ i386_darwin_nat_target::store_registers (struct regcache *regcache,
 static void
 i386_darwin_dr_set (int regnum, CORE_ADDR value)
 {
-  int current_pid;
   thread_t current_thread;
   x86_debug_state_t dr_regs;
   kern_return_t ret;
@@ -634,8 +633,9 @@ darwin_set_sstep (thread_t thread, int enable)
     }
 }
 
+void _initialize_i386_darwin_nat ();
 void
-_initialize_i386_darwin_nat (void)
+_initialize_i386_darwin_nat ()
 {
 #ifdef BFD64
   amd64_native_gregset64_reg_offset = amd64_darwin_thread_state_reg_offset;

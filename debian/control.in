@@ -1,50 +1,52 @@
 Source: gdb
 Maintainer: Héctor Orón Martínez <zumbi@debian.org>
-Uploaders: Riku Voipio <riku.voipio@linaro.org>
+Uploaders: Riku Voipio <riku.voipio@linaro.org>,
+           Sergio Durigan Junior <sergiodj@debian.org>
 Section: devel
 Priority: optional
-Standards-Version: 4.3.0
+Standards-Version: 4.5.1
 Rules-Requires-Root: binary-targets
 Build-Depends:
 # Packaging deps
-               cdbs (>= 0.4.90),
-               debhelper (>= 9),
+               debhelper (>= 10),
                lsb-release,
-               bzip2,
+               xz-utils,
 # Other tool deps
                autoconf,
                libtool,
                gettext,
                bison,
                dejagnu,
-               flex | flex-old,
+               flex,
                procps,
-# Do we really care that much about running the Java tests?
-#               gcj-jdk | gcj,
                gobjc,
                mig [hurd-any],
 # GNU/kFreeBSD deps
                libutil-freebsd-dev [kfreebsd-any],
 # TeX[info] deps
                texinfo (>= 4.7-2.2),
-               texlive-base,
+               texlive-base <!nodoc>,
 # Libdev deps
                libexpat1-dev,
                libncurses5-dev,
                libreadline-dev,
                zlib1g-dev,
                liblzma-dev,
-               libbabeltrace-dev [amd64 armel armhf i386 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64el powerpc s390x],
-               libbabeltrace-ctf-dev [amd64 armel armhf i386 kfreebsd-amd64 kfreebsd-i386 mips mipsel mips64el powerpc s390x],
+               libbabeltrace-dev,
                libipt-dev [amd64 i386 x32],
-               python-dev,
-# Python3 build
+               libsource-highlight-dev,
+	       libxxhash-dev,
+	       libmpfr-dev,
+               pkg-config,
+# Python build
                python3-dev,
                libkvm-dev [kfreebsd-any],
                libunwind-dev [ia64],
+# debuginfod
+               libdebuginfod-dev [linux-any],
 Vcs-Git: https://salsa.debian.org/gdb-team/gdb.git
 Vcs-Browser: https://salsa.debian.org/gdb-team/gdb
-Homepage: http://www.gnu.org/s/gdb/
+Homepage: https://www.gnu.org/s/gdb/
 
 Package: gdb@TS@
 Architecture: any
@@ -53,31 +55,16 @@ Depends: ${misc:Depends},
          ${python3:Depends}
 Recommends: libc-dbg
 Suggests: gdb-doc,
-          gdbserver [amd64 armel armhf arm64 i386 ia64 m32r m68k mips mipsel mips64el powerpc powerpcspe ppc64 ppc64el s390 s390x x32]
+          gdbserver [linux-any]
 Conflicts: gdb
 Replaces: gdb
+Provides: ${gdb:minimal}
 Description: GNU Debugger
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
  where errors occurred. Currently, gdb supports C, C++, D,
  Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
  Go, and Ada. A must-have for any serious programmer.
-
-Package: gdb-minimal
-Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}
-Provides: gdb
-Conflicts: gdb
-Replaces: gdb
-Description: GNU Debugger (minimal version)
- GDB is a source-level debugger, capable of breaking programs at
- any specific line, displaying variable values, and determining
- where errors occurred. Currently, gdb supports C, C++, D,
- Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
- Go, and Ada. A must-have for any serious programmer.
- .
- This package contains a minimal version of GDB with optional features
- disabled.
 
 Package: gdb-multiarch
 Architecture: any
@@ -96,7 +83,7 @@ Description: GNU Debugger (with support for multiple architectures)
  target architectures.
 
 Package: gdbserver
-Architecture: amd64 armel armhf arm64 i386 ia64 m32r m68k mips mipsel mips64el powerpc powerpcspe ppc64 ppc64el s390 s390x x32
+Architecture: amd64 armel armhf arm64 i386 ia64 m32r m68k mips mipsel mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390 s390x x32
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Replaces: gdb (<< 7.0.1-1)
 Description: GNU Debugger (remote server)

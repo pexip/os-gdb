@@ -24,18 +24,17 @@ might disturb the debugging.  But I am not sure how much it is.
  2 files changed, 47 insertions(+), 2 deletions(-)
  create mode 100644 gdb/testsuite/gdb.fortran/lang.exp
 
-diff --git a/gdb/symtab.c b/gdb/symtab.c
-index 09af184..44d2d90 100644
---- a/gdb/symtab.c
-+++ b/gdb/symtab.c
-@@ -5633,8 +5633,13 @@ find_main_name (void)
+Index: gdb/gdb/symtab.c
+===================================================================
+--- gdb.orig/gdb/symtab.c
++++ gdb/gdb/symtab.c
+@@ -6156,7 +6156,13 @@ find_main_name (void)
+       return;
      }
  
-   /* The languages above didn't identify the name of the main procedure.
--     Fallback to "main".  */
 -  set_main_name ("main", language_unknown);
-+     Fallback to "MAIN__" (g77 and gfortran) if we can find it in the
-+     minimal symtab, to "main" otherwise.  */
++/* Fallback to "MAIN__" (g77 and gfortran) if we can find it in the
++ * minimal symtab, to "main" otherwise.  */
 +  struct bound_minimal_symbol msym = lookup_minimal_symbol ("MAIN__", NULL, NULL);
 +  if (msym.minsym)
 +    set_main_name ("MAIN__", language_fortran);
@@ -43,12 +42,11 @@ index 09af184..44d2d90 100644
 +    set_main_name ("main", language_unknown);
  }
  
- char *
-diff --git a/gdb/testsuite/gdb.fortran/lang.exp b/gdb/testsuite/gdb.fortran/lang.exp
-new file mode 100644
-index 0000000..a0463c7
+ /* See symtab.h.  */
+Index: gdb/gdb/testsuite/gdb.fortran/lang.exp
+===================================================================
 --- /dev/null
-+++ b/gdb/testsuite/gdb.fortran/lang.exp
++++ gdb/gdb/testsuite/gdb.fortran/lang.exp
 @@ -0,0 +1,40 @@
 +# Copyright 2005 Free Software Foundation, Inc.
 +

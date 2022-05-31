@@ -1,8 +1,9 @@
-/* A Bison parser, made by GNU Bison 3.0.4.  */
+/* A Bison parser, made by GNU Bison 3.5.1.  */
 
 /* Bison implementation for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2020 Free Software Foundation,
+   Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -40,17 +41,20 @@
    define necessary library symbols; they are noted "INFRINGES ON
    USER NAME SPACE" below.  */
 
+/* Undocumented macros, especially those whose name start with YY_,
+   are private implementation details.  Do not rely on them.  */
+
 /* Identify Bison output.  */
 #define YYBISON 1
 
 /* Bison version.  */
-#define YYBISON_VERSION "3.0.4"
+#define YYBISON_VERSION "3.5.1"
 
 /* Skeleton name.  */
 #define YYSKELETON_NAME "yacc.c"
 
 /* Pure parsers.  */
-#define YYPURE 0
+#define YYPURE 1
 
 /* Push parsers.  */
 #define YYPUSH 0
@@ -61,8 +65,8 @@
 
 
 
-/* Copy the first part of user declarations.  */
-#line 22 "rust-exp.y" /* yacc.c:339  */
+/* First part of user prologue.  */
+#line 30 "rust-exp.y"
 
 
 #include "defs.h"
@@ -74,9 +78,9 @@
 #include "gdb_regex.h"
 #include "rust-lang.h"
 #include "parser-defs.h"
-#include "selftest.h"
+#include "gdbsupport/selftest.h"
 #include "value.h"
-#include "vec.h"
+#include "gdbarch.h"
 
 #define GDB_YY_REMAP_PREFIX rust
 #include "yy-remap.h"
@@ -113,191 +117,27 @@ struct set_field
 
 typedef std::vector<set_field> rust_set_vector;
 
-static int rustyylex (void);
-static void rustyyerror (const char *msg);
-static void rust_push_back (char c);
-static const char *rust_copy_name (const char *, int);
-static struct stoken rust_concat3 (const char *, const char *, const char *);
-static struct stoken make_stoken (const char *);
-static struct block_symbol rust_lookup_symbol (const char *name,
-					       const struct block *block,
-					       const domain_enum domain);
-static struct type *rust_lookup_type (const char *name,
-				      const struct block *block);
-static struct type *rust_type (const char *name);
 
-static const struct rust_op *crate_name (const struct rust_op *name);
-static const struct rust_op *super_name (const struct rust_op *name,
-					 unsigned int n_supers);
+#line 122 "rust-exp.c.tmp"
 
-static const struct rust_op *ast_operation (enum exp_opcode opcode,
-					    const struct rust_op *left,
-					    const struct rust_op *right);
-static const struct rust_op *ast_compound_assignment
-  (enum exp_opcode opcode, const struct rust_op *left,
-   const struct rust_op *rust_op);
-static const struct rust_op *ast_literal (struct typed_val_int val);
-static const struct rust_op *ast_dliteral (struct typed_val_float val);
-static const struct rust_op *ast_structop (const struct rust_op *left,
-					   const char *name,
-					   int completing);
-static const struct rust_op *ast_structop_anonymous
-  (const struct rust_op *left, struct typed_val_int number);
-static const struct rust_op *ast_unary (enum exp_opcode opcode,
-					const struct rust_op *expr);
-static const struct rust_op *ast_cast (const struct rust_op *expr,
-				       const struct rust_op *type);
-static const struct rust_op *ast_call_ish (enum exp_opcode opcode,
-					   const struct rust_op *expr,
-					   rust_op_vector *params);
-static const struct rust_op *ast_path (struct stoken name,
-				       rust_op_vector *params);
-static const struct rust_op *ast_string (struct stoken str);
-static const struct rust_op *ast_struct (const struct rust_op *name,
-					 rust_set_vector *fields);
-static const struct rust_op *ast_range (const struct rust_op *lhs,
-					const struct rust_op *rhs,
-					bool inclusive);
-static const struct rust_op *ast_array_type (const struct rust_op *lhs,
-					     struct typed_val_int val);
-static const struct rust_op *ast_slice_type (const struct rust_op *type);
-static const struct rust_op *ast_reference_type (const struct rust_op *type);
-static const struct rust_op *ast_pointer_type (const struct rust_op *type,
-					       int is_mut);
-static const struct rust_op *ast_function_type (const struct rust_op *result,
-						rust_op_vector *params);
-static const struct rust_op *ast_tuple_type (rust_op_vector *params);
-
-/* The current rust parser.  */
-
-struct rust_parser;
-static rust_parser *current_parser;
-
-/* A regular expression for matching Rust numbers.  This is split up
-   since it is very long and this gives us a way to comment the
-   sections.  */
-
-static const char *number_regex_text =
-  /* subexpression 1: allows use of alternation, otherwise uninteresting */
-  "^("
-  /* First comes floating point.  */
-  /* Recognize number after the decimal point, with optional
-     exponent and optional type suffix.
-     subexpression 2: allows "?", otherwise uninteresting
-     subexpression 3: if present, type suffix
-  */
-  "[0-9][0-9_]*\\.[0-9][0-9_]*([eE][-+]?[0-9][0-9_]*)?(f32|f64)?"
-#define FLOAT_TYPE1 3
-  "|"
-  /* Recognize exponent without decimal point, with optional type
-     suffix.
-     subexpression 4: if present, type suffix
-  */
-#define FLOAT_TYPE2 4
-  "[0-9][0-9_]*[eE][-+]?[0-9][0-9_]*(f32|f64)?"
-  "|"
-  /* "23." is a valid floating point number, but "23.e5" and
-     "23.f32" are not.  So, handle the trailing-. case
-     separately.  */
-  "[0-9][0-9_]*\\."
-  "|"
-  /* Finally come integers.
-     subexpression 5: text of integer
-     subexpression 6: if present, type suffix
-     subexpression 7: allows use of alternation, otherwise uninteresting
-  */
-#define INT_TEXT 5
-#define INT_TYPE 6
-  "(0x[a-fA-F0-9_]+|0o[0-7_]+|0b[01_]+|[0-9][0-9_]*)"
-  "([iu](size|8|16|32|64))?"
-  ")";
-/* The number of subexpressions to allocate space for, including the
-   "0th" whole match subexpression.  */
-#define NUM_SUBEXPRESSIONS 8
-
-/* The compiled number-matching regex.  */
-
-static regex_t number_regex;
-
-/* Obstack for data temporarily allocated during parsing.  Points to
-   the obstack in the rust_parser, or to a temporary obstack during
-   unit testing.  */
-
-static auto_obstack *work_obstack;
-
-/* An instance of this is created before parsing, and destroyed when
-   parsing is finished.  */
-
-struct rust_parser
-{
-  rust_parser (struct parser_state *state)
-    : rust_ast (nullptr),
-      pstate (state)
-  {
-    gdb_assert (current_parser == nullptr);
-    current_parser = this;
-    work_obstack = &obstack;
-  }
-
-  ~rust_parser ()
-  {
-    /* Clean up the globals we set.  */
-    current_parser = nullptr;
-    work_obstack = nullptr;
-  }
-
-  /* Create a new rust_set_vector.  The storage for the new vector is
-     managed by this class.  */
-  rust_set_vector *new_set_vector ()
-  {
-    rust_set_vector *result = new rust_set_vector;
-    set_vectors.push_back (std::unique_ptr<rust_set_vector> (result));
-    return result;
-  }
-
-  /* Create a new rust_ops_vector.  The storage for the new vector is
-     managed by this class.  */
-  rust_op_vector *new_op_vector ()
-  {
-    rust_op_vector *result = new rust_op_vector;
-    op_vectors.push_back (std::unique_ptr<rust_op_vector> (result));
-    return result;
-  }
-
-  /* Return the parser's language.  */
-  const struct language_defn *language () const
-  {
-    return parse_language (pstate);
-  }
-
-  /* Return the parser's gdbarch.  */
-  struct gdbarch *arch () const
-  {
-    return parse_gdbarch (pstate);
-  }
-
-  /* A pointer to this is installed globally.  */
-  auto_obstack obstack;
-
-  /* Result of parsing.  Points into obstack.  */
-  const struct rust_op *rust_ast;
-
-  /* This keeps track of the various vectors we allocate.  */
-  std::vector<std::unique_ptr<rust_set_vector>> set_vectors;
-  std::vector<std::unique_ptr<rust_op_vector>> op_vectors;
-
-  /* The parser state gdb gave us.  */
-  struct parser_state *pstate;
-};
-
-
-#line 295 "rust-exp.c.tmp" /* yacc.c:339  */
-
-# ifndef YY_NULLPTRPTR
-#  if defined __cplusplus && 201103L <= __cplusplus
-#   define YY_NULLPTRPTR nullptr
+# ifndef YY_CAST
+#  ifdef __cplusplus
+#   define YY_CAST(Type, Val) static_cast<Type> (Val)
+#   define YY_REINTERPRET_CAST(Type, Val) reinterpret_cast<Type> (Val)
 #  else
-#   define YY_NULLPTRPTR 0
+#   define YY_CAST(Type, Val) ((Type) (Val))
+#   define YY_REINTERPRET_CAST(Type, Val) ((Type) (Val))
+#  endif
+# endif
+# ifndef YY_NULLPTRPTR
+#  if defined __cplusplus
+#   if 201103L <= __cplusplus
+#    define YY_NULLPTRPTR nullptr
+#   else
+#    define YY_NULLPTRPTR 0
+#   endif
+#  else
+#   define YY_NULLPTRPTR ((void*)0)
 #  endif
 # endif
 
@@ -395,10 +235,9 @@ extern int yydebug;
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-
 union YYSTYPE
 {
-#line 252 "rust-exp.y" /* yacc.c:355  */
+#line 83 "rust-exp.y"
 
   /* A typed integer constant.  */
   struct typed_val_int typed_val_int;
@@ -429,27 +268,222 @@ union YYSTYPE
      "super::" prefixes on a path.  */
   unsigned int depth;
 
-#line 433 "rust-exp.c.tmp" /* yacc.c:355  */
-};
+#line 272 "rust-exp.c.tmp"
 
+};
 typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
 #endif
 
 
-extern YYSTYPE yylval;
 
-int yyparse (void);
-
+int yyparse (struct rust_parser *parser);
 
 
-/* Copy the second part of user declarations.  */
-#line 283 "rust-exp.y" /* yacc.c:358  */
+
+/* Second part of user prologue.  */
+#line 114 "rust-exp.y"
 
 
-  /* Rust AST operations.  We build a tree of these; then lower them
-     to gdb expressions when parsing has completed.  */
+struct rust_parser;
+static int rustyylex (YYSTYPE *, rust_parser *);
+static void rustyyerror (rust_parser *parser, const char *msg);
+
+static struct stoken make_stoken (const char *);
+
+/* A regular expression for matching Rust numbers.  This is split up
+   since it is very long and this gives us a way to comment the
+   sections.  */
+
+static const char *number_regex_text =
+  /* subexpression 1: allows use of alternation, otherwise uninteresting */
+  "^("
+  /* First comes floating point.  */
+  /* Recognize number after the decimal point, with optional
+     exponent and optional type suffix.
+     subexpression 2: allows "?", otherwise uninteresting
+     subexpression 3: if present, type suffix
+  */
+  "[0-9][0-9_]*\\.[0-9][0-9_]*([eE][-+]?[0-9][0-9_]*)?(f32|f64)?"
+#define FLOAT_TYPE1 3
+  "|"
+  /* Recognize exponent without decimal point, with optional type
+     suffix.
+     subexpression 4: if present, type suffix
+  */
+#define FLOAT_TYPE2 4
+  "[0-9][0-9_]*[eE][-+]?[0-9][0-9_]*(f32|f64)?"
+  "|"
+  /* "23." is a valid floating point number, but "23.e5" and
+     "23.f32" are not.  So, handle the trailing-. case
+     separately.  */
+  "[0-9][0-9_]*\\."
+  "|"
+  /* Finally come integers.
+     subexpression 5: text of integer
+     subexpression 6: if present, type suffix
+     subexpression 7: allows use of alternation, otherwise uninteresting
+  */
+#define INT_TEXT 5
+#define INT_TYPE 6
+  "(0x[a-fA-F0-9_]+|0o[0-7_]+|0b[01_]+|[0-9][0-9_]*)"
+  "([iu](size|8|16|32|64))?"
+  ")";
+/* The number of subexpressions to allocate space for, including the
+   "0th" whole match subexpression.  */
+#define NUM_SUBEXPRESSIONS 8
+
+/* The compiled number-matching regex.  */
+
+static regex_t number_regex;
+
+/* An instance of this is created before parsing, and destroyed when
+   parsing is finished.  */
+
+struct rust_parser
+{
+  rust_parser (struct parser_state *state)
+    : rust_ast (nullptr),
+      pstate (state)
+  {
+  }
+
+  ~rust_parser ()
+  {
+  }
+
+  /* Create a new rust_set_vector.  The storage for the new vector is
+     managed by this class.  */
+  rust_set_vector *new_set_vector ()
+  {
+    rust_set_vector *result = new rust_set_vector;
+    set_vectors.push_back (std::unique_ptr<rust_set_vector> (result));
+    return result;
+  }
+
+  /* Create a new rust_ops_vector.  The storage for the new vector is
+     managed by this class.  */
+  rust_op_vector *new_op_vector ()
+  {
+    rust_op_vector *result = new rust_op_vector;
+    op_vectors.push_back (std::unique_ptr<rust_op_vector> (result));
+    return result;
+  }
+
+  /* Return the parser's language.  */
+  const struct language_defn *language () const
+  {
+    return pstate->language ();
+  }
+
+  /* Return the parser's gdbarch.  */
+  struct gdbarch *arch () const
+  {
+    return pstate->gdbarch ();
+  }
+
+  /* A helper to look up a Rust type, or fail.  This only works for
+     types defined by rust_language_arch_info.  */
+
+  struct type *get_type (const char *name)
+  {
+    struct type *type;
+
+    type = language_lookup_primitive_type (language (), arch (), name);
+    if (type == NULL)
+      error (_("Could not find Rust type %s"), name);
+    return type;
+  }
+
+  const char *copy_name (const char *name, int len);
+  struct stoken concat3 (const char *s1, const char *s2, const char *s3);
+  const struct rust_op *crate_name (const struct rust_op *name);
+  const struct rust_op *super_name (const struct rust_op *ident,
+				    unsigned int n_supers);
+
+  int lex_character (YYSTYPE *lvalp);
+  int lex_number (YYSTYPE *lvalp);
+  int lex_string (YYSTYPE *lvalp);
+  int lex_identifier (YYSTYPE *lvalp);
+  uint32_t lex_hex (int min, int max);
+  uint32_t lex_escape (int is_byte);
+  int lex_operator (YYSTYPE *lvalp);
+  void push_back (char c);
+
+  void update_innermost_block (struct block_symbol sym);
+  struct block_symbol lookup_symbol (const char *name,
+				     const struct block *block,
+				     const domain_enum domain);
+  struct type *rust_lookup_type (const char *name, const struct block *block);
+  std::vector<struct type *> convert_params_to_types (rust_op_vector *params);
+  struct type *convert_ast_to_type (const struct rust_op *operation);
+  const char *convert_name (const struct rust_op *operation);
+  void convert_params_to_expression (rust_op_vector *params,
+				     const struct rust_op *top);
+  void convert_ast_to_expression (const struct rust_op *operation,
+				  const struct rust_op *top,
+				  bool want_type = false);
+
+  struct rust_op *ast_basic_type (enum type_code typecode);
+  const struct rust_op *ast_operation (enum exp_opcode opcode,
+				       const struct rust_op *left,
+				       const struct rust_op *right);
+  const struct rust_op *ast_compound_assignment
+  (enum exp_opcode opcode, const struct rust_op *left,
+   const struct rust_op *rust_op);
+  const struct rust_op *ast_literal (struct typed_val_int val);
+  const struct rust_op *ast_dliteral (struct typed_val_float val);
+  const struct rust_op *ast_structop (const struct rust_op *left,
+				      const char *name,
+				      int completing);
+  const struct rust_op *ast_structop_anonymous
+  (const struct rust_op *left, struct typed_val_int number);
+  const struct rust_op *ast_unary (enum exp_opcode opcode,
+				   const struct rust_op *expr);
+  const struct rust_op *ast_cast (const struct rust_op *expr,
+				  const struct rust_op *type);
+  const struct rust_op *ast_call_ish (enum exp_opcode opcode,
+				      const struct rust_op *expr,
+				      rust_op_vector *params);
+  const struct rust_op *ast_path (struct stoken name,
+				  rust_op_vector *params);
+  const struct rust_op *ast_string (struct stoken str);
+  const struct rust_op *ast_struct (const struct rust_op *name,
+				    rust_set_vector *fields);
+  const struct rust_op *ast_range (const struct rust_op *lhs,
+				   const struct rust_op *rhs,
+				   bool inclusive);
+  const struct rust_op *ast_array_type (const struct rust_op *lhs,
+					struct typed_val_int val);
+  const struct rust_op *ast_slice_type (const struct rust_op *type);
+  const struct rust_op *ast_reference_type (const struct rust_op *type);
+  const struct rust_op *ast_pointer_type (const struct rust_op *type,
+					  int is_mut);
+  const struct rust_op *ast_function_type (const struct rust_op *result,
+					   rust_op_vector *params);
+  const struct rust_op *ast_tuple_type (rust_op_vector *params);
+
+
+  /* A pointer to this is installed globally.  */
+  auto_obstack obstack;
+
+  /* Result of parsing.  Points into obstack.  */
+  const struct rust_op *rust_ast;
+
+  /* This keeps track of the various vectors we allocate.  */
+  std::vector<std::unique_ptr<rust_set_vector>> set_vectors;
+  std::vector<std::unique_ptr<rust_op_vector>> op_vectors;
+
+  /* The parser state gdb gave us.  */
+  struct parser_state *pstate;
+
+  /* Depth of parentheses.  */
+  int paren_depth = 0;
+};
+
+/* Rust AST operations.  We build a tree of these; then lower them to
+   gdb expressions when parsing has completed.  */
 
 struct rust_op
 {
@@ -478,34 +512,82 @@ struct rust_op
 };
 
 
-#line 482 "rust-exp.c.tmp" /* yacc.c:358  */
+#line 516 "rust-exp.c.tmp"
+
 
 #ifdef short
 # undef short
 #endif
 
-#ifdef YYTYPE_UINT8
-typedef YYTYPE_UINT8 yytype_uint8;
-#else
-typedef unsigned char yytype_uint8;
+/* On compilers that do not define __PTRDIFF_MAX__ etc., make sure
+   <limits.h> and (if available) <stdint.h> are included
+   so that the code can choose integer types of a good width.  */
+
+#ifndef __PTRDIFF_MAX__
+# include <limits.h> /* INFRINGES ON USER NAME SPACE */
+# if defined __STDC_VERSION__ && 199901 <= __STDC_VERSION__
+#  include <stdint.h> /* INFRINGES ON USER NAME SPACE */
+#  define YY_STDINT_H
+# endif
 #endif
 
-#ifdef YYTYPE_INT8
-typedef YYTYPE_INT8 yytype_int8;
+/* Narrow types that promote to a signed type and that can represent a
+   signed or unsigned integer of at least N bits.  In tables they can
+   save space and decrease cache pressure.  Promoting to a signed type
+   helps avoid bugs in integer arithmetic.  */
+
+#ifdef __INT_LEAST8_MAX__
+typedef __INT_LEAST8_TYPE__ yytype_int8;
+#elif defined YY_STDINT_H
+typedef int_least8_t yytype_int8;
 #else
 typedef signed char yytype_int8;
 #endif
 
-#ifdef YYTYPE_UINT16
-typedef YYTYPE_UINT16 yytype_uint16;
+#ifdef __INT_LEAST16_MAX__
+typedef __INT_LEAST16_TYPE__ yytype_int16;
+#elif defined YY_STDINT_H
+typedef int_least16_t yytype_int16;
 #else
-typedef unsigned short int yytype_uint16;
+typedef short yytype_int16;
 #endif
 
-#ifdef YYTYPE_INT16
-typedef YYTYPE_INT16 yytype_int16;
+#if defined __UINT_LEAST8_MAX__ && __UINT_LEAST8_MAX__ <= __INT_MAX__
+typedef __UINT_LEAST8_TYPE__ yytype_uint8;
+#elif (!defined __UINT_LEAST8_MAX__ && defined YY_STDINT_H \
+       && UINT_LEAST8_MAX <= INT_MAX)
+typedef uint_least8_t yytype_uint8;
+#elif !defined __UINT_LEAST8_MAX__ && UCHAR_MAX <= INT_MAX
+typedef unsigned char yytype_uint8;
 #else
-typedef short int yytype_int16;
+typedef short yytype_uint8;
+#endif
+
+#if defined __UINT_LEAST16_MAX__ && __UINT_LEAST16_MAX__ <= __INT_MAX__
+typedef __UINT_LEAST16_TYPE__ yytype_uint16;
+#elif (!defined __UINT_LEAST16_MAX__ && defined YY_STDINT_H \
+       && UINT_LEAST16_MAX <= INT_MAX)
+typedef uint_least16_t yytype_uint16;
+#elif !defined __UINT_LEAST16_MAX__ && USHRT_MAX <= INT_MAX
+typedef unsigned short yytype_uint16;
+#else
+typedef int yytype_uint16;
+#endif
+
+#ifndef YYPTRDIFF_T
+# if defined __PTRDIFF_TYPE__ && defined __PTRDIFF_MAX__
+#  define YYPTRDIFF_T __PTRDIFF_TYPE__
+#  define YYPTRDIFF_MAXIMUM __PTRDIFF_MAX__
+# elif defined PTRDIFF_MAX
+#  ifndef ptrdiff_t
+#   include <stddef.h> /* INFRINGES ON USER NAME SPACE */
+#  endif
+#  define YYPTRDIFF_T ptrdiff_t
+#  define YYPTRDIFF_MAXIMUM PTRDIFF_MAX
+# else
+#  define YYPTRDIFF_T long
+#  define YYPTRDIFF_MAXIMUM LONG_MAX
+# endif
 #endif
 
 #ifndef YYSIZE_T
@@ -513,15 +595,27 @@ typedef short int yytype_int16;
 #  define YYSIZE_T __SIZE_TYPE__
 # elif defined size_t
 #  define YYSIZE_T size_t
-# elif ! defined YYSIZE_T
+# elif defined __STDC_VERSION__ && 199901 <= __STDC_VERSION__
 #  include <stddef.h> /* INFRINGES ON USER NAME SPACE */
 #  define YYSIZE_T size_t
 # else
-#  define YYSIZE_T unsigned int
+#  define YYSIZE_T unsigned
 # endif
 #endif
 
-#define YYSIZE_MAXIMUM ((YYSIZE_T) -1)
+#define YYSIZE_MAXIMUM                                  \
+  YY_CAST (YYPTRDIFF_T,                                 \
+           (YYPTRDIFF_MAXIMUM < YY_CAST (YYSIZE_T, -1)  \
+            ? YYPTRDIFF_MAXIMUM                         \
+            : YY_CAST (YYSIZE_T, -1)))
+
+#define YYSIZEOF(X) YY_CAST (YYPTRDIFF_T, sizeof (X))
+
+/* Stored state numbers (used for stacks). */
+typedef yytype_uint8 yy_state_t;
+
+/* State numbers in computations.  */
+typedef int yy_state_fast_t;
 
 #ifndef YY_
 # if defined YYENABLE_NLS && YYENABLE_NLS
@@ -535,30 +629,19 @@ typedef short int yytype_int16;
 # endif
 #endif
 
-#ifndef YY_ATTRIBUTE
-# if (defined __GNUC__                                               \
-      && (2 < __GNUC__ || (__GNUC__ == 2 && 96 <= __GNUC_MINOR__)))  \
-     || defined __SUNPRO_C && 0x5110 <= __SUNPRO_C
-#  define YY_ATTRIBUTE(Spec) __attribute__(Spec)
+#ifndef YY_ATTRIBUTE_PURE
+# if defined __GNUC__ && 2 < __GNUC__ + (96 <= __GNUC_MINOR__)
+#  define YY_ATTRIBUTE_PURE __attribute__ ((__pure__))
 # else
-#  define YY_ATTRIBUTE(Spec) /* empty */
+#  define YY_ATTRIBUTE_PURE
 # endif
 #endif
 
-#ifndef YY_ATTRIBUTE_PURE
-# define YY_ATTRIBUTE_PURE   YY_ATTRIBUTE ((__pure__))
-#endif
-
 #ifndef YY_ATTRIBUTE_UNUSED
-# define YY_ATTRIBUTE_UNUSED YY_ATTRIBUTE ((__unused__))
-#endif
-
-#if !defined _Noreturn \
-     && (!defined __STDC_VERSION__ || __STDC_VERSION__ < 201112)
-# if defined _MSC_VER && 1200 <= _MSC_VER
-#  define _Noreturn __declspec (noreturn)
+# if defined __GNUC__ && 2 < __GNUC__ + (7 <= __GNUC_MINOR__)
+#  define YY_ATTRIBUTE_UNUSED __attribute__ ((__unused__))
 # else
-#  define _Noreturn YY_ATTRIBUTE ((__noreturn__))
+#  define YY_ATTRIBUTE_UNUSED
 # endif
 #endif
 
@@ -569,13 +652,13 @@ typedef short int yytype_int16;
 # define YYUSE(E) /* empty */
 #endif
 
-#if defined __GNUC__ && 407 <= __GNUC__ * 100 + __GNUC_MINOR__
+#if defined __GNUC__ && ! defined __ICC && 407 <= __GNUC__ * 100 + __GNUC_MINOR__
 /* Suppress an incorrect diagnostic about yylval being uninitialized.  */
-# define YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN \
-    _Pragma ("GCC diagnostic push") \
-    _Pragma ("GCC diagnostic ignored \"-Wuninitialized\"")\
+# define YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN                            \
+    _Pragma ("GCC diagnostic push")                                     \
+    _Pragma ("GCC diagnostic ignored \"-Wuninitialized\"")              \
     _Pragma ("GCC diagnostic ignored \"-Wmaybe-uninitialized\"")
-# define YY_IGNORE_MAYBE_UNINITIALIZED_END \
+# define YY_IGNORE_MAYBE_UNINITIALIZED_END      \
     _Pragma ("GCC diagnostic pop")
 #else
 # define YY_INITIAL_VALUE(Value) Value
@@ -588,6 +671,20 @@ typedef short int yytype_int16;
 # define YY_INITIAL_VALUE(Value) /* Nothing. */
 #endif
 
+#if defined __cplusplus && defined __GNUC__ && ! defined __ICC && 6 <= __GNUC__
+# define YY_IGNORE_USELESS_CAST_BEGIN                          \
+    _Pragma ("GCC diagnostic push")                            \
+    _Pragma ("GCC diagnostic ignored \"-Wuseless-cast\"")
+# define YY_IGNORE_USELESS_CAST_END            \
+    _Pragma ("GCC diagnostic pop")
+#endif
+#ifndef YY_IGNORE_USELESS_CAST_BEGIN
+# define YY_IGNORE_USELESS_CAST_BEGIN
+# define YY_IGNORE_USELESS_CAST_END
+#endif
+
+
+#define YY_ASSERT(E) ((void) (0 && (E)))
 
 #if ! defined yyoverflow || YYERROR_VERBOSE
 
@@ -663,17 +760,17 @@ void xfree (void *); /* INFRINGES ON USER NAME SPACE */
 /* A type that is properly aligned for any stack member.  */
 union yyalloc
 {
-  yytype_int16 yyss_alloc;
+  yy_state_t yyss_alloc;
   YYSTYPE yyvs_alloc;
 };
 
 /* The size of the maximum gap between one aligned stack and the next.  */
-# define YYSTACK_GAP_MAXIMUM (sizeof (union yyalloc) - 1)
+# define YYSTACK_GAP_MAXIMUM (YYSIZEOF (union yyalloc) - 1)
 
 /* The size of an array large to enough to hold all stacks, each with
    N elements.  */
 # define YYSTACK_BYTES(N) \
-     ((N) * (sizeof (yytype_int16) + sizeof (YYSTYPE)) \
+     ((N) * (YYSIZEOF (yy_state_t) + YYSIZEOF (YYSTYPE)) \
       + YYSTACK_GAP_MAXIMUM)
 
 # define YYCOPY_NEEDED 1
@@ -686,11 +783,11 @@ union yyalloc
 # define YYSTACK_RELOCATE(Stack_alloc, Stack)                           \
     do                                                                  \
       {                                                                 \
-        YYSIZE_T yynewbytes;                                            \
+        YYPTRDIFF_T yynewbytes;                                         \
         YYCOPY (&yyptr->Stack_alloc, Stack, yysize);                    \
         Stack = &yyptr->Stack_alloc;                                    \
-        yynewbytes = yystacksize * sizeof (*Stack) + YYSTACK_GAP_MAXIMUM; \
-        yyptr += yynewbytes / sizeof (*yyptr);                          \
+        yynewbytes = yystacksize * YYSIZEOF (*Stack) + YYSTACK_GAP_MAXIMUM; \
+        yyptr += yynewbytes / YYSIZEOF (*yyptr);                        \
       }                                                                 \
     while (0)
 
@@ -702,12 +799,12 @@ union yyalloc
 # ifndef YYCOPY
 #  if defined __GNUC__ && 1 < __GNUC__
 #   define YYCOPY(Dst, Src, Count) \
-      __builtin_memcpy (Dst, Src, (Count) * sizeof (*(Src)))
+      __builtin_memcpy (Dst, Src, YY_CAST (YYSIZE_T, (Count)) * sizeof (*(Src)))
 #  else
 #   define YYCOPY(Dst, Src, Count)              \
       do                                        \
         {                                       \
-          YYSIZE_T yyi;                         \
+          YYPTRDIFF_T yyi;                      \
           for (yyi = 0; yyi < (Count); yyi++)   \
             (Dst)[yyi] = (Src)[yyi];            \
         }                                       \
@@ -730,17 +827,18 @@ union yyalloc
 /* YYNSTATES -- Number of states.  */
 #define YYNSTATES  219
 
-/* YYTRANSLATE[YYX] -- Symbol number corresponding to YYX as returned
-   by yylex, with out-of-bounds checking.  */
 #define YYUNDEFTOK  2
 #define YYMAXUTOK   290
 
+
+/* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
+   as returned by yylex, with out-of-bounds checking.  */
 #define YYTRANSLATE(YYX)                                                \
-  ((unsigned int) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
+  (0 <= (YYX) && (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
 
 /* YYTRANSLATE[TOKEN-NUM] -- Symbol number corresponding to TOKEN-NUM
-   as returned by yylex, without out-of-bounds checking.  */
-static const yytype_uint8 yytranslate[] =
+   as returned by yylex.  */
+static const yytype_int8 yytranslate[] =
 {
        0,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -776,21 +874,21 @@ static const yytype_uint8 yytranslate[] =
 
 #if YYDEBUG
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
-static const yytype_uint16 yyrline[] =
+static const yytype_int16 yyrline[] =
 {
-       0,   412,   412,   425,   426,   427,   428,   429,   430,   431,
-     432,   433,   434,   436,   437,   438,   442,   450,   467,   472,
-     482,   490,   502,   505,   511,   520,   532,   534,   536,   538,
-     543,   545,   547,   549,   551,   553,   558,   560,   562,   564,
-     591,   593,   602,   614,   616,   621,   626,   631,   634,   637,
-     646,   649,   652,   654,   659,   660,   661,   662,   666,   669,
-     672,   675,   678,   681,   684,   687,   690,   693,   696,   699,
-     702,   705,   708,   711,   714,   717,   720,   725,   730,   735,
-     741,   746,   751,   760,   764,   769,   774,   778,   780,   784,
-     786,   791,   793,   795,   800,   801,   803,   805,   807,   819,
-     821,   827,   829,   837,   838,   840,   842,   844,   856,   858,
-     867,   868,   870,   878,   879,   881,   883,   885,   887,   889,
-     891,   893,   899,   900,   905,   911
+       0,   439,   439,   452,   453,   454,   455,   456,   457,   458,
+     459,   460,   461,   463,   464,   465,   469,   477,   494,   499,
+     509,   517,   529,   532,   538,   547,   559,   561,   563,   565,
+     570,   572,   574,   576,   578,   580,   585,   587,   589,   591,
+     619,   621,   630,   642,   644,   649,   654,   659,   662,   665,
+     674,   677,   680,   682,   687,   688,   689,   690,   694,   697,
+     700,   703,   706,   709,   712,   715,   718,   721,   724,   727,
+     730,   733,   736,   739,   742,   745,   748,   753,   758,   763,
+     769,   774,   779,   788,   792,   797,   802,   806,   808,   812,
+     814,   819,   821,   823,   828,   829,   831,   833,   835,   849,
+     851,   857,   859,   867,   868,   870,   872,   874,   888,   890,
+     899,   900,   902,   910,   911,   913,   915,   917,   919,   921,
+     923,   925,   931,   932,   937,   943
 };
 #endif
 
@@ -822,7 +920,7 @@ static const char *const yytname[] =
 # ifdef YYPRINT
 /* YYTOKNUM[NUM] -- (External) token number corresponding to the
    (internal) symbol number NUM (which must be that of a token).  */
-static const yytype_uint16 yytoknum[] =
+static const yytype_int16 yytoknum[] =
 {
        0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
      265,   266,   267,   268,   269,   270,   271,   272,   273,   274,
@@ -833,15 +931,15 @@ static const yytype_uint16 yytoknum[] =
 };
 # endif
 
-#define YYPACT_NINF -181
+#define YYPACT_NINF (-181)
 
-#define yypact_value_is_default(Yystate) \
-  (!!((Yystate) == (-181)))
+#define yypact_value_is_default(Yyn) \
+  ((Yyn) == YYPACT_NINF)
 
-#define YYTABLE_NINF -123
+#define YYTABLE_NINF (-123)
 
-#define yytable_value_is_error(Yytable_value) \
-  (!!((Yytable_value) == (-123)))
+#define yytable_value_is_error(Yyn) \
+  ((Yyn) == YYTABLE_NINF)
 
   /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
      STATE-NUM.  */
@@ -874,7 +972,7 @@ static const yytype_int16 yypact[] =
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
      Performed when YYTABLE does not specify something else to do.  Zero
      means the default is an error.  */
-static const yytype_uint8 yydefact[] =
+static const yytype_int8 yydefact[] =
 {
       87,    92,    99,    36,    37,    39,    40,    38,    41,    42,
       93,     0,     0,    35,    87,     0,    87,    87,    87,    87,
@@ -1157,7 +1255,7 @@ static const yytype_int16 yycheck[] =
 
   /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
      symbol of state STATE-NUM.  */
-static const yytype_uint8 yystos[] =
+static const yytype_int8 yystos[] =
 {
        0,     3,     4,     6,     7,     8,     9,    10,    14,    15,
       17,    19,    22,    23,    24,    33,    40,    42,    43,    44,
@@ -1184,7 +1282,7 @@ static const yytype_uint8 yystos[] =
 };
 
   /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
-static const yytype_uint8 yyr1[] =
+static const yytype_int8 yyr1[] =
 {
        0,    59,    60,    61,    61,    61,    61,    61,    61,    61,
       61,    61,    61,    61,    61,    61,    62,    63,    64,    65,
@@ -1202,7 +1300,7 @@ static const yytype_uint8 yyr1[] =
 };
 
   /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
-static const yytype_uint8 yyr2[] =
+static const yytype_int8 yyr2[] =
 {
        0,     2,     1,     1,     1,     1,     1,     1,     1,     1,
        1,     1,     1,     1,     1,     1,     5,     2,     4,     2,
@@ -1232,22 +1330,22 @@ static const yytype_uint8 yyr2[] =
 
 #define YYRECOVERING()  (!!yyerrstatus)
 
-#define YYBACKUP(Token, Value)                                  \
-do                                                              \
-  if (yychar == YYEMPTY)                                        \
-    {                                                           \
-      yychar = (Token);                                         \
-      yylval = (Value);                                         \
-      YYPOPSTACK (yylen);                                       \
-      yystate = *yyssp;                                         \
-      goto yybackup;                                            \
-    }                                                           \
-  else                                                          \
-    {                                                           \
-      yyerror (YY_("syntax error: cannot back up")); \
-      YYERROR;                                                  \
-    }                                                           \
-while (0)
+#define YYBACKUP(Token, Value)                                    \
+  do                                                              \
+    if (yychar == YYEMPTY)                                        \
+      {                                                           \
+        yychar = (Token);                                         \
+        yylval = (Value);                                         \
+        YYPOPSTACK (yylen);                                       \
+        yystate = *yyssp;                                         \
+        goto yybackup;                                            \
+      }                                                           \
+    else                                                          \
+      {                                                           \
+        yyerror (parser, YY_("syntax error: cannot back up")); \
+        YYERROR;                                                  \
+      }                                                           \
+  while (0)
 
 /* Error token number */
 #define YYTERROR        1
@@ -1281,43 +1379,46 @@ do {                                                                      \
     {                                                                     \
       YYFPRINTF (stderr, "%s ", Title);                                   \
       yy_symbol_print (stderr,                                            \
-                  Type, Value); \
+                  Type, Value, parser); \
       YYFPRINTF (stderr, "\n");                                           \
     }                                                                     \
 } while (0)
 
 
-/*----------------------------------------.
-| Print this symbol's value on YYOUTPUT.  |
-`----------------------------------------*/
+/*-----------------------------------.
+| Print this symbol's value on YYO.  |
+`-----------------------------------*/
 
 static void
-yy_symbol_value_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep)
+yy_symbol_value_print (FILE *yyo, int yytype, YYSTYPE const * const yyvaluep, struct rust_parser *parser)
 {
-  FILE *yyo = yyoutput;
-  YYUSE (yyo);
+  FILE *yyoutput = yyo;
+  YYUSE (yyoutput);
+  YYUSE (parser);
   if (!yyvaluep)
     return;
 # ifdef YYPRINT
   if (yytype < YYNTOKENS)
-    YYPRINT (yyoutput, yytoknum[yytype], *yyvaluep);
+    YYPRINT (yyo, yytoknum[yytype], *yyvaluep);
 # endif
+  YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
   YYUSE (yytype);
+  YY_IGNORE_MAYBE_UNINITIALIZED_END
 }
 
 
-/*--------------------------------.
-| Print this symbol on YYOUTPUT.  |
-`--------------------------------*/
+/*---------------------------.
+| Print this symbol on YYO.  |
+`---------------------------*/
 
 static void
-yy_symbol_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep)
+yy_symbol_print (FILE *yyo, int yytype, YYSTYPE const * const yyvaluep, struct rust_parser *parser)
 {
-  YYFPRINTF (yyoutput, "%s %s (",
+  YYFPRINTF (yyo, "%s %s (",
              yytype < YYNTOKENS ? "token" : "nterm", yytname[yytype]);
 
-  yy_symbol_value_print (yyoutput, yytype, yyvaluep);
-  YYFPRINTF (yyoutput, ")");
+  yy_symbol_value_print (yyo, yytype, yyvaluep, parser);
+  YYFPRINTF (yyo, ")");
 }
 
 /*------------------------------------------------------------------.
@@ -1326,7 +1427,7 @@ yy_symbol_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep)
 `------------------------------------------------------------------*/
 
 static void
-yy_stack_print (yytype_int16 *yybottom, yytype_int16 *yytop)
+yy_stack_print (yy_state_t *yybottom, yy_state_t *yytop)
 {
   YYFPRINTF (stderr, "Stack now");
   for (; yybottom <= yytop; yybottom++)
@@ -1349,21 +1450,21 @@ do {                                                            \
 `------------------------------------------------*/
 
 static void
-yy_reduce_print (yytype_int16 *yyssp, YYSTYPE *yyvsp, int yyrule)
+yy_reduce_print (yy_state_t *yyssp, YYSTYPE *yyvsp, int yyrule, struct rust_parser *parser)
 {
-  unsigned long int yylno = yyrline[yyrule];
+  int yylno = yyrline[yyrule];
   int yynrhs = yyr2[yyrule];
   int yyi;
-  YYFPRINTF (stderr, "Reducing stack by rule %d (line %lu):\n",
+  YYFPRINTF (stderr, "Reducing stack by rule %d (line %d):\n",
              yyrule - 1, yylno);
   /* The symbols being reduced.  */
   for (yyi = 0; yyi < yynrhs; yyi++)
     {
       YYFPRINTF (stderr, "   $%d = ", yyi + 1);
       yy_symbol_print (stderr,
-                       yystos[yyssp[yyi + 1 - yynrhs]],
-                       &(yyvsp[(yyi + 1) - (yynrhs)])
-                                              );
+                       yystos[+yyssp[yyi + 1 - yynrhs]],
+                       &yyvsp[(yyi + 1) - (yynrhs)]
+                                              , parser);
       YYFPRINTF (stderr, "\n");
     }
 }
@@ -1371,7 +1472,7 @@ yy_reduce_print (yytype_int16 *yyssp, YYSTYPE *yyvsp, int yyrule)
 # define YY_REDUCE_PRINT(Rule)          \
 do {                                    \
   if (yydebug)                          \
-    yy_reduce_print (yyssp, yyvsp, Rule); \
+    yy_reduce_print (yyssp, yyvsp, Rule, parser); \
 } while (0)
 
 /* Nonzero means print parse trace.  It is left uninitialized so that
@@ -1406,13 +1507,13 @@ int yydebug;
 
 # ifndef yystrlen
 #  if defined __GLIBC__ && defined _STRING_H
-#   define yystrlen strlen
+#   define yystrlen(S) (YY_CAST (YYPTRDIFF_T, strlen (S)))
 #  else
 /* Return the length of YYSTR.  */
-static YYSIZE_T
+static YYPTRDIFF_T
 yystrlen (const char *yystr)
 {
-  YYSIZE_T yylen;
+  YYPTRDIFF_T yylen;
   for (yylen = 0; yystr[yylen]; yylen++)
     continue;
   return yylen;
@@ -1448,12 +1549,12 @@ yystpcpy (char *yydest, const char *yysrc)
    backslash-backslash).  YYSTR is taken from yytname.  If YYRES is
    null, do not copy; instead, return the length of what the result
    would have been.  */
-static YYSIZE_T
+static YYPTRDIFF_T
 yytnamerr (char *yyres, const char *yystr)
 {
   if (*yystr == '"')
     {
-      YYSIZE_T yyn = 0;
+      YYPTRDIFF_T yyn = 0;
       char const *yyp = yystr;
 
       for (;;)
@@ -1466,7 +1567,10 @@ yytnamerr (char *yyres, const char *yystr)
           case '\\':
             if (*++yyp != '\\')
               goto do_not_strip_quotes;
-            /* Fall through.  */
+            else
+              goto append;
+
+          append:
           default:
             if (yyres)
               yyres[yyn] = *yyp;
@@ -1481,10 +1585,10 @@ yytnamerr (char *yyres, const char *yystr)
     do_not_strip_quotes: ;
     }
 
-  if (! yyres)
+  if (yyres)
+    return yystpcpy (yyres, yystr) - yyres;
+  else
     return yystrlen (yystr);
-
-  return yystpcpy (yyres, yystr) - yyres;
 }
 # endif
 
@@ -1497,19 +1601,19 @@ yytnamerr (char *yyres, const char *yystr)
    *YYMSG_ALLOC to the required number of bytes.  Return 2 if the
    required number of bytes is too large to store.  */
 static int
-yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
-                yytype_int16 *yyssp, int yytoken)
+yysyntax_error (YYPTRDIFF_T *yymsg_alloc, char **yymsg,
+                yy_state_t *yyssp, int yytoken)
 {
-  YYSIZE_T yysize0 = yytnamerr (YY_NULLPTRPTR, yytname[yytoken]);
-  YYSIZE_T yysize = yysize0;
   enum { YYERROR_VERBOSE_ARGS_MAXIMUM = 5 };
   /* Internationalized format string. */
   const char *yyformat = YY_NULLPTRPTR;
-  /* Arguments of yyformat. */
+  /* Arguments of yyformat: reported tokens (one for the "unexpected",
+     one per "expected"). */
   char const *yyarg[YYERROR_VERBOSE_ARGS_MAXIMUM];
-  /* Number of reported tokens (one for the "unexpected", one per
-     "expected"). */
+  /* Actual size of YYARG. */
   int yycount = 0;
+  /* Cumulated lengths of YYARG.  */
+  YYPTRDIFF_T yysize = 0;
 
   /* There are many possibilities here to consider:
      - If this state is a consistent state with a default action, then
@@ -1536,7 +1640,9 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
   */
   if (yytoken != YYEMPTY)
     {
-      int yyn = yypact[*yyssp];
+      int yyn = yypact[+*yyssp];
+      YYPTRDIFF_T yysize0 = yytnamerr (YY_NULLPTRPTR, yytname[yytoken]);
+      yysize = yysize0;
       yyarg[yycount++] = yytname[yytoken];
       if (!yypact_value_is_default (yyn))
         {
@@ -1561,11 +1667,12 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
                   }
                 yyarg[yycount++] = yytname[yyx];
                 {
-                  YYSIZE_T yysize1 = yysize + yytnamerr (YY_NULLPTRPTR, yytname[yyx]);
-                  if (! (yysize <= yysize1
-                         && yysize1 <= YYSTACK_ALLOC_MAXIMUM))
+                  YYPTRDIFF_T yysize1
+                    = yysize + yytnamerr (YY_NULLPTRPTR, yytname[yyx]);
+                  if (yysize <= yysize1 && yysize1 <= YYSTACK_ALLOC_MAXIMUM)
+                    yysize = yysize1;
+                  else
                     return 2;
-                  yysize = yysize1;
                 }
               }
         }
@@ -1577,6 +1684,7 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
       case N:                               \
         yyformat = S;                       \
       break
+    default: /* Avoid compiler warnings. */
       YYCASE_(0, YY_("syntax error"));
       YYCASE_(1, YY_("syntax error, unexpected %s"));
       YYCASE_(2, YY_("syntax error, unexpected %s, expecting %s"));
@@ -1587,10 +1695,13 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
     }
 
   {
-    YYSIZE_T yysize1 = yysize + yystrlen (yyformat);
-    if (! (yysize <= yysize1 && yysize1 <= YYSTACK_ALLOC_MAXIMUM))
+    /* Don't count the "%s"s in the final size, but reserve room for
+       the terminator.  */
+    YYPTRDIFF_T yysize1 = yysize + (yystrlen (yyformat) - 2 * yycount) + 1;
+    if (yysize <= yysize1 && yysize1 <= YYSTACK_ALLOC_MAXIMUM)
+      yysize = yysize1;
+    else
       return 2;
-    yysize = yysize1;
   }
 
   if (*yymsg_alloc < yysize)
@@ -1616,8 +1727,8 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
         }
       else
         {
-          yyp++;
-          yyformat++;
+          ++yyp;
+          ++yyformat;
         }
   }
   return 0;
@@ -1629,9 +1740,10 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
 `-----------------------------------------------*/
 
 static void
-yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep)
+yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep, struct rust_parser *parser)
 {
   YYUSE (yyvaluep);
+  YYUSE (parser);
   if (!yymsg)
     yymsg = "Deleting";
   YY_SYMBOL_PRINT (yymsg, yytype, yyvaluep, yylocationp);
@@ -1644,23 +1756,27 @@ yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep)
 
 
 
-/* The lookahead symbol.  */
-int yychar;
-
-/* The semantic value of the lookahead symbol.  */
-YYSTYPE yylval;
-/* Number of syntax errors so far.  */
-int yynerrs;
-
-
 /*----------.
 | yyparse.  |
 `----------*/
 
 int
-yyparse (void)
+yyparse (struct rust_parser *parser)
 {
-    int yystate;
+/* The lookahead symbol.  */
+int yychar;
+
+
+/* The semantic value of the lookahead symbol.  */
+/* Default value used for initialization, for pacifying older GCCs
+   or non-GCC compilers.  */
+YY_INITIAL_VALUE (static YYSTYPE yyval_default;)
+YYSTYPE yylval YY_INITIAL_VALUE (= yyval_default);
+
+    /* Number of syntax errors so far.  */
+    int yynerrs;
+
+    yy_state_fast_t yystate;
     /* Number of tokens to shift before error messages enabled.  */
     int yyerrstatus;
 
@@ -1672,16 +1788,16 @@ yyparse (void)
        to xreallocate them elsewhere.  */
 
     /* The state stack.  */
-    yytype_int16 yyssa[YYINITDEPTH];
-    yytype_int16 *yyss;
-    yytype_int16 *yyssp;
+    yy_state_t yyssa[YYINITDEPTH];
+    yy_state_t *yyss;
+    yy_state_t *yyssp;
 
     /* The semantic value stack.  */
     YYSTYPE yyvsa[YYINITDEPTH];
     YYSTYPE *yyvs;
     YYSTYPE *yyvsp;
 
-    YYSIZE_T yystacksize;
+    YYPTRDIFF_T yystacksize;
 
   int yyn;
   int yyresult;
@@ -1695,7 +1811,7 @@ yyparse (void)
   /* Buffer for error messages, and its allocated size.  */
   char yymsgbuf[128];
   char *yymsg = yymsgbuf;
-  YYSIZE_T yymsg_alloc = sizeof yymsgbuf;
+  YYPTRDIFF_T yymsg_alloc = sizeof yymsgbuf;
 #endif
 
 #define YYPOPSTACK(N)   (yyvsp -= (N), yyssp -= (N))
@@ -1716,46 +1832,54 @@ yyparse (void)
   yychar = YYEMPTY; /* Cause a token to be read.  */
   goto yysetstate;
 
+
 /*------------------------------------------------------------.
-| yynewstate -- Push a new state, which is found in yystate.  |
+| yynewstate -- push a new state, which is found in yystate.  |
 `------------------------------------------------------------*/
- yynewstate:
+yynewstate:
   /* In all cases, when you get here, the value and location stacks
      have just been pushed.  So pushing a state here evens the stacks.  */
   yyssp++;
 
- yysetstate:
-  *yyssp = yystate;
+
+/*--------------------------------------------------------------------.
+| yysetstate -- set current state (the top of the stack) to yystate.  |
+`--------------------------------------------------------------------*/
+yysetstate:
+  YYDPRINTF ((stderr, "Entering state %d\n", yystate));
+  YY_ASSERT (0 <= yystate && yystate < YYNSTATES);
+  YY_IGNORE_USELESS_CAST_BEGIN
+  *yyssp = YY_CAST (yy_state_t, yystate);
+  YY_IGNORE_USELESS_CAST_END
 
   if (yyss + yystacksize - 1 <= yyssp)
+#if !defined yyoverflow && !defined YYSTACK_RELOCATE
+    goto yyexhaustedlab;
+#else
     {
       /* Get the current used size of the three stacks, in elements.  */
-      YYSIZE_T yysize = yyssp - yyss + 1;
+      YYPTRDIFF_T yysize = yyssp - yyss + 1;
 
-#ifdef yyoverflow
+# if defined yyoverflow
       {
         /* Give user a chance to xreallocate the stack.  Use copies of
            these so that the &'s don't force the real ones into
            memory.  */
+        yy_state_t *yyss1 = yyss;
         YYSTYPE *yyvs1 = yyvs;
-        yytype_int16 *yyss1 = yyss;
 
         /* Each stack pointer address is followed by the size of the
            data in use in that stack, in bytes.  This used to be a
            conditional around just the two extra args, but that might
            be undefined if yyoverflow is a macro.  */
         yyoverflow (YY_("memory exhausted"),
-                    &yyss1, yysize * sizeof (*yyssp),
-                    &yyvs1, yysize * sizeof (*yyvsp),
+                    &yyss1, yysize * YYSIZEOF (*yyssp),
+                    &yyvs1, yysize * YYSIZEOF (*yyvsp),
                     &yystacksize);
-
         yyss = yyss1;
         yyvs = yyvs1;
       }
-#else /* no yyoverflow */
-# ifndef YYSTACK_RELOCATE
-      goto yyexhaustedlab;
-# else
+# else /* defined YYSTACK_RELOCATE */
       /* Extend the stack our own way.  */
       if (YYMAXDEPTH <= yystacksize)
         goto yyexhaustedlab;
@@ -1764,42 +1888,43 @@ yyparse (void)
         yystacksize = YYMAXDEPTH;
 
       {
-        yytype_int16 *yyss1 = yyss;
+        yy_state_t *yyss1 = yyss;
         union yyalloc *yyptr =
-          (union yyalloc *) YYSTACK_ALLOC (YYSTACK_BYTES (yystacksize));
+          YY_CAST (union yyalloc *,
+                   YYSTACK_ALLOC (YY_CAST (YYSIZE_T, YYSTACK_BYTES (yystacksize))));
         if (! yyptr)
           goto yyexhaustedlab;
         YYSTACK_RELOCATE (yyss_alloc, yyss);
         YYSTACK_RELOCATE (yyvs_alloc, yyvs);
-#  undef YYSTACK_RELOCATE
+# undef YYSTACK_RELOCATE
         if (yyss1 != yyssa)
           YYSTACK_FREE (yyss1);
       }
 # endif
-#endif /* no yyoverflow */
 
       yyssp = yyss + yysize - 1;
       yyvsp = yyvs + yysize - 1;
 
-      YYDPRINTF ((stderr, "Stack size increased to %lu\n",
-                  (unsigned long int) yystacksize));
+      YY_IGNORE_USELESS_CAST_BEGIN
+      YYDPRINTF ((stderr, "Stack size increased to %ld\n",
+                  YY_CAST (long, yystacksize)));
+      YY_IGNORE_USELESS_CAST_END
 
       if (yyss + yystacksize - 1 <= yyssp)
         YYABORT;
     }
-
-  YYDPRINTF ((stderr, "Entering state %d\n", yystate));
+#endif /* !defined yyoverflow && !defined YYSTACK_RELOCATE */
 
   if (yystate == YYFINAL)
     YYACCEPT;
 
   goto yybackup;
 
+
 /*-----------.
 | yybackup.  |
 `-----------*/
 yybackup:
-
   /* Do appropriate processing given the current state.  Read a
      lookahead token if we need one and don't already have one.  */
 
@@ -1814,7 +1939,7 @@ yybackup:
   if (yychar == YYEMPTY)
     {
       YYDPRINTF ((stderr, "Reading a token: "));
-      yychar = yylex ();
+      yychar = yylex (&yylval, parser);
     }
 
   if (yychar <= YYEOF)
@@ -1849,15 +1974,13 @@ yybackup:
 
   /* Shift the lookahead token.  */
   YY_SYMBOL_PRINT ("Shifting", yytoken, &yylval, &yylloc);
-
-  /* Discard the shifted token.  */
-  yychar = YYEMPTY;
-
   yystate = yyn;
   YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
   *++yyvsp = yylval;
   YY_IGNORE_MAYBE_UNINITIALIZED_END
 
+  /* Discard the shifted token.  */
+  yychar = YYEMPTY;
   goto yynewstate;
 
 
@@ -1872,7 +1995,7 @@ yydefault:
 
 
 /*-----------------------------.
-| yyreduce -- Do a reduction.  |
+| yyreduce -- do a reduction.  |
 `-----------------------------*/
 yyreduce:
   /* yyn is the number of a rule to reduce with.  */
@@ -1892,50 +2015,50 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-        case 2:
-#line 413 "rust-exp.y" /* yacc.c:1646  */
-    {
+  case 2:
+#line 440 "rust-exp.y"
+                {
 		  /* If we are completing and see a valid parse,
 		     rust_ast will already have been set.  */
-		  if (current_parser->rust_ast == NULL)
-		    current_parser->rust_ast = (yyvsp[0].op);
+		  if (parser->rust_ast == NULL)
+		    parser->rust_ast = (yyvsp[0].op);
 		}
-#line 1905 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2028 "rust-exp.c.tmp"
     break;
 
   case 16:
-#line 443 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 470 "rust-exp.y"
+                {
 		  (yyvsp[-1].params)->push_back ((yyvsp[-3].op));
 		  error (_("Tuple expressions not supported yet"));
 		}
-#line 1914 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2037 "rust-exp.c.tmp"
     break;
 
   case 17:
-#line 451 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 478 "rust-exp.y"
+                {
 		  struct typed_val_int val;
 
 		  val.type
 		    = (language_lookup_primitive_type
-		       (current_parser->language (), current_parser->arch (),
+		       (parser->language (), parser->arch (),
 			"()"));
 		  val.val = 0;
-		  (yyval.op) = ast_literal (val);
+		  (yyval.op) = parser->ast_literal (val);
 		}
-#line 1929 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2052 "rust-exp.c.tmp"
     break;
 
   case 18:
-#line 468 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_struct ((yyvsp[-3].op), (yyvsp[-1].field_inits)); }
-#line 1935 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 495 "rust-exp.y"
+                { (yyval.op) = parser->ast_struct ((yyvsp[-3].op), (yyvsp[-1].field_inits)); }
+#line 2058 "rust-exp.c.tmp"
     break;
 
   case 19:
-#line 473 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 500 "rust-exp.y"
+                {
 		  struct set_field sf;
 
 		  sf.name.ptr = NULL;
@@ -1944,54 +2067,54 @@ yyreduce:
 
 		  (yyval.one_field_init) = sf;
 		}
-#line 1949 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2072 "rust-exp.c.tmp"
     break;
 
   case 20:
-#line 483 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 510 "rust-exp.y"
+                {
 		  struct set_field sf;
 
 		  sf.name = (yyvsp[-2].sval);
 		  sf.init = (yyvsp[0].op);
 		  (yyval.one_field_init) = sf;
 		}
-#line 1961 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2084 "rust-exp.c.tmp"
     break;
 
   case 21:
-#line 491 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 518 "rust-exp.y"
+                {
 		  struct set_field sf;
 
 		  sf.name = (yyvsp[0].sval);
-		  sf.init = ast_path ((yyvsp[0].sval), NULL);
+		  sf.init = parser->ast_path ((yyvsp[0].sval), NULL);
 		  (yyval.one_field_init) = sf;
 		}
-#line 1973 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2096 "rust-exp.c.tmp"
     break;
 
   case 22:
-#line 502 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.field_inits) = current_parser->new_set_vector ();
+#line 529 "rust-exp.y"
+                {
+		  (yyval.field_inits) = parser->new_set_vector ();
 		}
-#line 1981 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2104 "rust-exp.c.tmp"
     break;
 
   case 23:
-#line 506 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  rust_set_vector *result = current_parser->new_set_vector ();
+#line 533 "rust-exp.y"
+                {
+		  rust_set_vector *result = parser->new_set_vector ();
 		  result->push_back ((yyvsp[0].one_field_init));
 		  (yyval.field_inits) = result;
 		}
-#line 1991 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2114 "rust-exp.c.tmp"
     break;
 
   case 24:
-#line 512 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 539 "rust-exp.y"
+                {
 		  struct set_field sf;
 
 		  sf.name = (yyvsp[-4].sval);
@@ -1999,656 +2122,662 @@ yyreduce:
 		  (yyvsp[0].field_inits)->push_back (sf);
 		  (yyval.field_inits) = (yyvsp[0].field_inits);
 		}
-#line 2004 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2127 "rust-exp.c.tmp"
     break;
 
   case 25:
-#line 521 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 548 "rust-exp.y"
+                {
 		  struct set_field sf;
 
 		  sf.name = (yyvsp[-2].sval);
-		  sf.init = ast_path ((yyvsp[-2].sval), NULL);
+		  sf.init = parser->ast_path ((yyvsp[-2].sval), NULL);
 		  (yyvsp[0].field_inits)->push_back (sf);
 		  (yyval.field_inits) = (yyvsp[0].field_inits);
 		}
-#line 2017 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2140 "rust-exp.c.tmp"
     break;
 
   case 26:
-#line 533 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_call_ish (OP_ARRAY, NULL, (yyvsp[-1].params)); }
-#line 2023 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 560 "rust-exp.y"
+                { (yyval.op) = parser->ast_call_ish (OP_ARRAY, NULL, (yyvsp[-1].params)); }
+#line 2146 "rust-exp.c.tmp"
     break;
 
   case 27:
-#line 535 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_call_ish (OP_ARRAY, NULL, (yyvsp[-1].params)); }
-#line 2029 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 562 "rust-exp.y"
+                { (yyval.op) = parser->ast_call_ish (OP_ARRAY, NULL, (yyvsp[-1].params)); }
+#line 2152 "rust-exp.c.tmp"
     break;
 
   case 28:
-#line 537 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (OP_RUST_ARRAY, (yyvsp[-3].op), (yyvsp[-1].op)); }
-#line 2035 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 564 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (OP_RUST_ARRAY, (yyvsp[-3].op), (yyvsp[-1].op)); }
+#line 2158 "rust-exp.c.tmp"
     break;
 
   case 29:
-#line 539 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (OP_RUST_ARRAY, (yyvsp[-3].op), (yyvsp[-1].op)); }
-#line 2041 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 566 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (OP_RUST_ARRAY, (yyvsp[-3].op), (yyvsp[-1].op)); }
+#line 2164 "rust-exp.c.tmp"
     break;
 
   case 30:
-#line 544 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range ((yyvsp[-1].op), NULL, false); }
-#line 2047 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 571 "rust-exp.y"
+                { (yyval.op) = parser->ast_range ((yyvsp[-1].op), NULL, false); }
+#line 2170 "rust-exp.c.tmp"
     break;
 
   case 31:
-#line 546 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range ((yyvsp[-2].op), (yyvsp[0].op), false); }
-#line 2053 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 573 "rust-exp.y"
+                { (yyval.op) = parser->ast_range ((yyvsp[-2].op), (yyvsp[0].op), false); }
+#line 2176 "rust-exp.c.tmp"
     break;
 
   case 32:
-#line 548 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range ((yyvsp[-2].op), (yyvsp[0].op), true); }
-#line 2059 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 575 "rust-exp.y"
+                { (yyval.op) = parser->ast_range ((yyvsp[-2].op), (yyvsp[0].op), true); }
+#line 2182 "rust-exp.c.tmp"
     break;
 
   case 33:
-#line 550 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range (NULL, (yyvsp[0].op), false); }
-#line 2065 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 577 "rust-exp.y"
+                { (yyval.op) = parser->ast_range (NULL, (yyvsp[0].op), false); }
+#line 2188 "rust-exp.c.tmp"
     break;
 
   case 34:
-#line 552 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range (NULL, (yyvsp[0].op), true); }
-#line 2071 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 579 "rust-exp.y"
+                { (yyval.op) = parser->ast_range (NULL, (yyvsp[0].op), true); }
+#line 2194 "rust-exp.c.tmp"
     break;
 
   case 35:
-#line 554 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_range (NULL, NULL, false); }
-#line 2077 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 581 "rust-exp.y"
+                { (yyval.op) = parser->ast_range (NULL, NULL, false); }
+#line 2200 "rust-exp.c.tmp"
     break;
 
   case 36:
-#line 559 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_literal ((yyvsp[0].typed_val_int)); }
-#line 2083 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 586 "rust-exp.y"
+                { (yyval.op) = parser->ast_literal ((yyvsp[0].typed_val_int)); }
+#line 2206 "rust-exp.c.tmp"
     break;
 
   case 37:
-#line 561 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_literal ((yyvsp[0].typed_val_int)); }
-#line 2089 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 588 "rust-exp.y"
+                { (yyval.op) = parser->ast_literal ((yyvsp[0].typed_val_int)); }
+#line 2212 "rust-exp.c.tmp"
     break;
 
   case 38:
-#line 563 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_dliteral ((yyvsp[0].typed_val_float)); }
-#line 2095 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 590 "rust-exp.y"
+                { (yyval.op) = parser->ast_dliteral ((yyvsp[0].typed_val_float)); }
+#line 2218 "rust-exp.c.tmp"
     break;
 
   case 39:
-#line 565 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  const struct rust_op *str = ast_string ((yyvsp[0].sval));
+#line 592 "rust-exp.y"
+                {
 		  struct set_field field;
 		  struct typed_val_int val;
 		  struct stoken token;
 
-		  rust_set_vector *fields = current_parser->new_set_vector ();
+		  rust_set_vector *fields = parser->new_set_vector ();
 
 		  /* Wrap the raw string in the &str struct.  */
 		  field.name.ptr = "data_ptr";
 		  field.name.length = strlen (field.name.ptr);
-		  field.init = ast_unary (UNOP_ADDR, ast_string ((yyvsp[0].sval)));
+		  field.init = parser->ast_unary (UNOP_ADDR,
+						  parser->ast_string ((yyvsp[0].sval)));
 		  fields->push_back (field);
 
-		  val.type = rust_type ("usize");
+		  val.type = parser->get_type ("usize");
 		  val.val = (yyvsp[0].sval).length;
 
 		  field.name.ptr = "length";
 		  field.name.length = strlen (field.name.ptr);
-		  field.init = ast_literal (val);
+		  field.init = parser->ast_literal (val);
 		  fields->push_back (field);
 
 		  token.ptr = "&str";
 		  token.length = strlen (token.ptr);
-		  (yyval.op) = ast_struct (ast_path (token, NULL), fields);
+		  (yyval.op) = parser->ast_struct (parser->ast_path (token, NULL),
+					   fields);
 		}
-#line 2126 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2250 "rust-exp.c.tmp"
     break;
 
   case 40:
-#line 592 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_string ((yyvsp[0].sval)); }
-#line 2132 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 620 "rust-exp.y"
+                { (yyval.op) = parser->ast_string ((yyvsp[0].sval)); }
+#line 2256 "rust-exp.c.tmp"
     break;
 
   case 41:
-#line 594 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 622 "rust-exp.y"
+                {
 		  struct typed_val_int val;
 
-		  val.type = language_bool_type (current_parser->language (),
-						 current_parser->arch ());
+		  val.type = language_bool_type (parser->language (),
+						 parser->arch ());
 		  val.val = 1;
-		  (yyval.op) = ast_literal (val);
+		  (yyval.op) = parser->ast_literal (val);
 		}
-#line 2145 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2269 "rust-exp.c.tmp"
     break;
 
   case 42:
-#line 603 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 631 "rust-exp.y"
+                {
 		  struct typed_val_int val;
 
-		  val.type = language_bool_type (current_parser->language (),
-						 current_parser->arch ());
+		  val.type = language_bool_type (parser->language (),
+						 parser->arch ());
 		  val.val = 0;
-		  (yyval.op) = ast_literal (val);
+		  (yyval.op) = parser->ast_literal (val);
 		}
-#line 2158 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2282 "rust-exp.c.tmp"
     break;
 
   case 43:
-#line 615 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_structop ((yyvsp[-2].op), (yyvsp[0].sval).ptr, 0); }
-#line 2164 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 643 "rust-exp.y"
+                { (yyval.op) = parser->ast_structop ((yyvsp[-2].op), (yyvsp[0].sval).ptr, 0); }
+#line 2288 "rust-exp.c.tmp"
     break;
 
   case 44:
-#line 617 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.op) = ast_structop ((yyvsp[-2].op), (yyvsp[0].sval).ptr, 1);
-		  current_parser->rust_ast = (yyval.op);
+#line 645 "rust-exp.y"
+                {
+		  (yyval.op) = parser->ast_structop ((yyvsp[-2].op), (yyvsp[0].sval).ptr, 1);
+		  parser->rust_ast = (yyval.op);
 		}
-#line 2173 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2297 "rust-exp.c.tmp"
     break;
 
   case 45:
-#line 622 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_structop_anonymous ((yyvsp[-2].op), (yyvsp[0].typed_val_int)); }
-#line 2179 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 650 "rust-exp.y"
+                { (yyval.op) = parser->ast_structop_anonymous ((yyvsp[-2].op), (yyvsp[0].typed_val_int)); }
+#line 2303 "rust-exp.c.tmp"
     break;
 
   case 46:
-#line 627 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_SUBSCRIPT, (yyvsp[-3].op), (yyvsp[-1].op)); }
-#line 2185 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 655 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_SUBSCRIPT, (yyvsp[-3].op), (yyvsp[-1].op)); }
+#line 2309 "rust-exp.c.tmp"
     break;
 
   case 47:
-#line 632 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_unary (UNOP_PLUS, (yyvsp[0].op)); }
-#line 2191 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 660 "rust-exp.y"
+                { (yyval.op) = parser->ast_unary (UNOP_PLUS, (yyvsp[0].op)); }
+#line 2315 "rust-exp.c.tmp"
     break;
 
   case 48:
-#line 635 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_unary (UNOP_NEG, (yyvsp[0].op)); }
-#line 2197 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 663 "rust-exp.y"
+                { (yyval.op) = parser->ast_unary (UNOP_NEG, (yyvsp[0].op)); }
+#line 2321 "rust-exp.c.tmp"
     break;
 
   case 49:
-#line 638 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 666 "rust-exp.y"
+                {
 		  /* Note that we provide a Rust-specific evaluator
 		     override for UNOP_COMPLEMENT, so it can do the
 		     right thing for both bool and integral
 		     values.  */
-		  (yyval.op) = ast_unary (UNOP_COMPLEMENT, (yyvsp[0].op));
+		  (yyval.op) = parser->ast_unary (UNOP_COMPLEMENT, (yyvsp[0].op));
 		}
-#line 2209 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2333 "rust-exp.c.tmp"
     break;
 
   case 50:
-#line 647 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_unary (UNOP_IND, (yyvsp[0].op)); }
-#line 2215 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 675 "rust-exp.y"
+                { (yyval.op) = parser->ast_unary (UNOP_IND, (yyvsp[0].op)); }
+#line 2339 "rust-exp.c.tmp"
     break;
 
   case 51:
-#line 650 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_unary (UNOP_ADDR, (yyvsp[0].op)); }
-#line 2221 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 678 "rust-exp.y"
+                { (yyval.op) = parser->ast_unary (UNOP_ADDR, (yyvsp[0].op)); }
+#line 2345 "rust-exp.c.tmp"
     break;
 
   case 52:
-#line 653 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_unary (UNOP_ADDR, (yyvsp[0].op)); }
-#line 2227 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 681 "rust-exp.y"
+                { (yyval.op) = parser->ast_unary (UNOP_ADDR, (yyvsp[0].op)); }
+#line 2351 "rust-exp.c.tmp"
     break;
 
   case 53:
-#line 655 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_unary (UNOP_SIZEOF, (yyvsp[-1].op)); }
-#line 2233 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 683 "rust-exp.y"
+                { (yyval.op) = parser->ast_unary (UNOP_SIZEOF, (yyvsp[-1].op)); }
+#line 2357 "rust-exp.c.tmp"
     break;
 
   case 58:
-#line 667 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_MUL, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2239 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 695 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_MUL, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2363 "rust-exp.c.tmp"
     break;
 
   case 59:
-#line 670 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_REPEAT, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2245 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 698 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_REPEAT, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2369 "rust-exp.c.tmp"
     break;
 
   case 60:
-#line 673 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_DIV, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2251 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 701 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_DIV, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2375 "rust-exp.c.tmp"
     break;
 
   case 61:
-#line 676 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_REM, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2257 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 704 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_REM, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2381 "rust-exp.c.tmp"
     break;
 
   case 62:
-#line 679 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LESS, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2263 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 707 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_LESS, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2387 "rust-exp.c.tmp"
     break;
 
   case 63:
-#line 682 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_GTR, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2269 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 710 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_GTR, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2393 "rust-exp.c.tmp"
     break;
 
   case 64:
-#line 685 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_BITWISE_AND, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2275 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 713 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_BITWISE_AND, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2399 "rust-exp.c.tmp"
     break;
 
   case 65:
-#line 688 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_BITWISE_IOR, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2281 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 716 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_BITWISE_IOR, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2405 "rust-exp.c.tmp"
     break;
 
   case 66:
-#line 691 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_BITWISE_XOR, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2287 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 719 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_BITWISE_XOR, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2411 "rust-exp.c.tmp"
     break;
 
   case 67:
-#line 694 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_ADD, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2293 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 722 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_ADD, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2417 "rust-exp.c.tmp"
     break;
 
   case 68:
-#line 697 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_SUB, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2299 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 725 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_SUB, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2423 "rust-exp.c.tmp"
     break;
 
   case 69:
-#line 700 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LOGICAL_OR, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2305 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 728 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_LOGICAL_OR, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2429 "rust-exp.c.tmp"
     break;
 
   case 70:
-#line 703 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LOGICAL_AND, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2311 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 731 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_LOGICAL_AND, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2435 "rust-exp.c.tmp"
     break;
 
   case 71:
-#line 706 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_EQUAL, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2317 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 734 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_EQUAL, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2441 "rust-exp.c.tmp"
     break;
 
   case 72:
-#line 709 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_NOTEQUAL, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2323 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 737 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_NOTEQUAL, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2447 "rust-exp.c.tmp"
     break;
 
   case 73:
-#line 712 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LEQ, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2329 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 740 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_LEQ, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2453 "rust-exp.c.tmp"
     break;
 
   case 74:
-#line 715 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_GEQ, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2335 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 743 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_GEQ, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2459 "rust-exp.c.tmp"
     break;
 
   case 75:
-#line 718 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_LSH, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2341 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 746 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_LSH, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2465 "rust-exp.c.tmp"
     break;
 
   case 76:
-#line 721 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_RSH, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2347 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 749 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_RSH, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2471 "rust-exp.c.tmp"
     break;
 
   case 77:
-#line 726 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_cast ((yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2353 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 754 "rust-exp.y"
+                { (yyval.op) = parser->ast_cast ((yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2477 "rust-exp.c.tmp"
     break;
 
   case 78:
-#line 731 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_operation (BINOP_ASSIGN, (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2359 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 759 "rust-exp.y"
+                { (yyval.op) = parser->ast_operation (BINOP_ASSIGN, (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2483 "rust-exp.c.tmp"
     break;
 
   case 79:
-#line 736 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_compound_assignment ((yyvsp[-1].opcode), (yyvsp[-2].op), (yyvsp[0].op)); }
-#line 2365 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 764 "rust-exp.y"
+                { (yyval.op) = parser->ast_compound_assignment ((yyvsp[-1].opcode), (yyvsp[-2].op), (yyvsp[0].op)); }
+#line 2489 "rust-exp.c.tmp"
     break;
 
   case 80:
-#line 742 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = (yyvsp[-1].op); }
-#line 2371 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 770 "rust-exp.y"
+                { (yyval.op) = (yyvsp[-1].op); }
+#line 2495 "rust-exp.c.tmp"
     break;
 
   case 81:
-#line 747 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.params) = current_parser->new_op_vector ();
+#line 775 "rust-exp.y"
+                {
+		  (yyval.params) = parser->new_op_vector ();
 		  (yyval.params)->push_back ((yyvsp[0].op));
 		}
-#line 2380 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2504 "rust-exp.c.tmp"
     break;
 
   case 82:
-#line 752 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 780 "rust-exp.y"
+                {
 		  (yyvsp[-2].params)->push_back ((yyvsp[0].op));
 		  (yyval.params) = (yyvsp[-2].params);
 		}
-#line 2389 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2513 "rust-exp.c.tmp"
     break;
 
   case 83:
-#line 760 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 788 "rust-exp.y"
+                {
 		  /* The result can't be NULL.  */
-		  (yyval.params) = current_parser->new_op_vector ();
+		  (yyval.params) = parser->new_op_vector ();
 		}
-#line 2398 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2522 "rust-exp.c.tmp"
     break;
 
   case 84:
-#line 765 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.params) = (yyvsp[0].params); }
-#line 2404 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 793 "rust-exp.y"
+                { (yyval.params) = (yyvsp[0].params); }
+#line 2528 "rust-exp.c.tmp"
     break;
 
   case 85:
-#line 770 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.params) = (yyvsp[-1].params); }
-#line 2410 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 798 "rust-exp.y"
+                { (yyval.params) = (yyvsp[-1].params); }
+#line 2534 "rust-exp.c.tmp"
     break;
 
   case 86:
-#line 775 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_call_ish (OP_FUNCALL, (yyvsp[-1].op), (yyvsp[0].params)); }
-#line 2416 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 803 "rust-exp.y"
+                { (yyval.op) = parser->ast_call_ish (OP_FUNCALL, (yyvsp[-1].op), (yyvsp[0].params)); }
+#line 2540 "rust-exp.c.tmp"
     break;
 
   case 89:
-#line 785 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.depth) = 1; }
-#line 2422 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 813 "rust-exp.y"
+                { (yyval.depth) = 1; }
+#line 2546 "rust-exp.c.tmp"
     break;
 
   case 90:
-#line 787 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.depth) = (yyvsp[-2].depth) + 1; }
-#line 2428 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 815 "rust-exp.y"
+                { (yyval.depth) = (yyvsp[-2].depth) + 1; }
+#line 2552 "rust-exp.c.tmp"
     break;
 
   case 91:
-#line 792 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = (yyvsp[0].op); }
-#line 2434 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 820 "rust-exp.y"
+                { (yyval.op) = (yyvsp[0].op); }
+#line 2558 "rust-exp.c.tmp"
     break;
 
   case 92:
-#line 794 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_path ((yyvsp[0].sval), NULL); }
-#line 2440 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 822 "rust-exp.y"
+                { (yyval.op) = parser->ast_path ((yyvsp[0].sval), NULL); }
+#line 2564 "rust-exp.c.tmp"
     break;
 
   case 93:
-#line 796 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_path (make_stoken ("self"), NULL); }
-#line 2446 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 824 "rust-exp.y"
+                { (yyval.op) = parser->ast_path (make_stoken ("self"), NULL); }
+#line 2570 "rust-exp.c.tmp"
     break;
 
   case 95:
-#line 802 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = super_name ((yyvsp[0].op), 0); }
-#line 2452 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 830 "rust-exp.y"
+                { (yyval.op) = parser->super_name ((yyvsp[0].op), 0); }
+#line 2576 "rust-exp.c.tmp"
     break;
 
   case 96:
-#line 804 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = super_name ((yyvsp[0].op), (yyvsp[-1].depth)); }
-#line 2458 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 832 "rust-exp.y"
+                { (yyval.op) = parser->super_name ((yyvsp[0].op), (yyvsp[-1].depth)); }
+#line 2582 "rust-exp.c.tmp"
     break;
 
   case 97:
-#line 806 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = crate_name ((yyvsp[0].op)); }
-#line 2464 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 834 "rust-exp.y"
+                { (yyval.op) = parser->crate_name ((yyvsp[0].op)); }
+#line 2588 "rust-exp.c.tmp"
     break;
 
   case 98:
-#line 808 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 836 "rust-exp.y"
+                {
 		  /* This is a gdb extension to make it possible to
 		     refer to items in other crates.  It just bypasses
 		     adding the current crate to the front of the
 		     name.  */
-		  (yyval.op) = ast_path (rust_concat3 ("::", (yyvsp[0].op)->left.sval.ptr, NULL),
-				 (yyvsp[0].op)->right.params);
+		  (yyval.op) = parser->ast_path (parser->concat3 ("::",
+							  (yyvsp[0].op)->left.sval.ptr,
+							  NULL),
+					 (yyvsp[0].op)->right.params);
 		}
-#line 2477 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2603 "rust-exp.c.tmp"
     break;
 
   case 99:
-#line 820 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_path ((yyvsp[0].sval), NULL); }
-#line 2483 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 850 "rust-exp.y"
+                { (yyval.op) = parser->ast_path ((yyvsp[0].sval), NULL); }
+#line 2609 "rust-exp.c.tmp"
     break;
 
   case 100:
-#line 822 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.op) = ast_path (rust_concat3 ((yyvsp[-2].op)->left.sval.ptr, "::",
-					       (yyvsp[0].sval).ptr),
-				 NULL);
+#line 852 "rust-exp.y"
+                {
+		  (yyval.op) = parser->ast_path (parser->concat3 ((yyvsp[-2].op)->left.sval.ptr,
+							  "::", (yyvsp[0].sval).ptr),
+					 NULL);
 		}
-#line 2493 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2619 "rust-exp.c.tmp"
     break;
 
   case 101:
-#line 828 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_path ((yyvsp[-4].op)->left.sval, (yyvsp[-1].params)); }
-#line 2499 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 858 "rust-exp.y"
+                { (yyval.op) = parser->ast_path ((yyvsp[-4].op)->left.sval, (yyvsp[-1].params)); }
+#line 2625 "rust-exp.c.tmp"
     break;
 
   case 102:
-#line 830 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.op) = ast_path ((yyvsp[-4].op)->left.sval, (yyvsp[-1].params));
-		  rust_push_back ('>');
+#line 860 "rust-exp.y"
+                {
+		  (yyval.op) = parser->ast_path ((yyvsp[-4].op)->left.sval, (yyvsp[-1].params));
+		  parser->push_back ('>');
 		}
-#line 2508 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2634 "rust-exp.c.tmp"
     break;
 
   case 104:
-#line 839 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = super_name ((yyvsp[0].op), 0); }
-#line 2514 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 869 "rust-exp.y"
+                { (yyval.op) = parser->super_name ((yyvsp[0].op), 0); }
+#line 2640 "rust-exp.c.tmp"
     break;
 
   case 105:
-#line 841 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = super_name ((yyvsp[0].op), (yyvsp[-1].depth)); }
-#line 2520 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 871 "rust-exp.y"
+                { (yyval.op) = parser->super_name ((yyvsp[0].op), (yyvsp[-1].depth)); }
+#line 2646 "rust-exp.c.tmp"
     break;
 
   case 106:
-#line 843 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = crate_name ((yyvsp[0].op)); }
-#line 2526 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 873 "rust-exp.y"
+                { (yyval.op) = parser->crate_name ((yyvsp[0].op)); }
+#line 2652 "rust-exp.c.tmp"
     break;
 
   case 107:
-#line 845 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 875 "rust-exp.y"
+                {
 		  /* This is a gdb extension to make it possible to
 		     refer to items in other crates.  It just bypasses
 		     adding the current crate to the front of the
 		     name.  */
-		  (yyval.op) = ast_path (rust_concat3 ("::", (yyvsp[0].op)->left.sval.ptr, NULL),
-				 (yyvsp[0].op)->right.params);
+		  (yyval.op) = parser->ast_path (parser->concat3 ("::",
+							  (yyvsp[0].op)->left.sval.ptr,
+							  NULL),
+					 (yyvsp[0].op)->right.params);
 		}
-#line 2539 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2667 "rust-exp.c.tmp"
     break;
 
   case 108:
-#line 857 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_path ((yyvsp[0].sval), NULL); }
-#line 2545 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 889 "rust-exp.y"
+                { (yyval.op) = parser->ast_path ((yyvsp[0].sval), NULL); }
+#line 2673 "rust-exp.c.tmp"
     break;
 
   case 109:
-#line 859 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.op) = ast_path (rust_concat3 ((yyvsp[-2].op)->left.sval.ptr, "::",
-					       (yyvsp[0].sval).ptr),
-				 NULL);
+#line 891 "rust-exp.y"
+                {
+		  (yyval.op) = parser->ast_path (parser->concat3 ((yyvsp[-2].op)->left.sval.ptr,
+							  "::", (yyvsp[0].sval).ptr),
+					 NULL);
 		}
-#line 2555 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2683 "rust-exp.c.tmp"
     break;
 
   case 111:
-#line 869 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_path ((yyvsp[-3].op)->left.sval, (yyvsp[-1].params)); }
-#line 2561 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 901 "rust-exp.y"
+                { (yyval.op) = parser->ast_path ((yyvsp[-3].op)->left.sval, (yyvsp[-1].params)); }
+#line 2689 "rust-exp.c.tmp"
     break;
 
   case 112:
-#line 871 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  (yyval.op) = ast_path ((yyvsp[-3].op)->left.sval, (yyvsp[-1].params));
-		  rust_push_back ('>');
+#line 903 "rust-exp.y"
+                {
+		  (yyval.op) = parser->ast_path ((yyvsp[-3].op)->left.sval, (yyvsp[-1].params));
+		  parser->push_back ('>');
 		}
-#line 2570 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2698 "rust-exp.c.tmp"
     break;
 
   case 114:
-#line 880 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_array_type ((yyvsp[-3].op), (yyvsp[-1].typed_val_int)); }
-#line 2576 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 912 "rust-exp.y"
+                { (yyval.op) = parser->ast_array_type ((yyvsp[-3].op), (yyvsp[-1].typed_val_int)); }
+#line 2704 "rust-exp.c.tmp"
     break;
 
   case 115:
-#line 882 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_array_type ((yyvsp[-3].op), (yyvsp[-1].typed_val_int)); }
-#line 2582 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 914 "rust-exp.y"
+                { (yyval.op) = parser->ast_array_type ((yyvsp[-3].op), (yyvsp[-1].typed_val_int)); }
+#line 2710 "rust-exp.c.tmp"
     break;
 
   case 116:
-#line 884 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_slice_type ((yyvsp[-1].op)); }
-#line 2588 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 916 "rust-exp.y"
+                { (yyval.op) = parser->ast_slice_type ((yyvsp[-1].op)); }
+#line 2716 "rust-exp.c.tmp"
     break;
 
   case 117:
-#line 886 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_reference_type ((yyvsp[0].op)); }
-#line 2594 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 918 "rust-exp.y"
+                { (yyval.op) = parser->ast_reference_type ((yyvsp[0].op)); }
+#line 2722 "rust-exp.c.tmp"
     break;
 
   case 118:
-#line 888 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_pointer_type ((yyvsp[0].op), 1); }
-#line 2600 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 920 "rust-exp.y"
+                { (yyval.op) = parser->ast_pointer_type ((yyvsp[0].op), 1); }
+#line 2728 "rust-exp.c.tmp"
     break;
 
   case 119:
-#line 890 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_pointer_type ((yyvsp[0].op), 0); }
-#line 2606 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 922 "rust-exp.y"
+                { (yyval.op) = parser->ast_pointer_type ((yyvsp[0].op), 0); }
+#line 2734 "rust-exp.c.tmp"
     break;
 
   case 120:
-#line 892 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_function_type ((yyvsp[0].op), (yyvsp[-3].params)); }
-#line 2612 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 924 "rust-exp.y"
+                { (yyval.op) = parser->ast_function_type ((yyvsp[0].op), (yyvsp[-3].params)); }
+#line 2740 "rust-exp.c.tmp"
     break;
 
   case 121:
-#line 894 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.op) = ast_tuple_type ((yyvsp[-1].params)); }
-#line 2618 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 926 "rust-exp.y"
+                { (yyval.op) = parser->ast_tuple_type ((yyvsp[-1].params)); }
+#line 2746 "rust-exp.c.tmp"
     break;
 
   case 122:
-#line 899 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.params) = NULL; }
-#line 2624 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 931 "rust-exp.y"
+                { (yyval.params) = NULL; }
+#line 2752 "rust-exp.c.tmp"
     break;
 
   case 123:
-#line 901 "rust-exp.y" /* yacc.c:1646  */
-    { (yyval.params) = (yyvsp[0].params); }
-#line 2630 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 933 "rust-exp.y"
+                { (yyval.params) = (yyvsp[0].params); }
+#line 2758 "rust-exp.c.tmp"
     break;
 
   case 124:
-#line 906 "rust-exp.y" /* yacc.c:1646  */
-    {
-		  rust_op_vector *result = current_parser->new_op_vector ();
+#line 938 "rust-exp.y"
+                {
+		  rust_op_vector *result = parser->new_op_vector ();
 		  result->push_back ((yyvsp[0].op));
 		  (yyval.params) = result;
 		}
-#line 2640 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2768 "rust-exp.c.tmp"
     break;
 
   case 125:
-#line 912 "rust-exp.y" /* yacc.c:1646  */
-    {
+#line 944 "rust-exp.y"
+                {
 		  (yyvsp[-2].params)->push_back ((yyvsp[0].op));
 		  (yyval.params) = (yyvsp[-2].params);
 		}
-#line 2649 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2777 "rust-exp.c.tmp"
     break;
 
 
-#line 2653 "rust-exp.c.tmp" /* yacc.c:1646  */
+#line 2781 "rust-exp.c.tmp"
+
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -2673,14 +2802,13 @@ yyreduce:
   /* Now 'shift' the result of the reduction.  Determine what state
      that goes to, based on the state we popped back to and the rule
      number reduced by.  */
-
-  yyn = yyr1[yyn];
-
-  yystate = yypgoto[yyn - YYNTOKENS] + *yyssp;
-  if (0 <= yystate && yystate <= YYLAST && yycheck[yystate] == *yyssp)
-    yystate = yytable[yystate];
-  else
-    yystate = yydefgoto[yyn - YYNTOKENS];
+  {
+    const int yylhs = yyr1[yyn] - YYNTOKENS;
+    const int yyi = yypgoto[yylhs] + *yyssp;
+    yystate = (0 <= yyi && yyi <= YYLAST && yycheck[yyi] == *yyssp
+               ? yytable[yyi]
+               : yydefgoto[yylhs]);
+  }
 
   goto yynewstate;
 
@@ -2698,7 +2826,7 @@ yyerrlab:
     {
       ++yynerrs;
 #if ! YYERROR_VERBOSE
-      yyerror (YY_("syntax error"));
+      yyerror (parser, YY_("syntax error"));
 #else
 # define YYSYNTAX_ERROR yysyntax_error (&yymsg_alloc, &yymsg, \
                                         yyssp, yytoken)
@@ -2712,7 +2840,7 @@ yyerrlab:
           {
             if (yymsg != yymsgbuf)
               YYSTACK_FREE (yymsg);
-            yymsg = (char *) YYSTACK_ALLOC (yymsg_alloc);
+            yymsg = YY_CAST (char *, YYSTACK_ALLOC (YY_CAST (YYSIZE_T, yymsg_alloc)));
             if (!yymsg)
               {
                 yymsg = yymsgbuf;
@@ -2725,7 +2853,7 @@ yyerrlab:
                 yymsgp = yymsg;
               }
           }
-        yyerror (yymsgp);
+        yyerror (parser, yymsgp);
         if (yysyntax_error_status == 2)
           goto yyexhaustedlab;
       }
@@ -2749,7 +2877,7 @@ yyerrlab:
       else
         {
           yydestruct ("Error: discarding",
-                      yytoken, &yylval);
+                      yytoken, &yylval, parser);
           yychar = YYEMPTY;
         }
     }
@@ -2763,12 +2891,10 @@ yyerrlab:
 | yyerrorlab -- error raised explicitly by YYERROR.  |
 `---------------------------------------------------*/
 yyerrorlab:
-
-  /* Pacify compilers like GCC when the user code never invokes
-     YYERROR and the label yyerrorlab therefore never appears in user
-     code.  */
-  if (/*CONSTCOND*/ 0)
-     goto yyerrorlab;
+  /* Pacify compilers when the user code never invokes YYERROR and the
+     label yyerrorlab therefore never appears in user code.  */
+  if (0)
+    YYERROR;
 
   /* Do not reclaim the symbols of the rule whose action triggered
      this YYERROR.  */
@@ -2805,7 +2931,7 @@ yyerrlab1:
 
 
       yydestruct ("Error: popping",
-                  yystos[yystate], yyvsp);
+                  yystos[yystate], yyvsp, parser);
       YYPOPSTACK (1);
       yystate = *yyssp;
       YY_STACK_PRINT (yyss, yyssp);
@@ -2830,6 +2956,7 @@ yyacceptlab:
   yyresult = 0;
   goto yyreturn;
 
+
 /*-----------------------------------.
 | yyabortlab -- YYABORT comes here.  |
 `-----------------------------------*/
@@ -2837,16 +2964,21 @@ yyabortlab:
   yyresult = 1;
   goto yyreturn;
 
+
 #if !defined yyoverflow || YYERROR_VERBOSE
 /*-------------------------------------------------.
 | yyexhaustedlab -- memory exhaustion comes here.  |
 `-------------------------------------------------*/
 yyexhaustedlab:
-  yyerror (YY_("memory exhausted"));
+  yyerror (parser, YY_("memory exhausted"));
   yyresult = 2;
   /* Fall through.  */
 #endif
 
+
+/*-----------------------------------------------------.
+| yyreturn -- parsing is finished, return the result.  |
+`-----------------------------------------------------*/
 yyreturn:
   if (yychar != YYEMPTY)
     {
@@ -2854,7 +2986,7 @@ yyreturn:
          user semantic actions for why this is necessary.  */
       yytoken = YYTRANSLATE (yychar);
       yydestruct ("Cleanup: discarding lookahead",
-                  yytoken, &yylval);
+                  yytoken, &yylval, parser);
     }
   /* Do not reclaim the symbols of the rule whose action triggered
      this YYABORT or YYACCEPT.  */
@@ -2863,7 +2995,7 @@ yyreturn:
   while (yyssp != yyss)
     {
       yydestruct ("Cleanup: popping",
-                  yystos[*yyssp], yyvsp);
+                  yystos[+*yyssp], yyvsp, parser);
       YYPOPSTACK (1);
     }
 #ifndef yyoverflow
@@ -2876,7 +3008,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 918 "rust-exp.y" /* yacc.c:1906  */
+#line 950 "rust-exp.y"
 
 
 /* A struct of this type is used to describe a token.  */
@@ -2937,10 +3069,10 @@ static const struct token_info operator_tokens[] =
 
 /* Helper function to copy to the name obstack.  */
 
-static const char *
-rust_copy_name (const char *name, int len)
+const char *
+rust_parser::copy_name (const char *name, int len)
 {
-  return (const char *) obstack_copy0 (work_obstack, name, len);
+  return obstack_strndup (&obstack, name, len);
 }
 
 /* Helper function to make an stoken from a C string.  */
@@ -2958,26 +3090,26 @@ make_stoken (const char *p)
 /* Helper function to concatenate three strings on the name
    obstack.  */
 
-static struct stoken
-rust_concat3 (const char *s1, const char *s2, const char *s3)
+struct stoken
+rust_parser::concat3 (const char *s1, const char *s2, const char *s3)
 {
-  return make_stoken (obconcat (work_obstack, s1, s2, s3, (char *) NULL));
+  return make_stoken (obconcat (&obstack, s1, s2, s3, (char *) NULL));
 }
 
 /* Return an AST node referring to NAME, but relative to the crate's
    name.  */
 
-static const struct rust_op *
-crate_name (const struct rust_op *name)
+const struct rust_op *
+rust_parser::crate_name (const struct rust_op *name)
 {
-  std::string crate = rust_crate_for_block (expression_context_block);
+  std::string crate = rust_crate_for_block (pstate->expression_context_block);
   struct stoken result;
 
   gdb_assert (name->opcode == OP_VAR_VALUE);
 
   if (crate.empty ())
     error (_("Could not find crate for current location"));
-  result = make_stoken (obconcat (work_obstack, "::", crate.c_str (), "::",
+  result = make_stoken (obconcat (&obstack, "::", crate.c_str (), "::",
 				  name->left.sval.ptr, (char *) NULL));
 
   return ast_path (result, name->right.params);
@@ -2987,10 +3119,10 @@ crate_name (const struct rust_op *name)
    is the base name and N_SUPERS is how many "super::"s were
    provided.  N_SUPERS can be zero.  */
 
-static const struct rust_op *
-super_name (const struct rust_op *ident, unsigned int n_supers)
+const struct rust_op *
+rust_parser::super_name (const struct rust_op *ident, unsigned int n_supers)
 {
-  const char *scope = block_scope (expression_context_block);
+  const char *scope = block_scope (pstate->expression_context_block);
   int offset;
 
   gdb_assert (ident->opcode == OP_VAR_VALUE);
@@ -3024,45 +3156,29 @@ super_name (const struct rust_op *ident, unsigned int n_supers)
   else
     offset = strlen (scope);
 
-  obstack_grow (work_obstack, "::", 2);
-  obstack_grow (work_obstack, scope, offset);
-  obstack_grow (work_obstack, "::", 2);
-  obstack_grow0 (work_obstack, ident->left.sval.ptr, ident->left.sval.length);
+  obstack_grow (&obstack, "::", 2);
+  obstack_grow (&obstack, scope, offset);
+  obstack_grow (&obstack, "::", 2);
+  obstack_grow0 (&obstack, ident->left.sval.ptr, ident->left.sval.length);
 
-  return ast_path (make_stoken ((const char *) obstack_finish (work_obstack)),
+  return ast_path (make_stoken ((const char *) obstack_finish (&obstack)),
 		   ident->right.params);
 }
 
 /* A helper that updates the innermost block as appropriate.  */
 
-static void
-update_innermost_block (struct block_symbol sym)
+void
+rust_parser::update_innermost_block (struct block_symbol sym)
 {
   if (symbol_read_needs_frame (sym.symbol))
-    innermost_block.update (sym);
-}
-
-/* A helper to look up a Rust type, or fail.  This only works for
-   types defined by rust_language_arch_info.  */
-
-static struct type *
-rust_type (const char *name)
-{
-  struct type *type;
-
-  type = language_lookup_primitive_type (current_parser->language (),
-					 current_parser->arch (),
-					 name);
-  if (type == NULL)
-    error (_("Could not find Rust type %s"), name);
-  return type;
+    pstate->block_tracker->update (sym);
 }
 
 /* Lex a hex number with at least MIN digits and at most MAX
    digits.  */
 
-static uint32_t
-lex_hex (int min, int max)
+uint32_t
+rust_parser::lex_hex (int min, int max)
 {
   uint32_t result = 0;
   int len = 0;
@@ -3070,18 +3186,18 @@ lex_hex (int min, int max)
   int check_max = min == max;
 
   while ((check_max ? len <= max : 1)
-	 && ((lexptr[0] >= 'a' && lexptr[0] <= 'f')
-	     || (lexptr[0] >= 'A' && lexptr[0] <= 'F')
-	     || (lexptr[0] >= '0' && lexptr[0] <= '9')))
+	 && ((pstate->lexptr[0] >= 'a' && pstate->lexptr[0] <= 'f')
+	     || (pstate->lexptr[0] >= 'A' && pstate->lexptr[0] <= 'F')
+	     || (pstate->lexptr[0] >= '0' && pstate->lexptr[0] <= '9')))
     {
       result *= 16;
-      if (lexptr[0] >= 'a' && lexptr[0] <= 'f')
-	result = result + 10 + lexptr[0] - 'a';
-      else if (lexptr[0] >= 'A' && lexptr[0] <= 'F')
-	result = result + 10 + lexptr[0] - 'A';
+      if (pstate->lexptr[0] >= 'a' && pstate->lexptr[0] <= 'f')
+	result = result + 10 + pstate->lexptr[0] - 'a';
+      else if (pstate->lexptr[0] >= 'A' && pstate->lexptr[0] <= 'F')
+	result = result + 10 + pstate->lexptr[0] - 'A';
       else
-	result = result + lexptr[0] - '0';
-      ++lexptr;
+	result = result + pstate->lexptr[0] - '0';
+      ++pstate->lexptr;
       ++len;
     }
 
@@ -3099,65 +3215,65 @@ lex_hex (int min, int max)
 /* Lex an escape.  IS_BYTE is true if we're lexing a byte escape;
    otherwise we're lexing a character escape.  */
 
-static uint32_t
-lex_escape (int is_byte)
+uint32_t
+rust_parser::lex_escape (int is_byte)
 {
   uint32_t result;
 
-  gdb_assert (lexptr[0] == '\\');
-  ++lexptr;
-  switch (lexptr[0])
+  gdb_assert (pstate->lexptr[0] == '\\');
+  ++pstate->lexptr;
+  switch (pstate->lexptr[0])
     {
     case 'x':
-      ++lexptr;
+      ++pstate->lexptr;
       result = lex_hex (2, 2);
       break;
 
     case 'u':
       if (is_byte)
 	error (_("Unicode escape in byte literal"));
-      ++lexptr;
-      if (lexptr[0] != '{')
+      ++pstate->lexptr;
+      if (pstate->lexptr[0] != '{')
 	error (_("Missing '{' in Unicode escape"));
-      ++lexptr;
+      ++pstate->lexptr;
       result = lex_hex (1, 6);
       /* Could do range checks here.  */
-      if (lexptr[0] != '}')
+      if (pstate->lexptr[0] != '}')
 	error (_("Missing '}' in Unicode escape"));
-      ++lexptr;
+      ++pstate->lexptr;
       break;
 
     case 'n':
       result = '\n';
-      ++lexptr;
+      ++pstate->lexptr;
       break;
     case 'r':
       result = '\r';
-      ++lexptr;
+      ++pstate->lexptr;
       break;
     case 't':
       result = '\t';
-      ++lexptr;
+      ++pstate->lexptr;
       break;
     case '\\':
       result = '\\';
-      ++lexptr;
+      ++pstate->lexptr;
       break;
     case '0':
       result = '\0';
-      ++lexptr;
+      ++pstate->lexptr;
       break;
     case '\'':
       result = '\'';
-      ++lexptr;
+      ++pstate->lexptr;
       break;
     case '"':
       result = '"';
-      ++lexptr;
+      ++pstate->lexptr;
       break;
 
     default:
-      error (_("Invalid escape \\%c in literal"), lexptr[0]);
+      error (_("Invalid escape \\%c in literal"), pstate->lexptr[0]);
     }
 
   return result;
@@ -3165,34 +3281,34 @@ lex_escape (int is_byte)
 
 /* Lex a character constant.  */
 
-static int
-lex_character (void)
+int
+rust_parser::lex_character (YYSTYPE *lvalp)
 {
   int is_byte = 0;
   uint32_t value;
 
-  if (lexptr[0] == 'b')
+  if (pstate->lexptr[0] == 'b')
     {
       is_byte = 1;
-      ++lexptr;
+      ++pstate->lexptr;
     }
-  gdb_assert (lexptr[0] == '\'');
-  ++lexptr;
+  gdb_assert (pstate->lexptr[0] == '\'');
+  ++pstate->lexptr;
   /* This should handle UTF-8 here.  */
-  if (lexptr[0] == '\\')
+  if (pstate->lexptr[0] == '\\')
     value = lex_escape (is_byte);
   else
     {
-      value = lexptr[0] & 0xff;
-      ++lexptr;
+      value = pstate->lexptr[0] & 0xff;
+      ++pstate->lexptr;
     }
 
-  if (lexptr[0] != '\'')
+  if (pstate->lexptr[0] != '\'')
     error (_("Unterminated character literal"));
-  ++lexptr;
+  ++pstate->lexptr;
 
-  rustyylval.typed_val_int.val = value;
-  rustyylval.typed_val_int.type = rust_type (is_byte ? "u8" : "char");
+  lvalp->typed_val_int.val = value;
+  lvalp->typed_val_int.type = get_type (is_byte ? "u8" : "char");
 
   return INTEGER;
 }
@@ -3232,18 +3348,18 @@ ends_raw_string (const char *str, int n)
 
 /* Lex a string constant.  */
 
-static int
-lex_string (void)
+int
+rust_parser::lex_string (YYSTYPE *lvalp)
 {
-  int is_byte = lexptr[0] == 'b';
+  int is_byte = pstate->lexptr[0] == 'b';
   int raw_length;
 
   if (is_byte)
-    ++lexptr;
-  raw_length = starts_raw_string (lexptr);
-  lexptr += raw_length;
-  gdb_assert (lexptr[0] == '"');
-  ++lexptr;
+    ++pstate->lexptr;
+  raw_length = starts_raw_string (pstate->lexptr);
+  pstate->lexptr += raw_length;
+  gdb_assert (pstate->lexptr[0] == '"');
+  ++pstate->lexptr;
 
   while (1)
     {
@@ -3251,53 +3367,54 @@ lex_string (void)
 
       if (raw_length > 0)
 	{
-	  if (lexptr[0] == '"' && ends_raw_string (lexptr, raw_length - 1))
+	  if (pstate->lexptr[0] == '"' && ends_raw_string (pstate->lexptr,
+							   raw_length - 1))
 	    {
 	      /* Exit with lexptr pointing after the final "#".  */
-	      lexptr += raw_length;
+	      pstate->lexptr += raw_length;
 	      break;
 	    }
-	  else if (lexptr[0] == '\0')
+	  else if (pstate->lexptr[0] == '\0')
 	    error (_("Unexpected EOF in string"));
 
-	  value = lexptr[0] & 0xff;
+	  value = pstate->lexptr[0] & 0xff;
 	  if (is_byte && value > 127)
 	    error (_("Non-ASCII value in raw byte string"));
-	  obstack_1grow (work_obstack, value);
+	  obstack_1grow (&obstack, value);
 
-	  ++lexptr;
+	  ++pstate->lexptr;
 	}
-      else if (lexptr[0] == '"')
+      else if (pstate->lexptr[0] == '"')
 	{
 	  /* Make sure to skip the quote.  */
-	  ++lexptr;
+	  ++pstate->lexptr;
 	  break;
 	}
-      else if (lexptr[0] == '\\')
+      else if (pstate->lexptr[0] == '\\')
 	{
 	  value = lex_escape (is_byte);
 
 	  if (is_byte)
-	    obstack_1grow (work_obstack, value);
+	    obstack_1grow (&obstack, value);
 	  else
 	    convert_between_encodings ("UTF-32", "UTF-8", (gdb_byte *) &value,
 				       sizeof (value), sizeof (value),
-				       work_obstack, translit_none);
+				       &obstack, translit_none);
 	}
-      else if (lexptr[0] == '\0')
+      else if (pstate->lexptr[0] == '\0')
 	error (_("Unexpected EOF in string"));
       else
 	{
-	  value = lexptr[0] & 0xff;
+	  value = pstate->lexptr[0] & 0xff;
 	  if (is_byte && value > 127)
 	    error (_("Non-ASCII value in byte string"));
-	  obstack_1grow (work_obstack, value);
-	  ++lexptr;
+	  obstack_1grow (&obstack, value);
+	  ++pstate->lexptr;
 	}
     }
 
-  rustyylval.sval.length = obstack_object_size (work_obstack);
-  rustyylval.sval.ptr = (const char *) obstack_finish (work_obstack);
+  lvalp->sval.length = obstack_object_size (&obstack);
+  lvalp->sval.ptr = (const char *) obstack_finish (&obstack);
   return is_byte ? BYTESTRING : STRING;
 }
 
@@ -3329,30 +3446,30 @@ rust_identifier_start_p (char c)
 
 /* Lex an identifier.  */
 
-static int
-lex_identifier (void)
+int
+rust_parser::lex_identifier (YYSTYPE *lvalp)
 {
-  const char *start = lexptr;
+  const char *start = pstate->lexptr;
   unsigned int length;
   const struct token_info *token;
   int i;
-  int is_gdb_var = lexptr[0] == '$';
+  int is_gdb_var = pstate->lexptr[0] == '$';
 
-  gdb_assert (rust_identifier_start_p (lexptr[0]));
+  gdb_assert (rust_identifier_start_p (pstate->lexptr[0]));
 
-  ++lexptr;
+  ++pstate->lexptr;
 
   /* For the time being this doesn't handle Unicode rules.  Non-ASCII
      identifiers are gated anyway.  */
-  while ((lexptr[0] >= 'a' && lexptr[0] <= 'z')
-	 || (lexptr[0] >= 'A' && lexptr[0] <= 'Z')
-	 || lexptr[0] == '_'
-	 || (is_gdb_var && lexptr[0] == '$')
-	 || (lexptr[0] >= '0' && lexptr[0] <= '9'))
-    ++lexptr;
+  while ((pstate->lexptr[0] >= 'a' && pstate->lexptr[0] <= 'z')
+	 || (pstate->lexptr[0] >= 'A' && pstate->lexptr[0] <= 'Z')
+	 || pstate->lexptr[0] == '_'
+	 || (is_gdb_var && pstate->lexptr[0] == '$')
+	 || (pstate->lexptr[0] >= '0' && pstate->lexptr[0] <= '9'))
+    ++pstate->lexptr;
 
 
-  length = lexptr - start;
+  length = pstate->lexptr - start;
   token = NULL;
   for (i = 0; i < ARRAY_SIZE (identifier_tokens); ++i)
     {
@@ -3369,28 +3486,28 @@ lex_identifier (void)
       if (token->value == 0)
 	{
 	  /* Leave the terminating token alone.  */
-	  lexptr = start;
+	  pstate->lexptr = start;
 	  return 0;
 	}
     }
   else if (token == NULL
 	   && (strncmp (start, "thread", length) == 0
 	       || strncmp (start, "task", length) == 0)
-	   && space_then_number (lexptr))
+	   && space_then_number (pstate->lexptr))
     {
       /* "task" or "thread" followed by a number terminates the
 	 parse, per gdb rules.  */
-      lexptr = start;
+      pstate->lexptr = start;
       return 0;
     }
 
-  if (token == NULL || (parse_completion && lexptr[0] == '\0'))
-    rustyylval.sval = make_stoken (rust_copy_name (start, length));
+  if (token == NULL || (pstate->parse_completion && pstate->lexptr[0] == '\0'))
+    lvalp->sval = make_stoken (copy_name (start, length));
 
-  if (parse_completion && lexptr[0] == '\0')
+  if (pstate->parse_completion && pstate->lexptr[0] == '\0')
     {
       /* Prevent rustyylex from returning two COMPLETE tokens.  */
-      prev_lexptr = lexptr;
+      pstate->prev_lexptr = pstate->lexptr;
       return COMPLETE;
     }
 
@@ -3403,18 +3520,18 @@ lex_identifier (void)
 
 /* Lex an operator.  */
 
-static int
-lex_operator (void)
+int
+rust_parser::lex_operator (YYSTYPE *lvalp)
 {
   const struct token_info *token = NULL;
   int i;
 
   for (i = 0; i < ARRAY_SIZE (operator_tokens); ++i)
     {
-      if (strncmp (operator_tokens[i].name, lexptr,
+      if (strncmp (operator_tokens[i].name, pstate->lexptr,
 		   strlen (operator_tokens[i].name)) == 0)
 	{
-	  lexptr += strlen (operator_tokens[i].name);
+	  pstate->lexptr += strlen (operator_tokens[i].name);
 	  token = &operator_tokens[i];
 	  break;
 	}
@@ -3422,17 +3539,17 @@ lex_operator (void)
 
   if (token != NULL)
     {
-      rustyylval.opcode = token->opcode;
+      lvalp->opcode = token->opcode;
       return token->value;
     }
 
-  return *lexptr++;
+  return *pstate->lexptr++;
 }
 
 /* Lex a number.  */
 
-static int
-lex_number (void)
+int
+rust_parser::lex_number (YYSTYPE *lvalp)
 {
   regmatch_t subexps[NUM_SUBEXPRESSIONS];
   int match;
@@ -3445,7 +3562,8 @@ lex_number (void)
   int type_index = -1;
   int i;
 
-  match = regexec (&number_regex, lexptr, ARRAY_SIZE (subexps), subexps, 0);
+  match = regexec (&number_regex, pstate->lexptr, ARRAY_SIZE (subexps),
+		   subexps, 0);
   /* Failure means the regexp is broken.  */
   gdb_assert (match == 0);
 
@@ -3489,9 +3607,9 @@ lex_number (void)
      a request for a trait method call, not a syntax error involving
      the floating point number "23.".  */
   gdb_assert (subexps[0].rm_eo > 0);
-  if (lexptr[subexps[0].rm_eo - 1] == '.')
+  if (pstate->lexptr[subexps[0].rm_eo - 1] == '.')
     {
-      const char *next = skip_spaces (&lexptr[subexps[0].rm_eo]);
+      const char *next = skip_spaces (&pstate->lexptr[subexps[0].rm_eo]);
 
       if (rust_identifier_start_p (*next) || *next == '.')
 	{
@@ -3509,27 +3627,28 @@ lex_number (void)
   if (type_name == NULL)
     {
       gdb_assert (type_index != -1);
-      type_name_holder = std::string (lexptr + subexps[type_index].rm_so,
+      type_name_holder = std::string ((pstate->lexptr
+				       + subexps[type_index].rm_so),
 				      (subexps[type_index].rm_eo
 				       - subexps[type_index].rm_so));
       type_name = type_name_holder.c_str ();
     }
 
   /* Look up the type.  */
-  type = rust_type (type_name);
+  type = get_type (type_name);
 
   /* Copy the text of the number and remove the "_"s.  */
   std::string number;
-  for (i = 0; i < end_index && lexptr[i]; ++i)
+  for (i = 0; i < end_index && pstate->lexptr[i]; ++i)
     {
-      if (lexptr[i] == '_')
+      if (pstate->lexptr[i] == '_')
 	could_be_decimal = 0;
       else
-	number.push_back (lexptr[i]);
+	number.push_back (pstate->lexptr[i]);
     }
 
   /* Advance past the match.  */
-  lexptr += subexps[0].rm_eo;
+  pstate->lexptr += subexps[0].rm_eo;
 
   /* Parse the number.  */
   if (is_integer)
@@ -3553,19 +3672,19 @@ lex_number (void)
 	    }
 	}
 
-      value = strtoul (number.c_str () + offset, NULL, radix);
+      value = strtoulst (number.c_str () + offset, NULL, radix);
       if (implicit_i32 && value >= ((uint64_t) 1) << 31)
-	type = rust_type ("i64");
+	type = get_type ("i64");
 
-      rustyylval.typed_val_int.val = value;
-      rustyylval.typed_val_int.type = type;
+      lvalp->typed_val_int.val = value;
+      lvalp->typed_val_int.type = type;
     }
   else
     {
-      rustyylval.typed_val_float.type = type;
+      lvalp->typed_val_float.type = type;
       bool parsed = parse_float (number.c_str (), number.length (),
-				 rustyylval.typed_val_float.type,
-				 rustyylval.typed_val_float.val);
+				 lvalp->typed_val_float.type,
+				 lvalp->typed_val_float.val);
       gdb_assert (parsed);
     }
 
@@ -3575,82 +3694,87 @@ lex_number (void)
 /* The lexer.  */
 
 static int
-rustyylex (void)
+rustyylex (YYSTYPE *lvalp, rust_parser *parser)
 {
+  struct parser_state *pstate = parser->pstate;
+
   /* Skip all leading whitespace.  */
-  while (lexptr[0] == ' ' || lexptr[0] == '\t' || lexptr[0] == '\r'
-	 || lexptr[0] == '\n')
-    ++lexptr;
+  while (pstate->lexptr[0] == ' '
+	 || pstate->lexptr[0] == '\t'
+	 || pstate->lexptr[0] == '\r'
+	 || pstate->lexptr[0] == '\n')
+    ++pstate->lexptr;
 
   /* If we hit EOF and we're completing, then return COMPLETE -- maybe
      we're completing an empty string at the end of a field_expr.
      But, we don't want to return two COMPLETE tokens in a row.  */
-  if (lexptr[0] == '\0' && lexptr == prev_lexptr)
+  if (pstate->lexptr[0] == '\0' && pstate->lexptr == pstate->prev_lexptr)
     return 0;
-  prev_lexptr = lexptr;
-  if (lexptr[0] == '\0')
+  pstate->prev_lexptr = pstate->lexptr;
+  if (pstate->lexptr[0] == '\0')
     {
-      if (parse_completion)
+      if (pstate->parse_completion)
 	{
-	  rustyylval.sval = make_stoken ("");
+	  lvalp->sval = make_stoken ("");
 	  return COMPLETE;
 	}
       return 0;
     }
 
-  if (lexptr[0] >= '0' && lexptr[0] <= '9')
-    return lex_number ();
-  else if (lexptr[0] == 'b' && lexptr[1] == '\'')
-    return lex_character ();
-  else if (lexptr[0] == 'b' && lexptr[1] == '"')
-    return lex_string ();
-  else if (lexptr[0] == 'b' && starts_raw_string (lexptr + 1))
-    return lex_string ();
-  else if (starts_raw_string (lexptr))
-    return lex_string ();
-  else if (rust_identifier_start_p (lexptr[0]))
-    return lex_identifier ();
-  else if (lexptr[0] == '"')
-    return lex_string ();
-  else if (lexptr[0] == '\'')
-    return lex_character ();
-  else if (lexptr[0] == '}' || lexptr[0] == ']')
+  if (pstate->lexptr[0] >= '0' && pstate->lexptr[0] <= '9')
+    return parser->lex_number (lvalp);
+  else if (pstate->lexptr[0] == 'b' && pstate->lexptr[1] == '\'')
+    return parser->lex_character (lvalp);
+  else if (pstate->lexptr[0] == 'b' && pstate->lexptr[1] == '"')
+    return parser->lex_string (lvalp);
+  else if (pstate->lexptr[0] == 'b' && starts_raw_string (pstate->lexptr + 1))
+    return parser->lex_string (lvalp);
+  else if (starts_raw_string (pstate->lexptr))
+    return parser->lex_string (lvalp);
+  else if (rust_identifier_start_p (pstate->lexptr[0]))
+    return parser->lex_identifier (lvalp);
+  else if (pstate->lexptr[0] == '"')
+    return parser->lex_string (lvalp);
+  else if (pstate->lexptr[0] == '\'')
+    return parser->lex_character (lvalp);
+  else if (pstate->lexptr[0] == '}' || pstate->lexptr[0] == ']')
     {
       /* Falls through to lex_operator.  */
-      --paren_depth;
+      --parser->paren_depth;
     }
-  else if (lexptr[0] == '(' || lexptr[0] == '{')
+  else if (pstate->lexptr[0] == '(' || pstate->lexptr[0] == '{')
     {
       /* Falls through to lex_operator.  */
-      ++paren_depth;
+      ++parser->paren_depth;
     }
-  else if (lexptr[0] == ',' && comma_terminates && paren_depth == 0)
+  else if (pstate->lexptr[0] == ',' && pstate->comma_terminates
+	   && parser->paren_depth == 0)
     return 0;
 
-  return lex_operator ();
+  return parser->lex_operator (lvalp);
 }
 
 /* Push back a single character to be re-lexed.  */
 
-static void
-rust_push_back (char c)
+void
+rust_parser::push_back (char c)
 {
   /* Can't be called before any lexing.  */
-  gdb_assert (prev_lexptr != NULL);
+  gdb_assert (pstate->prev_lexptr != NULL);
 
-  --lexptr;
-  gdb_assert (*lexptr == c);
+  --pstate->lexptr;
+  gdb_assert (*pstate->lexptr == c);
 }
 
 
 
 /* Make an arbitrary operation and fill in the fields.  */
 
-static const struct rust_op *
-ast_operation (enum exp_opcode opcode, const struct rust_op *left,
-		const struct rust_op *right)
+const struct rust_op *
+rust_parser::ast_operation (enum exp_opcode opcode, const struct rust_op *left,
+			    const struct rust_op *right)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = opcode;
   result->left.op = left;
@@ -3661,11 +3785,12 @@ ast_operation (enum exp_opcode opcode, const struct rust_op *left,
 
 /* Make a compound assignment operation.  */
 
-static const struct rust_op *
-ast_compound_assignment (enum exp_opcode opcode, const struct rust_op *left,
-			  const struct rust_op *right)
+const struct rust_op *
+rust_parser::ast_compound_assignment (enum exp_opcode opcode,
+				      const struct rust_op *left,
+				      const struct rust_op *right)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = opcode;
   result->compound_assignment = 1;
@@ -3677,10 +3802,10 @@ ast_compound_assignment (enum exp_opcode opcode, const struct rust_op *left,
 
 /* Make a typed integer literal operation.  */
 
-static const struct rust_op *
-ast_literal (struct typed_val_int val)
+const struct rust_op *
+rust_parser::ast_literal (struct typed_val_int val)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = OP_LONG;
   result->left.typed_val_int = val;
@@ -3690,10 +3815,10 @@ ast_literal (struct typed_val_int val)
 
 /* Make a typed floating point literal operation.  */
 
-static const struct rust_op *
-ast_dliteral (struct typed_val_float val)
+const struct rust_op *
+rust_parser::ast_dliteral (struct typed_val_float val)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = OP_FLOAT;
   result->left.typed_val_float = val;
@@ -3703,18 +3828,18 @@ ast_dliteral (struct typed_val_float val)
 
 /* Make a unary operation.  */
 
-static const struct rust_op *
-ast_unary (enum exp_opcode opcode, const struct rust_op *expr)
+const struct rust_op *
+rust_parser::ast_unary (enum exp_opcode opcode, const struct rust_op *expr)
 {
   return ast_operation (opcode, expr, NULL);
 }
 
 /* Make a cast operation.  */
 
-static const struct rust_op *
-ast_cast (const struct rust_op *expr, const struct rust_op *type)
+const struct rust_op *
+rust_parser::ast_cast (const struct rust_op *expr, const struct rust_op *type)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = UNOP_CAST;
   result->left.op = expr;
@@ -3727,11 +3852,11 @@ ast_cast (const struct rust_op *expr, const struct rust_op *type)
    when lowering we may discover that it actually represents the
    creation of a tuple struct.  */
 
-static const struct rust_op *
-ast_call_ish (enum exp_opcode opcode, const struct rust_op *expr,
-	      rust_op_vector *params)
+const struct rust_op *
+rust_parser::ast_call_ish (enum exp_opcode opcode, const struct rust_op *expr,
+			   rust_op_vector *params)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = opcode;
   result->left.op = expr;
@@ -3742,10 +3867,10 @@ ast_call_ish (enum exp_opcode opcode, const struct rust_op *expr,
 
 /* Make a structure creation operation.  */
 
-static const struct rust_op *
-ast_struct (const struct rust_op *name, rust_set_vector *fields)
+const struct rust_op *
+rust_parser::ast_struct (const struct rust_op *name, rust_set_vector *fields)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = OP_AGGREGATE;
   result->left.op = name;
@@ -3756,10 +3881,10 @@ ast_struct (const struct rust_op *name, rust_set_vector *fields)
 
 /* Make an identifier path.  */
 
-static const struct rust_op *
-ast_path (struct stoken path, rust_op_vector *params)
+const struct rust_op *
+rust_parser::ast_path (struct stoken path, rust_op_vector *params)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = OP_VAR_VALUE;
   result->left.sval = path;
@@ -3770,10 +3895,10 @@ ast_path (struct stoken path, rust_op_vector *params)
 
 /* Make a string constant operation.  */
 
-static const struct rust_op *
-ast_string (struct stoken str)
+const struct rust_op *
+rust_parser::ast_string (struct stoken str)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = OP_STRING;
   result->left.sval = str;
@@ -3783,10 +3908,11 @@ ast_string (struct stoken str)
 
 /* Make a field expression.  */
 
-static const struct rust_op *
-ast_structop (const struct rust_op *left, const char *name, int completing)
+const struct rust_op *
+rust_parser::ast_structop (const struct rust_op *left, const char *name,
+			   int completing)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = STRUCTOP_STRUCT;
   result->completing = completing;
@@ -3798,11 +3924,11 @@ ast_structop (const struct rust_op *left, const char *name, int completing)
 
 /* Make an anonymous struct operation, like 'x.0'.  */
 
-static const struct rust_op *
-ast_structop_anonymous (const struct rust_op *left,
-			 struct typed_val_int number)
+const struct rust_op *
+rust_parser::ast_structop_anonymous (const struct rust_op *left,
+				     struct typed_val_int number)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = STRUCTOP_ANONYMOUS;
   result->left.op = left;
@@ -3813,11 +3939,11 @@ ast_structop_anonymous (const struct rust_op *left,
 
 /* Make a range operation.  */
 
-static const struct rust_op *
-ast_range (const struct rust_op *lhs, const struct rust_op *rhs,
-	   bool inclusive)
+const struct rust_op *
+rust_parser::ast_range (const struct rust_op *lhs, const struct rust_op *rhs,
+			bool inclusive)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = OP_RANGE;
   result->inclusive = inclusive;
@@ -3829,10 +3955,10 @@ ast_range (const struct rust_op *lhs, const struct rust_op *rhs,
 
 /* A helper function to make a type-related AST node.  */
 
-static struct rust_op *
-ast_basic_type (enum type_code typecode)
+struct rust_op *
+rust_parser::ast_basic_type (enum type_code typecode)
 {
-  struct rust_op *result = OBSTACK_ZALLOC (work_obstack, struct rust_op);
+  struct rust_op *result = OBSTACK_ZALLOC (&obstack, struct rust_op);
 
   result->opcode = OP_TYPE;
   result->typecode = typecode;
@@ -3841,8 +3967,9 @@ ast_basic_type (enum type_code typecode)
 
 /* Create an AST node describing an array type.  */
 
-static const struct rust_op *
-ast_array_type (const struct rust_op *lhs, struct typed_val_int val)
+const struct rust_op *
+rust_parser::ast_array_type (const struct rust_op *lhs,
+			     struct typed_val_int val)
 {
   struct rust_op *result = ast_basic_type (TYPE_CODE_ARRAY);
 
@@ -3853,8 +3980,8 @@ ast_array_type (const struct rust_op *lhs, struct typed_val_int val)
 
 /* Create an AST node describing a reference type.  */
 
-static const struct rust_op *
-ast_slice_type (const struct rust_op *type)
+const struct rust_op *
+rust_parser::ast_slice_type (const struct rust_op *type)
 {
   /* Use TYPE_CODE_COMPLEX just because it is handy.  */
   struct rust_op *result = ast_basic_type (TYPE_CODE_COMPLEX);
@@ -3865,8 +3992,8 @@ ast_slice_type (const struct rust_op *type)
 
 /* Create an AST node describing a reference type.  */
 
-static const struct rust_op *
-ast_reference_type (const struct rust_op *type)
+const struct rust_op *
+rust_parser::ast_reference_type (const struct rust_op *type)
 {
   struct rust_op *result = ast_basic_type (TYPE_CODE_REF);
 
@@ -3876,8 +4003,8 @@ ast_reference_type (const struct rust_op *type)
 
 /* Create an AST node describing a pointer type.  */
 
-static const struct rust_op *
-ast_pointer_type (const struct rust_op *type, int is_mut)
+const struct rust_op *
+rust_parser::ast_pointer_type (const struct rust_op *type, int is_mut)
 {
   struct rust_op *result = ast_basic_type (TYPE_CODE_PTR);
 
@@ -3888,8 +4015,9 @@ ast_pointer_type (const struct rust_op *type, int is_mut)
 
 /* Create an AST node describing a function type.  */
 
-static const struct rust_op *
-ast_function_type (const struct rust_op *rtype, rust_op_vector *params)
+const struct rust_op *
+rust_parser::ast_function_type (const struct rust_op *rtype,
+				rust_op_vector *params)
 {
   struct rust_op *result = ast_basic_type (TYPE_CODE_FUNC);
 
@@ -3900,8 +4028,8 @@ ast_function_type (const struct rust_op *rtype, rust_op_vector *params)
 
 /* Create an AST node describing a tuple type.  */
 
-static const struct rust_op *
-ast_tuple_type (rust_op_vector *params)
+const struct rust_op *
+rust_parser::ast_tuple_type (rust_op_vector *params)
 {
   struct rust_op *result = ast_basic_type (TYPE_CODE_STRUCT);
 
@@ -3927,15 +4055,15 @@ munge_name_and_block (const char **name, const struct block **block)
 /* Like lookup_symbol, but handles Rust namespace conventions, and
    doesn't require field_of_this_result.  */
 
-static struct block_symbol
-rust_lookup_symbol (const char *name, const struct block *block,
-		    const domain_enum domain)
+struct block_symbol
+rust_parser::lookup_symbol (const char *name, const struct block *block,
+			    const domain_enum domain)
 {
   struct block_symbol result;
 
   munge_name_and_block (&name, &block);
 
-  result = lookup_symbol (name, block, domain, NULL);
+  result = ::lookup_symbol (name, block, domain, NULL);
   if (result.symbol != NULL)
     update_innermost_block (result);
   return result;
@@ -3943,49 +4071,41 @@ rust_lookup_symbol (const char *name, const struct block *block,
 
 /* Look up a type, following Rust namespace conventions.  */
 
-static struct type *
-rust_lookup_type (const char *name, const struct block *block)
+struct type *
+rust_parser::rust_lookup_type (const char *name, const struct block *block)
 {
   struct block_symbol result;
   struct type *type;
 
   munge_name_and_block (&name, &block);
 
-  result = lookup_symbol (name, block, STRUCT_DOMAIN, NULL);
+  result = ::lookup_symbol (name, block, STRUCT_DOMAIN, NULL);
   if (result.symbol != NULL)
     {
       update_innermost_block (result);
       return SYMBOL_TYPE (result.symbol);
     }
 
-  type = lookup_typename (current_parser->language (), current_parser->arch (),
-			  name, NULL, 1);
+  type = lookup_typename (language (), name, NULL, 1);
   if (type != NULL)
     return type;
 
   /* Last chance, try a built-in type.  */
-  return language_lookup_primitive_type (current_parser->language (),
-					 current_parser->arch (),
-					 name);
+  return language_lookup_primitive_type (language (), arch (), name);
 }
-
-static struct type *convert_ast_to_type (struct parser_state *state,
-					 const struct rust_op *operation);
-static const char *convert_name (struct parser_state *state,
-				 const struct rust_op *operation);
 
 /* Convert a vector of rust_ops representing types to a vector of
    types.  */
 
-static std::vector<struct type *>
-convert_params_to_types (struct parser_state *state, rust_op_vector *params)
+std::vector<struct type *>
+rust_parser::convert_params_to_types (rust_op_vector *params)
 {
   std::vector<struct type *> result;
 
   if (params != nullptr)
     {
       for (const rust_op *op : *params)
-        result.push_back (convert_ast_to_type (state, op));
+        result.push_back (convert_ast_to_type (op));
     }
 
   return result;
@@ -3993,17 +4113,16 @@ convert_params_to_types (struct parser_state *state, rust_op_vector *params)
 
 /* Convert a rust_op representing a type to a struct type *.  */
 
-static struct type *
-convert_ast_to_type (struct parser_state *state,
-		     const struct rust_op *operation)
+struct type *
+rust_parser::convert_ast_to_type (const struct rust_op *operation)
 {
   struct type *type, *result = NULL;
 
   if (operation->opcode == OP_VAR_VALUE)
     {
-      const char *varname = convert_name (state, operation);
+      const char *varname = convert_name (operation);
 
-      result = rust_lookup_type (varname, expression_context_block);
+      result = rust_lookup_type (varname, pstate->expression_context_block);
       if (result == NULL)
 	error (_("No typed name '%s' in current context"), varname);
       return result;
@@ -4014,7 +4133,7 @@ convert_ast_to_type (struct parser_state *state,
   switch (operation->typecode)
     {
     case TYPE_CODE_ARRAY:
-      type = convert_ast_to_type (state, operation->left.op);
+      type = convert_ast_to_type (operation->left.op);
       if (operation->right.typed_val_int.val < 0)
 	error (_("Negative array length"));
       result = lookup_array_range_type (type, 0,
@@ -4023,9 +4142,9 @@ convert_ast_to_type (struct parser_state *state,
 
     case TYPE_CODE_COMPLEX:
       {
-	struct type *usize = rust_type ("usize");
+	struct type *usize = get_type ("usize");
 
-	type = convert_ast_to_type (state, operation->left.op);
+	type = convert_ast_to_type (operation->left.op);
 	result = rust_slice_type ("&[*gdb*]", type, usize);
       }
       break;
@@ -4033,17 +4152,17 @@ convert_ast_to_type (struct parser_state *state,
     case TYPE_CODE_REF:
     case TYPE_CODE_PTR:
       /* For now we treat &x and *x identically.  */
-      type = convert_ast_to_type (state, operation->left.op);
+      type = convert_ast_to_type (operation->left.op);
       result = lookup_pointer_type (type);
       break;
 
     case TYPE_CODE_FUNC:
       {
 	std::vector<struct type *> args
-	  (convert_params_to_types (state, operation->right.params));
+	  (convert_params_to_types (operation->right.params));
 	struct type **argtypes = NULL;
 
-	type = convert_ast_to_type (state, operation->left.op);
+	type = convert_ast_to_type (operation->left.op);
 	if (!args.empty ())
 	  argtypes = args.data ();
 
@@ -4057,26 +4176,26 @@ convert_ast_to_type (struct parser_state *state,
     case TYPE_CODE_STRUCT:
       {
 	std::vector<struct type *> args
-	  (convert_params_to_types (state, operation->left.params));
+	  (convert_params_to_types (operation->left.params));
 	int i;
 	const char *name;
 
-	obstack_1grow (work_obstack, '(');
+	obstack_1grow (&obstack, '(');
 	for (i = 0; i < args.size (); ++i)
 	  {
 	    std::string type_name = type_to_string (args[i]);
 
 	    if (i > 0)
-	      obstack_1grow (work_obstack, ',');
-	    obstack_grow_str (work_obstack, type_name.c_str ());
+	      obstack_1grow (&obstack, ',');
+	    obstack_grow_str (&obstack, type_name.c_str ());
 	  }
 
-	obstack_grow_str0 (work_obstack, ")");
-	name = (const char *) obstack_finish (work_obstack);
+	obstack_grow_str0 (&obstack, ")");
+	name = (const char *) obstack_finish (&obstack);
 
 	/* We don't allow creating new tuple types (yet), but we do
 	   allow looking up existing tuple types.  */
-	result = rust_lookup_type (name, expression_context_block);
+	result = rust_lookup_type (name, pstate->expression_context_block);
 	if (result == NULL)
 	  error (_("could not find tuple type '%s'"), name);
       }
@@ -4094,8 +4213,8 @@ convert_ast_to_type (struct parser_state *state,
    name.  This applies generic arguments as needed.  The returned name
    is allocated on the work obstack.  */
 
-static const char *
-convert_name (struct parser_state *state, const struct rust_op *operation)
+const char *
+rust_parser::convert_name (const struct rust_op *operation)
 {
   int i;
 
@@ -4105,39 +4224,33 @@ convert_name (struct parser_state *state, const struct rust_op *operation)
     return operation->left.sval.ptr;
 
   std::vector<struct type *> types
-    (convert_params_to_types (state, operation->right.params));
+    (convert_params_to_types (operation->right.params));
 
-  obstack_grow_str (work_obstack, operation->left.sval.ptr);
-  obstack_1grow (work_obstack, '<');
+  obstack_grow_str (&obstack, operation->left.sval.ptr);
+  obstack_1grow (&obstack, '<');
   for (i = 0; i < types.size (); ++i)
     {
       std::string type_name = type_to_string (types[i]);
 
       if (i > 0)
-	obstack_1grow (work_obstack, ',');
+	obstack_1grow (&obstack, ',');
 
-      obstack_grow_str (work_obstack, type_name.c_str ());
+      obstack_grow_str (&obstack, type_name.c_str ());
     }
-  obstack_grow_str0 (work_obstack, ">");
+  obstack_grow_str0 (&obstack, ">");
 
-  return (const char *) obstack_finish (work_obstack);
+  return (const char *) obstack_finish (&obstack);
 }
-
-static void convert_ast_to_expression (struct parser_state *state,
-				       const struct rust_op *operation,
-				       const struct rust_op *top,
-				       bool want_type = false);
 
 /* A helper function that converts a vec of rust_ops to a gdb
    expression.  */
 
-static void
-convert_params_to_expression (struct parser_state *state,
-			      rust_op_vector *params,
-			      const struct rust_op *top)
+void
+rust_parser::convert_params_to_expression (rust_op_vector *params,
+					   const struct rust_op *top)
 {
   for (const rust_op *elem : *params)
-    convert_ast_to_expression (state, elem, top);
+    convert_ast_to_expression (elem, top);
 }
 
 /* Lower a rust_op to a gdb expression.  STATE is the parser state.
@@ -4149,53 +4262,52 @@ convert_params_to_expression (struct parser_state *state,
    erroring).  If WANT_TYPE is set, then the similar TOP handling is
    not done.  */
 
-static void
-convert_ast_to_expression (struct parser_state *state,
-			   const struct rust_op *operation,
-			   const struct rust_op *top,
-			   bool want_type)
+void
+rust_parser::convert_ast_to_expression (const struct rust_op *operation,
+					const struct rust_op *top,
+					bool want_type)
 {
   switch (operation->opcode)
     {
     case OP_LONG:
-      write_exp_elt_opcode (state, OP_LONG);
-      write_exp_elt_type (state, operation->left.typed_val_int.type);
-      write_exp_elt_longcst (state, operation->left.typed_val_int.val);
-      write_exp_elt_opcode (state, OP_LONG);
+      write_exp_elt_opcode (pstate, OP_LONG);
+      write_exp_elt_type (pstate, operation->left.typed_val_int.type);
+      write_exp_elt_longcst (pstate, operation->left.typed_val_int.val);
+      write_exp_elt_opcode (pstate, OP_LONG);
       break;
 
     case OP_FLOAT:
-      write_exp_elt_opcode (state, OP_FLOAT);
-      write_exp_elt_type (state, operation->left.typed_val_float.type);
-      write_exp_elt_floatcst (state, operation->left.typed_val_float.val);
-      write_exp_elt_opcode (state, OP_FLOAT);
+      write_exp_elt_opcode (pstate, OP_FLOAT);
+      write_exp_elt_type (pstate, operation->left.typed_val_float.type);
+      write_exp_elt_floatcst (pstate, operation->left.typed_val_float.val);
+      write_exp_elt_opcode (pstate, OP_FLOAT);
       break;
 
     case STRUCTOP_STRUCT:
       {
-	convert_ast_to_expression (state, operation->left.op, top);
+	convert_ast_to_expression (operation->left.op, top);
 
 	if (operation->completing)
-	  mark_struct_expression (state);
-	write_exp_elt_opcode (state, STRUCTOP_STRUCT);
-	write_exp_string (state, operation->right.sval);
-	write_exp_elt_opcode (state, STRUCTOP_STRUCT);
+	  pstate->mark_struct_expression ();
+	write_exp_elt_opcode (pstate, STRUCTOP_STRUCT);
+	write_exp_string (pstate, operation->right.sval);
+	write_exp_elt_opcode (pstate, STRUCTOP_STRUCT);
       }
       break;
 
     case STRUCTOP_ANONYMOUS:
       {
-	convert_ast_to_expression (state, operation->left.op, top);
+	convert_ast_to_expression (operation->left.op, top);
 
-	write_exp_elt_opcode (state, STRUCTOP_ANONYMOUS);
-	write_exp_elt_longcst (state, operation->right.typed_val_int.val);
-	write_exp_elt_opcode (state, STRUCTOP_ANONYMOUS);
+	write_exp_elt_opcode (pstate, STRUCTOP_ANONYMOUS);
+	write_exp_elt_longcst (pstate, operation->right.typed_val_int.val);
+	write_exp_elt_opcode (pstate, STRUCTOP_ANONYMOUS);
       }
       break;
 
     case UNOP_SIZEOF:
-      convert_ast_to_expression (state, operation->left.op, top, true);
-      write_exp_elt_opcode (state, UNOP_SIZEOF);
+      convert_ast_to_expression (operation->left.op, top, true);
+      write_exp_elt_opcode (pstate, UNOP_SIZEOF);
       break;
 
     case UNOP_PLUS:
@@ -4203,8 +4315,8 @@ convert_ast_to_expression (struct parser_state *state,
     case UNOP_COMPLEMENT:
     case UNOP_IND:
     case UNOP_ADDR:
-      convert_ast_to_expression (state, operation->left.op, top);
-      write_exp_elt_opcode (state, operation->opcode);
+      convert_ast_to_expression (operation->left.op, top);
+      write_exp_elt_opcode (pstate, operation->opcode);
       break;
 
     case BINOP_SUBSCRIPT:
@@ -4229,43 +4341,43 @@ convert_ast_to_expression (struct parser_state *state,
     case BINOP_RSH:
     case BINOP_ASSIGN:
     case OP_RUST_ARRAY:
-      convert_ast_to_expression (state, operation->left.op, top);
-      convert_ast_to_expression (state, operation->right.op, top);
+      convert_ast_to_expression (operation->left.op, top);
+      convert_ast_to_expression (operation->right.op, top);
       if (operation->compound_assignment)
 	{
-	  write_exp_elt_opcode (state, BINOP_ASSIGN_MODIFY);
-	  write_exp_elt_opcode (state, operation->opcode);
-	  write_exp_elt_opcode (state, BINOP_ASSIGN_MODIFY);
+	  write_exp_elt_opcode (pstate, BINOP_ASSIGN_MODIFY);
+	  write_exp_elt_opcode (pstate, operation->opcode);
+	  write_exp_elt_opcode (pstate, BINOP_ASSIGN_MODIFY);
 	}
       else
-	write_exp_elt_opcode (state, operation->opcode);
+	write_exp_elt_opcode (pstate, operation->opcode);
 
       if (operation->compound_assignment
 	  || operation->opcode == BINOP_ASSIGN)
 	{
 	  struct type *type;
 
-	  type = language_lookup_primitive_type (parse_language (state),
-						 parse_gdbarch (state),
+	  type = language_lookup_primitive_type (pstate->language (),
+						 pstate->gdbarch (),
 						 "()");
 
-	  write_exp_elt_opcode (state, OP_LONG);
-	  write_exp_elt_type (state, type);
-	  write_exp_elt_longcst (state, 0);
-	  write_exp_elt_opcode (state, OP_LONG);
+	  write_exp_elt_opcode (pstate, OP_LONG);
+	  write_exp_elt_type (pstate, type);
+	  write_exp_elt_longcst (pstate, 0);
+	  write_exp_elt_opcode (pstate, OP_LONG);
 
-	  write_exp_elt_opcode (state, BINOP_COMMA);
+	  write_exp_elt_opcode (pstate, BINOP_COMMA);
 	}
       break;
 
     case UNOP_CAST:
       {
-	struct type *type = convert_ast_to_type (state, operation->right.op);
+	struct type *type = convert_ast_to_type (operation->right.op);
 
-	convert_ast_to_expression (state, operation->left.op, top);
-	write_exp_elt_opcode (state, UNOP_CAST);
-	write_exp_elt_type (state, type);
-	write_exp_elt_opcode (state, UNOP_CAST);
+	convert_ast_to_expression (operation->left.op, top);
+	write_exp_elt_opcode (pstate, UNOP_CAST);
+	write_exp_elt_type (pstate, type);
+	write_exp_elt_opcode (pstate, UNOP_CAST);
       }
       break;
 
@@ -4274,16 +4386,17 @@ convert_ast_to_expression (struct parser_state *state,
 	if (operation->left.op->opcode == OP_VAR_VALUE)
 	  {
 	    struct type *type;
-	    const char *varname = convert_name (state, operation->left.op);
+	    const char *varname = convert_name (operation->left.op);
 
-	    type = rust_lookup_type (varname, expression_context_block);
+	    type = rust_lookup_type (varname,
+				     pstate->expression_context_block);
 	    if (type != NULL)
 	      {
 		/* This is actually a tuple struct expression, not a
 		   call expression.  */
 		rust_op_vector *params = operation->right.params;
 
-		if (TYPE_CODE (type) != TYPE_CODE_NAMESPACE)
+		if (type->code () != TYPE_CODE_NAMESPACE)
 		  {
 		    if (!rust_tuple_struct_type_p (type))
 		      error (_("Type %s is not a tuple struct"), varname);
@@ -4293,36 +4406,36 @@ convert_ast_to_expression (struct parser_state *state,
 			char *cell = get_print_cell ();
 
 			xsnprintf (cell, PRINT_CELL_SIZE, "__%d", i);
-			write_exp_elt_opcode (state, OP_NAME);
-			write_exp_string (state, make_stoken (cell));
-			write_exp_elt_opcode (state, OP_NAME);
+			write_exp_elt_opcode (pstate, OP_NAME);
+			write_exp_string (pstate, make_stoken (cell));
+			write_exp_elt_opcode (pstate, OP_NAME);
 
-			convert_ast_to_expression (state, (*params)[i], top);
+			convert_ast_to_expression ((*params)[i], top);
 		      }
 
-		    write_exp_elt_opcode (state, OP_AGGREGATE);
-		    write_exp_elt_type (state, type);
-		    write_exp_elt_longcst (state, 2 * params->size ());
-		    write_exp_elt_opcode (state, OP_AGGREGATE);
+		    write_exp_elt_opcode (pstate, OP_AGGREGATE);
+		    write_exp_elt_type (pstate, type);
+		    write_exp_elt_longcst (pstate, 2 * params->size ());
+		    write_exp_elt_opcode (pstate, OP_AGGREGATE);
 		    break;
 		  }
 	      }
 	  }
-	convert_ast_to_expression (state, operation->left.op, top);
-	convert_params_to_expression (state, operation->right.params, top);
-	write_exp_elt_opcode (state, OP_FUNCALL);
-	write_exp_elt_longcst (state, operation->right.params->size ());
-	write_exp_elt_longcst (state, OP_FUNCALL);
+	convert_ast_to_expression (operation->left.op, top);
+	convert_params_to_expression (operation->right.params, top);
+	write_exp_elt_opcode (pstate, OP_FUNCALL);
+	write_exp_elt_longcst (pstate, operation->right.params->size ());
+	write_exp_elt_longcst (pstate, OP_FUNCALL);
       }
       break;
 
     case OP_ARRAY:
       gdb_assert (operation->left.op == NULL);
-      convert_params_to_expression (state, operation->right.params, top);
-      write_exp_elt_opcode (state, OP_ARRAY);
-      write_exp_elt_longcst (state, 0);
-      write_exp_elt_longcst (state, operation->right.params->size () - 1);
-      write_exp_elt_longcst (state, OP_ARRAY);
+      convert_params_to_expression (operation->right.params, top);
+      write_exp_elt_opcode (pstate, OP_ARRAY);
+      write_exp_elt_longcst (pstate, 0);
+      write_exp_elt_longcst (pstate, operation->right.params->size () - 1);
+      write_exp_elt_longcst (pstate, OP_ARRAY);
       break;
 
     case OP_VAR_VALUE:
@@ -4332,19 +4445,19 @@ convert_ast_to_expression (struct parser_state *state,
 
 	if (operation->left.sval.ptr[0] == '$')
 	  {
-	    write_dollar_variable (state, operation->left.sval);
+	    write_dollar_variable (pstate, operation->left.sval);
 	    break;
 	  }
 
-	varname = convert_name (state, operation);
-	sym = rust_lookup_symbol (varname, expression_context_block,
-				  VAR_DOMAIN);
+	varname = convert_name (operation);
+	sym = lookup_symbol (varname, pstate->expression_context_block,
+			     VAR_DOMAIN);
 	if (sym.symbol != NULL && SYMBOL_CLASS (sym.symbol) != LOC_TYPEDEF)
 	  {
-	    write_exp_elt_opcode (state, OP_VAR_VALUE);
-	    write_exp_elt_block (state, sym.block);
-	    write_exp_elt_sym (state, sym.symbol);
-	    write_exp_elt_opcode (state, OP_VAR_VALUE);
+	    write_exp_elt_opcode (pstate, OP_VAR_VALUE);
+	    write_exp_elt_block (pstate, sym.block);
+	    write_exp_elt_sym (pstate, sym.symbol);
+	    write_exp_elt_opcode (pstate, OP_VAR_VALUE);
 	  }
 	else
 	  {
@@ -4356,25 +4469,26 @@ convert_ast_to_expression (struct parser_state *state,
 		type = SYMBOL_TYPE (sym.symbol);
 	      }
 	    if (type == NULL)
-	      type = rust_lookup_type (varname, expression_context_block);
+	      type = rust_lookup_type (varname,
+				       pstate->expression_context_block);
 	    if (type == NULL)
 	      error (_("No symbol '%s' in current context"), varname);
 
 	    if (!want_type
-		&& TYPE_CODE (type) == TYPE_CODE_STRUCT
-		&& TYPE_NFIELDS (type) == 0)
+		&& type->code () == TYPE_CODE_STRUCT
+		&& type->num_fields () == 0)
 	      {
 		/* A unit-like struct.  */
-		write_exp_elt_opcode (state, OP_AGGREGATE);
-		write_exp_elt_type (state, type);
-		write_exp_elt_longcst (state, 0);
-		write_exp_elt_opcode (state, OP_AGGREGATE);
+		write_exp_elt_opcode (pstate, OP_AGGREGATE);
+		write_exp_elt_type (pstate, type);
+		write_exp_elt_longcst (pstate, 0);
+		write_exp_elt_opcode (pstate, OP_AGGREGATE);
 	      }
 	    else if (want_type || operation == top)
 	      {
-		write_exp_elt_opcode (state, OP_TYPE);
-		write_exp_elt_type (state, type);
-		write_exp_elt_opcode (state, OP_TYPE);
+		write_exp_elt_opcode (pstate, OP_TYPE);
+		write_exp_elt_type (pstate, type);
+		write_exp_elt_opcode (pstate, OP_TYPE);
 	      }
 	    else
 	      error (_("Found type '%s', which can't be "
@@ -4396,45 +4510,45 @@ convert_ast_to_expression (struct parser_state *state,
 	  {
 	    if (init.name.ptr != NULL)
 	      {
-		write_exp_elt_opcode (state, OP_NAME);
-		write_exp_string (state, init.name);
-		write_exp_elt_opcode (state, OP_NAME);
+		write_exp_elt_opcode (pstate, OP_NAME);
+		write_exp_string (pstate, init.name);
+		write_exp_elt_opcode (pstate, OP_NAME);
 		++length;
 	      }
 
-	    convert_ast_to_expression (state, init.init, top);
+	    convert_ast_to_expression (init.init, top);
 	    ++length;
 
 	    if (init.name.ptr == NULL)
 	      {
 		/* This is handled differently from Ada in our
 		   evaluator.  */
-		write_exp_elt_opcode (state, OP_OTHERS);
+		write_exp_elt_opcode (pstate, OP_OTHERS);
 	      }
 	  }
 
-	name = convert_name (state, operation->left.op);
-	type = rust_lookup_type (name, expression_context_block);
+	name = convert_name (operation->left.op);
+	type = rust_lookup_type (name, pstate->expression_context_block);
 	if (type == NULL)
 	  error (_("Could not find type '%s'"), operation->left.sval.ptr);
 
-	if (TYPE_CODE (type) != TYPE_CODE_STRUCT
+	if (type->code () != TYPE_CODE_STRUCT
 	    || rust_tuple_type_p (type)
 	    || rust_tuple_struct_type_p (type))
 	  error (_("Struct expression applied to non-struct type"));
 
-	write_exp_elt_opcode (state, OP_AGGREGATE);
-	write_exp_elt_type (state, type);
-	write_exp_elt_longcst (state, length);
-	write_exp_elt_opcode (state, OP_AGGREGATE);
+	write_exp_elt_opcode (pstate, OP_AGGREGATE);
+	write_exp_elt_type (pstate, type);
+	write_exp_elt_longcst (pstate, length);
+	write_exp_elt_opcode (pstate, OP_AGGREGATE);
       }
       break;
 
     case OP_STRING:
       {
-	write_exp_elt_opcode (state, OP_STRING);
-	write_exp_string (state, operation->left.sval);
-	write_exp_elt_opcode (state, OP_STRING);
+	write_exp_elt_opcode (pstate, OP_STRING);
+	write_exp_string (pstate, operation->left.sval);
+	write_exp_elt_opcode (pstate, OP_STRING);
       }
       break;
 
@@ -4444,12 +4558,12 @@ convert_ast_to_expression (struct parser_state *state,
 
 	if (operation->left.op != NULL)
 	  {
-	    convert_ast_to_expression (state, operation->left.op, top);
+	    convert_ast_to_expression (operation->left.op, top);
 	    kind = HIGH_BOUND_DEFAULT;
 	  }
 	if (operation->right.op != NULL)
 	  {
-	    convert_ast_to_expression (state, operation->right.op, top);
+	    convert_ast_to_expression (operation->right.op, top);
 	    if (kind == BOTH_BOUND_DEFAULT)
 	      kind = (operation->inclusive
 		      ? LOW_BOUND_DEFAULT : LOW_BOUND_DEFAULT_EXCLUSIVE);
@@ -4467,9 +4581,9 @@ convert_ast_to_expression (struct parser_state *state,
 	    gdb_assert (!operation->inclusive);
 	  }
 
-	write_exp_elt_opcode (state, OP_RANGE);
-	write_exp_elt_longcst (state, kind);
-	write_exp_elt_opcode (state, OP_RANGE);
+	write_exp_elt_opcode (pstate, OP_RANGE);
+	write_exp_elt_longcst (pstate, kind);
+	write_exp_elt_opcode (pstate, OP_RANGE);
       }
       break;
 
@@ -4491,10 +4605,10 @@ rust_parse (struct parser_state *state)
      destruction.  */
   rust_parser parser (state);
 
-  result = rustyyparse ();
+  result = rustyyparse (&parser);
 
-  if (!result || (parse_completion && parser.rust_ast != NULL))
-    convert_ast_to_expression (state, parser.rust_ast, parser.rust_ast);
+  if (!result || (state->parse_completion && parser.rust_ast != NULL))
+    parser.convert_ast_to_expression (parser.rust_ast, parser.rust_ast);
 
   return result;
 }
@@ -4502,9 +4616,11 @@ rust_parse (struct parser_state *state)
 /* The parser error handler.  */
 
 static void
-rustyyerror (const char *msg)
+rustyyerror (rust_parser *parser, const char *msg)
 {
-  const char *where = prev_lexptr ? prev_lexptr : lexptr;
+  const char *where = (parser->pstate->prev_lexptr
+		       ? parser->pstate->prev_lexptr
+		       : parser->pstate->lexptr);
   error (_("%s in expression, near `%s'."), msg, where);
 }
 
@@ -4515,31 +4631,31 @@ rustyyerror (const char *msg)
 /* Initialize the lexer for testing.  */
 
 static void
-rust_lex_test_init (const char *input)
+rust_lex_test_init (rust_parser *parser, const char *input)
 {
-  prev_lexptr = NULL;
-  lexptr = input;
-  paren_depth = 0;
+  parser->pstate->prev_lexptr = NULL;
+  parser->pstate->lexptr = input;
+  parser->paren_depth = 0;
 }
 
 /* A test helper that lexes a string, expecting a single token.  It
    returns the lexer data for this token.  */
 
 static RUSTSTYPE
-rust_lex_test_one (const char *input, int expected)
+rust_lex_test_one (rust_parser *parser, const char *input, int expected)
 {
   int token;
   RUSTSTYPE result;
 
-  rust_lex_test_init (input);
+  rust_lex_test_init (parser, input);
 
-  token = rustyylex ();
+  token = rustyylex (&result, parser);
   SELF_CHECK (token == expected);
-  result = rustyylval;
 
   if (token)
     {
-      token = rustyylex ();
+      RUSTSTYPE ignore;
+      token = rustyylex (&ignore, parser);
       SELF_CHECK (token == 0);
     }
 
@@ -4549,37 +4665,39 @@ rust_lex_test_one (const char *input, int expected)
 /* Test that INPUT lexes as the integer VALUE.  */
 
 static void
-rust_lex_int_test (const char *input, int value, int kind)
+rust_lex_int_test (rust_parser *parser, const char *input,
+		   LONGEST value, int kind)
 {
-  RUSTSTYPE result = rust_lex_test_one (input, kind);
+  RUSTSTYPE result = rust_lex_test_one (parser, input, kind);
   SELF_CHECK (result.typed_val_int.val == value);
 }
 
 /* Test that INPUT throws an exception with text ERR.  */
 
 static void
-rust_lex_exception_test (const char *input, const char *err)
+rust_lex_exception_test (rust_parser *parser, const char *input,
+			 const char *err)
 {
-  TRY
+  try
     {
       /* The "kind" doesn't matter.  */
-      rust_lex_test_one (input, DECIMAL_INTEGER);
+      rust_lex_test_one (parser, input, DECIMAL_INTEGER);
       SELF_CHECK (0);
     }
-  CATCH (except, RETURN_MASK_ERROR)
+  catch (const gdb_exception_error &except)
     {
-      SELF_CHECK (strcmp (except.message, err) == 0);
+      SELF_CHECK (strcmp (except.what (), err) == 0);
     }
-  END_CATCH
 }
 
 /* Test that INPUT lexes as the identifier, string, or byte-string
    VALUE.  KIND holds the expected token kind.  */
 
 static void
-rust_lex_stringish_test (const char *input, const char *value, int kind)
+rust_lex_stringish_test (rust_parser *parser, const char *input,
+			 const char *value, int kind)
 {
-  RUSTSTYPE result = rust_lex_test_one (input, kind);
+  RUSTSTYPE result = rust_lex_test_one (parser, input, kind);
   SELF_CHECK (result.sval.length == strlen (value));
   SELF_CHECK (strncmp (result.sval.ptr, value, result.sval.length) == 0);
 }
@@ -4587,16 +4705,18 @@ rust_lex_stringish_test (const char *input, const char *value, int kind)
 /* Helper to test that a string parses as a given token sequence.  */
 
 static void
-rust_lex_test_sequence (const char *input, int len, const int expected[])
+rust_lex_test_sequence (rust_parser *parser, const char *input, int len,
+			const int expected[])
 {
   int i;
 
-  lexptr = input;
-  paren_depth = 0;
+  parser->pstate->lexptr = input;
+  parser->paren_depth = 0;
 
   for (i = 0; i < len; ++i)
     {
-      int token = rustyylex ();
+      RUSTSTYPE ignore;
+      int token = rustyylex (&ignore, parser);
 
       SELF_CHECK (token == expected[i]);
     }
@@ -4605,53 +4725,58 @@ rust_lex_test_sequence (const char *input, int len, const int expected[])
 /* Tests for an integer-parsing corner case.  */
 
 static void
-rust_lex_test_trailing_dot (void)
+rust_lex_test_trailing_dot (rust_parser *parser)
 {
   const int expected1[] = { DECIMAL_INTEGER, '.', IDENT, '(', ')', 0 };
   const int expected2[] = { INTEGER, '.', IDENT, '(', ')', 0 };
   const int expected3[] = { FLOAT, EQEQ, '(', ')', 0 };
   const int expected4[] = { DECIMAL_INTEGER, DOTDOT, DECIMAL_INTEGER, 0 };
 
-  rust_lex_test_sequence ("23.g()", ARRAY_SIZE (expected1), expected1);
-  rust_lex_test_sequence ("23_0.g()", ARRAY_SIZE (expected2), expected2);
-  rust_lex_test_sequence ("23.==()", ARRAY_SIZE (expected3), expected3);
-  rust_lex_test_sequence ("23..25", ARRAY_SIZE (expected4), expected4);
+  rust_lex_test_sequence (parser, "23.g()", ARRAY_SIZE (expected1), expected1);
+  rust_lex_test_sequence (parser, "23_0.g()", ARRAY_SIZE (expected2),
+			  expected2);
+  rust_lex_test_sequence (parser, "23.==()", ARRAY_SIZE (expected3),
+			  expected3);
+  rust_lex_test_sequence (parser, "23..25", ARRAY_SIZE (expected4), expected4);
 }
 
 /* Tests of completion.  */
 
 static void
-rust_lex_test_completion (void)
+rust_lex_test_completion (rust_parser *parser)
 {
   const int expected[] = { IDENT, '.', COMPLETE, 0 };
 
-  parse_completion = 1;
+  parser->pstate->parse_completion = 1;
 
-  rust_lex_test_sequence ("something.wha", ARRAY_SIZE (expected), expected);
-  rust_lex_test_sequence ("something.", ARRAY_SIZE (expected), expected);
+  rust_lex_test_sequence (parser, "something.wha", ARRAY_SIZE (expected),
+			  expected);
+  rust_lex_test_sequence (parser, "something.", ARRAY_SIZE (expected),
+			  expected);
 
-  parse_completion = 0;
+  parser->pstate->parse_completion = 0;
 }
 
 /* Test pushback.  */
 
 static void
-rust_lex_test_push_back (void)
+rust_lex_test_push_back (rust_parser *parser)
 {
   int token;
+  RUSTSTYPE lval;
 
-  rust_lex_test_init (">>=");
+  rust_lex_test_init (parser, ">>=");
 
-  token = rustyylex ();
+  token = rustyylex (&lval, parser);
   SELF_CHECK (token == COMPOUND_ASSIGN);
-  SELF_CHECK (rustyylval.opcode == BINOP_RSH);
+  SELF_CHECK (lval.opcode == BINOP_RSH);
 
-  rust_push_back ('=');
+  parser->push_back ('=');
 
-  token = rustyylex ();
+  token = rustyylex (&lval, parser);
   SELF_CHECK (token == '=');
 
-  token = rustyylex ();
+  token = rustyylex (&lval, parser);
   SELF_CHECK (token == 0);
 }
 
@@ -4662,107 +4787,110 @@ rust_lex_tests (void)
 {
   int i;
 
-  auto_obstack test_obstack;
-  scoped_restore obstack_holder = make_scoped_restore (&work_obstack,
-						       &test_obstack);
-
-  // Set up dummy "parser", so that rust_type works.
-  struct parser_state ps (0, &rust_language_defn, target_gdbarch ());
+  /* Set up dummy "parser", so that rust_type works.  */
+  struct parser_state ps (language_def (language_rust), target_gdbarch (),
+			  nullptr, 0, 0, nullptr, 0, nullptr);
   rust_parser parser (&ps);
 
-  rust_lex_test_one ("", 0);
-  rust_lex_test_one ("    \t  \n \r  ", 0);
-  rust_lex_test_one ("thread 23", 0);
-  rust_lex_test_one ("task 23", 0);
-  rust_lex_test_one ("th 104", 0);
-  rust_lex_test_one ("ta 97", 0);
+  rust_lex_test_one (&parser, "", 0);
+  rust_lex_test_one (&parser, "    \t  \n \r  ", 0);
+  rust_lex_test_one (&parser, "thread 23", 0);
+  rust_lex_test_one (&parser, "task 23", 0);
+  rust_lex_test_one (&parser, "th 104", 0);
+  rust_lex_test_one (&parser, "ta 97", 0);
 
-  rust_lex_int_test ("'z'", 'z', INTEGER);
-  rust_lex_int_test ("'\\xff'", 0xff, INTEGER);
-  rust_lex_int_test ("'\\u{1016f}'", 0x1016f, INTEGER);
-  rust_lex_int_test ("b'z'", 'z', INTEGER);
-  rust_lex_int_test ("b'\\xfe'", 0xfe, INTEGER);
-  rust_lex_int_test ("b'\\xFE'", 0xfe, INTEGER);
-  rust_lex_int_test ("b'\\xfE'", 0xfe, INTEGER);
+  rust_lex_int_test (&parser, "'z'", 'z', INTEGER);
+  rust_lex_int_test (&parser, "'\\xff'", 0xff, INTEGER);
+  rust_lex_int_test (&parser, "'\\u{1016f}'", 0x1016f, INTEGER);
+  rust_lex_int_test (&parser, "b'z'", 'z', INTEGER);
+  rust_lex_int_test (&parser, "b'\\xfe'", 0xfe, INTEGER);
+  rust_lex_int_test (&parser, "b'\\xFE'", 0xfe, INTEGER);
+  rust_lex_int_test (&parser, "b'\\xfE'", 0xfe, INTEGER);
 
   /* Test all escapes in both modes.  */
-  rust_lex_int_test ("'\\n'", '\n', INTEGER);
-  rust_lex_int_test ("'\\r'", '\r', INTEGER);
-  rust_lex_int_test ("'\\t'", '\t', INTEGER);
-  rust_lex_int_test ("'\\\\'", '\\', INTEGER);
-  rust_lex_int_test ("'\\0'", '\0', INTEGER);
-  rust_lex_int_test ("'\\''", '\'', INTEGER);
-  rust_lex_int_test ("'\\\"'", '"', INTEGER);
+  rust_lex_int_test (&parser, "'\\n'", '\n', INTEGER);
+  rust_lex_int_test (&parser, "'\\r'", '\r', INTEGER);
+  rust_lex_int_test (&parser, "'\\t'", '\t', INTEGER);
+  rust_lex_int_test (&parser, "'\\\\'", '\\', INTEGER);
+  rust_lex_int_test (&parser, "'\\0'", '\0', INTEGER);
+  rust_lex_int_test (&parser, "'\\''", '\'', INTEGER);
+  rust_lex_int_test (&parser, "'\\\"'", '"', INTEGER);
 
-  rust_lex_int_test ("b'\\n'", '\n', INTEGER);
-  rust_lex_int_test ("b'\\r'", '\r', INTEGER);
-  rust_lex_int_test ("b'\\t'", '\t', INTEGER);
-  rust_lex_int_test ("b'\\\\'", '\\', INTEGER);
-  rust_lex_int_test ("b'\\0'", '\0', INTEGER);
-  rust_lex_int_test ("b'\\''", '\'', INTEGER);
-  rust_lex_int_test ("b'\\\"'", '"', INTEGER);
+  rust_lex_int_test (&parser, "b'\\n'", '\n', INTEGER);
+  rust_lex_int_test (&parser, "b'\\r'", '\r', INTEGER);
+  rust_lex_int_test (&parser, "b'\\t'", '\t', INTEGER);
+  rust_lex_int_test (&parser, "b'\\\\'", '\\', INTEGER);
+  rust_lex_int_test (&parser, "b'\\0'", '\0', INTEGER);
+  rust_lex_int_test (&parser, "b'\\''", '\'', INTEGER);
+  rust_lex_int_test (&parser, "b'\\\"'", '"', INTEGER);
 
-  rust_lex_exception_test ("'z", "Unterminated character literal");
-  rust_lex_exception_test ("b'\\x0'", "Not enough hex digits seen");
-  rust_lex_exception_test ("b'\\u{0}'", "Unicode escape in byte literal");
-  rust_lex_exception_test ("'\\x0'", "Not enough hex digits seen");
-  rust_lex_exception_test ("'\\u0'", "Missing '{' in Unicode escape");
-  rust_lex_exception_test ("'\\u{0", "Missing '}' in Unicode escape");
-  rust_lex_exception_test ("'\\u{0000007}", "Overlong hex escape");
-  rust_lex_exception_test ("'\\u{}", "Not enough hex digits seen");
-  rust_lex_exception_test ("'\\Q'", "Invalid escape \\Q in literal");
-  rust_lex_exception_test ("b'\\Q'", "Invalid escape \\Q in literal");
+  rust_lex_exception_test (&parser, "'z", "Unterminated character literal");
+  rust_lex_exception_test (&parser, "b'\\x0'", "Not enough hex digits seen");
+  rust_lex_exception_test (&parser, "b'\\u{0}'",
+			   "Unicode escape in byte literal");
+  rust_lex_exception_test (&parser, "'\\x0'", "Not enough hex digits seen");
+  rust_lex_exception_test (&parser, "'\\u0'", "Missing '{' in Unicode escape");
+  rust_lex_exception_test (&parser, "'\\u{0", "Missing '}' in Unicode escape");
+  rust_lex_exception_test (&parser, "'\\u{0000007}", "Overlong hex escape");
+  rust_lex_exception_test (&parser, "'\\u{}", "Not enough hex digits seen");
+  rust_lex_exception_test (&parser, "'\\Q'", "Invalid escape \\Q in literal");
+  rust_lex_exception_test (&parser, "b'\\Q'", "Invalid escape \\Q in literal");
 
-  rust_lex_int_test ("23", 23, DECIMAL_INTEGER);
-  rust_lex_int_test ("2_344__29", 234429, INTEGER);
-  rust_lex_int_test ("0x1f", 0x1f, INTEGER);
-  rust_lex_int_test ("23usize", 23, INTEGER);
-  rust_lex_int_test ("23i32", 23, INTEGER);
-  rust_lex_int_test ("0x1_f", 0x1f, INTEGER);
-  rust_lex_int_test ("0b1_101011__", 0x6b, INTEGER);
-  rust_lex_int_test ("0o001177i64", 639, INTEGER);
+  rust_lex_int_test (&parser, "23", 23, DECIMAL_INTEGER);
+  rust_lex_int_test (&parser, "2_344__29", 234429, INTEGER);
+  rust_lex_int_test (&parser, "0x1f", 0x1f, INTEGER);
+  rust_lex_int_test (&parser, "23usize", 23, INTEGER);
+  rust_lex_int_test (&parser, "23i32", 23, INTEGER);
+  rust_lex_int_test (&parser, "0x1_f", 0x1f, INTEGER);
+  rust_lex_int_test (&parser, "0b1_101011__", 0x6b, INTEGER);
+  rust_lex_int_test (&parser, "0o001177i64", 639, INTEGER);
+  rust_lex_int_test (&parser, "0x123456789u64", 0x123456789ull, INTEGER);
 
-  rust_lex_test_trailing_dot ();
+  rust_lex_test_trailing_dot (&parser);
 
-  rust_lex_test_one ("23.", FLOAT);
-  rust_lex_test_one ("23.99f32", FLOAT);
-  rust_lex_test_one ("23e7", FLOAT);
-  rust_lex_test_one ("23E-7", FLOAT);
-  rust_lex_test_one ("23e+7", FLOAT);
-  rust_lex_test_one ("23.99e+7f64", FLOAT);
-  rust_lex_test_one ("23.82f32", FLOAT);
+  rust_lex_test_one (&parser, "23.", FLOAT);
+  rust_lex_test_one (&parser, "23.99f32", FLOAT);
+  rust_lex_test_one (&parser, "23e7", FLOAT);
+  rust_lex_test_one (&parser, "23E-7", FLOAT);
+  rust_lex_test_one (&parser, "23e+7", FLOAT);
+  rust_lex_test_one (&parser, "23.99e+7f64", FLOAT);
+  rust_lex_test_one (&parser, "23.82f32", FLOAT);
 
-  rust_lex_stringish_test ("hibob", "hibob", IDENT);
-  rust_lex_stringish_test ("hibob__93", "hibob__93", IDENT);
-  rust_lex_stringish_test ("thread", "thread", IDENT);
+  rust_lex_stringish_test (&parser, "hibob", "hibob", IDENT);
+  rust_lex_stringish_test (&parser, "hibob__93", "hibob__93", IDENT);
+  rust_lex_stringish_test (&parser, "thread", "thread", IDENT);
 
-  rust_lex_stringish_test ("\"string\"", "string", STRING);
-  rust_lex_stringish_test ("\"str\\ting\"", "str\ting", STRING);
-  rust_lex_stringish_test ("\"str\\\"ing\"", "str\"ing", STRING);
-  rust_lex_stringish_test ("r\"str\\ing\"", "str\\ing", STRING);
-  rust_lex_stringish_test ("r#\"str\\ting\"#", "str\\ting", STRING);
-  rust_lex_stringish_test ("r###\"str\\\"ing\"###", "str\\\"ing", STRING);
+  rust_lex_stringish_test (&parser, "\"string\"", "string", STRING);
+  rust_lex_stringish_test (&parser, "\"str\\ting\"", "str\ting", STRING);
+  rust_lex_stringish_test (&parser, "\"str\\\"ing\"", "str\"ing", STRING);
+  rust_lex_stringish_test (&parser, "r\"str\\ing\"", "str\\ing", STRING);
+  rust_lex_stringish_test (&parser, "r#\"str\\ting\"#", "str\\ting", STRING);
+  rust_lex_stringish_test (&parser, "r###\"str\\\"ing\"###", "str\\\"ing",
+			   STRING);
 
-  rust_lex_stringish_test ("b\"string\"", "string", BYTESTRING);
-  rust_lex_stringish_test ("b\"\x73tring\"", "string", BYTESTRING);
-  rust_lex_stringish_test ("b\"str\\\"ing\"", "str\"ing", BYTESTRING);
-  rust_lex_stringish_test ("br####\"\\x73tring\"####", "\\x73tring",
+  rust_lex_stringish_test (&parser, "b\"string\"", "string", BYTESTRING);
+  rust_lex_stringish_test (&parser, "b\"\x73tring\"", "string", BYTESTRING);
+  rust_lex_stringish_test (&parser, "b\"str\\\"ing\"", "str\"ing", BYTESTRING);
+  rust_lex_stringish_test (&parser, "br####\"\\x73tring\"####", "\\x73tring",
 			   BYTESTRING);
 
   for (i = 0; i < ARRAY_SIZE (identifier_tokens); ++i)
-    rust_lex_test_one (identifier_tokens[i].name, identifier_tokens[i].value);
+    rust_lex_test_one (&parser, identifier_tokens[i].name,
+		       identifier_tokens[i].value);
 
   for (i = 0; i < ARRAY_SIZE (operator_tokens); ++i)
-    rust_lex_test_one (operator_tokens[i].name, operator_tokens[i].value);
+    rust_lex_test_one (&parser, operator_tokens[i].name,
+		       operator_tokens[i].value);
 
-  rust_lex_test_completion ();
-  rust_lex_test_push_back ();
+  rust_lex_test_completion (&parser);
+  rust_lex_test_push_back (&parser);
 }
 
 #endif /* GDB_SELF_TEST */
 
+void _initialize_rust_exp ();
 void
-_initialize_rust_exp (void)
+_initialize_rust_exp ()
 {
   int code = regcomp (&number_regex, number_regex_text, REG_EXTENDED);
   /* If the regular expression was incorrect, it was a programming

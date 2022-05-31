@@ -1,5 +1,5 @@
 /* Darwin support for GDB, the GNU debugger.
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2020 Free Software Foundation, Inc.
 
    Contributed by AdaCore.
 
@@ -24,13 +24,10 @@
 #include "bfd.h"
 #include "symfile.h"
 #include "objfiles.h"
-#include "buildsym.h"
 #include "gdbcmd.h"
 #include "gdbcore.h"
 #include "mach-o.h"
 #include "aout/stab_gnu.h"
-#include "vec.h"
-#include "psympriv.h"
 #include "complaints.h"
 #include "gdb_bfd.h"
 #include <string>
@@ -496,7 +493,7 @@ macho_add_oso_symfile (oso_el *oso, const gdb_bfd_ref_ptr &abfd,
             {
               if (mach_o_debug_level > 4)
                 {
-                  struct gdbarch *arch = get_objfile_arch (main_objfile);
+                  struct gdbarch *arch = main_objfile->arch ();
                   printf_unfiltered
                     (_("Adding symbol %s (addr: %s)\n"),
                      sym->name, paddress (arch, sym->value));
@@ -570,13 +567,13 @@ macho_add_oso_symfile (oso_el *oso, const gdb_bfd_ref_ptr &abfd,
 
                   if (mach_o_debug_level > 3)
                     {
-                      struct gdbarch *arch = get_objfile_arch (main_objfile);
+                      struct gdbarch *arch = main_objfile->arch ();
                       printf_unfiltered
                         (_("resolve sect %s with %s (set to %s)\n"),
                          sec->name, sym->name,
                          paddress (arch, res));
                     }
-                  bfd_set_section_vma (abfd.get (), sec, res);
+                  bfd_set_section_vma (sec, res);
                   sections_rebased[sec->index] = 1;
                 }
             }
@@ -590,7 +587,7 @@ macho_add_oso_symfile (oso_el *oso, const gdb_bfd_ref_ptr &abfd,
 
   bfd_hash_table_free (&table);
 
-  /* We need to clear SYMFILE_MAINLINE to avoid interractive question
+  /* We need to clear SYMFILE_MAINLINE to avoid interactive question
      from symfile.c:symbol_file_add_with_addrs_or_offsets.  */
   symbol_file_add_from_bfd
     (abfd.get (), name, symfile_flags & ~(SYMFILE_MAINLINE | SYMFILE_VERBOSE),
@@ -642,7 +639,7 @@ macho_symfile_read_all_oso (std::vector<oso_el> *oso_vector_ptr,
 
 	  /* Open the archive and check the format.  */
 	  gdb_bfd_ref_ptr archive_bfd (gdb_bfd_open (archive_name.c_str (),
-						     gnutarget, -1));
+						     gnutarget));
 	  if (archive_bfd == NULL)
 	    {
 	      warning (_("Could not open OSO archive file \"%s\""),
@@ -672,7 +669,7 @@ macho_symfile_read_all_oso (std::vector<oso_el> *oso_vector_ptr,
           /* Load all oso in this library.  */
 	  while (member_bfd != NULL)
 	    {
-	      const char *member_name = member_bfd->filename;
+	      const char *member_name = bfd_get_filename (member_bfd.get ());
               int member_len = strlen (member_name);
 
               /* If this member is referenced, add it as a symfile.  */
@@ -686,7 +683,7 @@ macho_symfile_read_all_oso (std::vector<oso_el> *oso_vector_ptr,
                                   member_len))
                     {
                       macho_add_oso_symfile (oso2, member_bfd,
-					     bfd_get_filename (member_bfd),
+					     bfd_get_filename (member_bfd.get ()),
                                              main_objfile, symfile_flags);
                       oso2->name = NULL;
                       break;
@@ -698,7 +695,7 @@ macho_symfile_read_all_oso (std::vector<oso_el> *oso_vector_ptr,
 	    }
           for (ix2 = ix; ix2 < last_ix; ix2++)
             {
-              oso_el *oso2 = &(*oso_vector_ptr)[ix2];
+              oso2 = &(*oso_vector_ptr)[ix2];
 
               if (oso2->name != NULL)
                 warning (_("Could not find specified archive member "
@@ -708,7 +705,7 @@ macho_symfile_read_all_oso (std::vector<oso_el> *oso_vector_ptr,
 	}
       else
 	{
-	  gdb_bfd_ref_ptr abfd (gdb_bfd_open (oso->name, gnutarget, -1));
+	  gdb_bfd_ref_ptr abfd (gdb_bfd_open (oso->name, gnutarget));
 	  if (abfd == NULL)
             warning (_("`%s': can't open to read symbols: %s."), oso->name,
                      bfd_errmsg (bfd_get_error ()));
@@ -855,8 +852,7 @@ macho_symfile_read (struct objfile *objfile, symfile_add_flags symfile_flags)
             {
               if (strcmp (asect->name, dsect->name) != 0)
                 break;
-              bfd_set_section_size (dsym_bfd.get (), dsect,
-                                    bfd_get_section_size (asect));
+              bfd_set_section_size (dsect, bfd_section_size (asect));
             }
 
 	  /* Add the dsym file as a separate file.  */
@@ -910,12 +906,7 @@ macho_symfile_offsets (struct objfile *objfile,
   struct obj_section *osect;
 
   /* Allocate section_offsets.  */
-  objfile->num_sections = bfd_count_sections (objfile->obfd);
-  objfile->section_offsets = (struct section_offsets *)
-    obstack_alloc (&objfile->objfile_obstack,
-                   SIZEOF_N_SECTION_OFFSETS (objfile->num_sections));
-  memset (objfile->section_offsets, 0,
-          SIZEOF_N_SECTION_OFFSETS (objfile->num_sections));
+  objfile->section_offsets.assign (bfd_count_sections (objfile->obfd), 0);
 
   /* This code is run when we first add the objfile with
      symfile_add_with_addrs_or_offsets, when "addrs" not "offsets" are
@@ -969,8 +960,9 @@ static const struct sym_fns macho_sym_fns = {
   &psym_functions
 };
 
+void _initialize_machoread ();
 void
-_initialize_machoread (void)
+_initialize_machoread ()
 {
   add_symtab_fns (bfd_target_mach_o_flavour, &macho_sym_fns);
 

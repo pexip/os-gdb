@@ -1,6 +1,6 @@
 /* Scheme interface to symbol tables.
 
-   Copyright (C) 2008-2018 Free Software Foundation, Inc.
+   Copyright (C) 2008-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -395,7 +395,6 @@ static int
 stscm_print_sal_smob (SCM self, SCM port, scm_print_state *pstate)
 {
   sal_smob *s_smob = (sal_smob *) SCM_SMOB_DATA (self);
-  symtab_smob *st_smob = (symtab_smob *) SCM_SMOB_DATA (s_smob->symtab_scm);
 
   gdbscm_printf (port, "#<%s ", symtab_smob_name);
   scm_write (s_smob->symtab_scm, port);
@@ -592,18 +591,19 @@ gdbscm_find_pc_line (SCM pc_scm)
 
   gdbscm_parse_function_args (FUNC_NAME, SCM_ARG1, NULL, "U", pc_scm, &pc_ull);
 
-  TRY
+  gdbscm_gdb_exception exc {};
+  try
     {
       CORE_ADDR pc = (CORE_ADDR) pc_ull;
 
       sal = find_pc_line (pc, 0);
     }
-  CATCH (except, RETURN_MASK_ALL)
+  catch (const gdb_exception &except)
     {
-      GDBSCM_HANDLE_GDB_EXCEPTION (except);
+      exc = unpack (except);
     }
-  END_CATCH
 
+  GDBSCM_HANDLE_GDB_EXCEPTION (exc);
   return stscm_scm_from_sal (sal);
 }
 

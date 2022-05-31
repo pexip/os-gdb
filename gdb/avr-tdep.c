@@ -1,6 +1,6 @@
 /* Target-dependent code for Atmel AVR, for GDB.
 
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -314,8 +314,8 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
 			      avr_convert_iaddr_to_raw (addr));
     }
   /* Is it a code address?  */
-  else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
-	   || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD)
+  else if (TYPE_TARGET_TYPE (type)->code () == TYPE_CODE_FUNC
+	   || TYPE_TARGET_TYPE (type)->code () == TYPE_CODE_METHOD)
     {
       /* A code pointer is word (16 bits) addressed.  We shift the address down
 	 by 1 bit to convert it to a pointer.  */
@@ -345,8 +345,8 @@ avr_pointer_to_address (struct gdbarch *gdbarch,
       return avr_make_iaddr (addr);
     }
   /* Is it a code address?  */
-  else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
-	   || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD
+  else if (TYPE_TARGET_TYPE (type)->code () == TYPE_CODE_FUNC
+	   || TYPE_TARGET_TYPE (type)->code () == TYPE_CODE_METHOD
 	   || TYPE_CODE_SPACE (TYPE_TARGET_TYPE (type)))
     {
       /* A code pointer is word (16 bits) addressed so we shift it up
@@ -363,7 +363,10 @@ avr_integer_to_address (struct gdbarch *gdbarch,
 {
   ULONGEST addr = unpack_long (type, buf);
 
-  return avr_make_saddr (addr);
+  if (TYPE_DATA_SPACE (type))
+    return avr_make_saddr (addr);
+  else
+    return avr_make_iaddr (addr);
 }
 
 static CORE_ADDR
@@ -935,9 +938,9 @@ avr_return_value (struct gdbarch *gdbarch, struct value *function,
      register holds the LSB.  */
   int lsb_reg;
 
-  if ((TYPE_CODE (valtype) == TYPE_CODE_STRUCT
-       || TYPE_CODE (valtype) == TYPE_CODE_UNION
-       || TYPE_CODE (valtype) == TYPE_CODE_ARRAY)
+  if ((valtype->code () == TYPE_CODE_STRUCT
+       || valtype->code () == TYPE_CODE_UNION
+       || valtype->code () == TYPE_CODE_ARRAY)
       && TYPE_LENGTH (valtype) > 8)
     return RETURN_VALUE_STRUCT_CONVENTION;
 
@@ -1263,7 +1266,8 @@ static CORE_ADDR
 avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
                      struct regcache *regcache, CORE_ADDR bp_addr,
                      int nargs, struct value **args, CORE_ADDR sp,
-                     int struct_return, CORE_ADDR struct_addr)
+		     function_call_return_method return_method,
+		     CORE_ADDR struct_addr)
 {
   int i;
   gdb_byte buf[3];
@@ -1272,7 +1276,7 @@ avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   int regnum = AVR_ARGN_REGNUM;
   struct stack_item *si = NULL;
 
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       regcache_cooked_write_unsigned
         (regcache, regnum--, (struct_addr >> 8) & 0xff);
@@ -1615,8 +1619,9 @@ avr_io_reg_read_command (const char *args, int from_tty)
     }
 }
 
+void _initialize_avr_tdep ();
 void
-_initialize_avr_tdep (void)
+_initialize_avr_tdep ()
 {
   register_gdbarch_init (bfd_arch_avr, avr_gdbarch_init);
 
@@ -1628,5 +1633,5 @@ _initialize_avr_tdep (void)
      io_registers' to signify it is not available on other platforms.  */
 
   add_info ("io_registers", avr_io_reg_read_command,
-	    _("query remote avr target for io space register values"));
+	    _("Query remote AVR target for I/O space register values."));
 }

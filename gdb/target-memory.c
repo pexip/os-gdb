@@ -1,7 +1,7 @@
 /* Parts of target interface that deal with accessing memory and memory-like
    objects.
 
-   Copyright (C) 2006-2018 Free Software Foundation, Inc.
+   Copyright (C) 2006-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -19,11 +19,10 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "defs.h"
-#include "vec.h"
 #include "target.h"
 #include "memory-map.h"
 
-#include "gdb_sys_time.h"
+#include "gdbsupport/gdb_sys_time.h"
 #include <algorithm>
 
 static bool
@@ -180,7 +179,6 @@ compute_garbled_blocks (const std::vector<memory_write_request> &erased_blocks,
 
   unsigned j;
   unsigned je = written_blocks.size ();
-  struct memory_write_request *erased_p;
 
   /* Look at each erased memory_write_request in turn, and
      see what part of it is subsequently written to.
@@ -265,7 +263,6 @@ target_write_memory_blocks (const std::vector<memory_write_request> &requests,
 			    void (*progress_cb) (ULONGEST, void *))
 {
   std::vector<memory_write_request> blocks = requests;
-  struct memory_write_request *r;
   std::vector<memory_write_request> regular;
   std::vector<memory_write_request> flash;
   std::vector<memory_write_request> erased, garbled;

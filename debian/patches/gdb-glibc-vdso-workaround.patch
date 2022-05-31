@@ -15,13 +15,13 @@ gdb/
  gdb/solib.c | 7 +++++--
  1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/gdb/solib.c b/gdb/solib.c
-index e1d237e..f7d720e 100644
---- a/gdb/solib.c
-+++ b/gdb/solib.c
-@@ -866,8 +866,11 @@ update_solib_list (int from_tty)
+Index: gdb/gdb/solib.c
+===================================================================
+--- gdb.orig/gdb/solib.c
++++ gdb/gdb/solib.c
+@@ -859,8 +859,11 @@ update_solib_list (int from_tty)
  
- 	  TRY
+ 	  try
  	    {
 -	      /* Fill in the rest of the `struct so_list' node.  */
 -	      if (!solib_map_sections (i))

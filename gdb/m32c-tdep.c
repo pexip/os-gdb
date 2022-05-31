@@ -1,6 +1,6 @@
 /* Renesas M32C target-dependent code for GDB, the GNU debugger.
 
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -27,8 +27,8 @@
 #include "arch-utils.h"
 #include "frame.h"
 #include "frame-unwind.h"
-#include "dwarf2-frame.h"
-#include "dwarf2expr.h"
+#include "dwarf2/frame.h"
+#include "dwarf2/expr.h"
 #include "symtab.h"
 #include "gdbcore.h"
 #include "value.h"
@@ -689,12 +689,11 @@ mark_general (struct m32c_reg *reg)
 }
 
 
-/* Mark REG as a DMA register, and return it.  */
-static struct m32c_reg *
+/* Mark REG as a DMA register.  */
+static void
 mark_dma (struct m32c_reg *reg)
 {
   reg->dma_p = 1;
-  return reg;
 }
 
 
@@ -841,16 +840,16 @@ make_regs (struct gdbarch *arch)
 
   if (mach == bfd_mach_m32c)
     {
-      struct m32c_reg *svf     = S (R16U (svf));
-      struct m32c_reg *svp     = S (RC (svp));
-      struct m32c_reg *vct     = S (RC (vct));
+      S (R16U (svf));
+      S (RC (svp));
+      S (RC (vct));
 
-      struct m32c_reg *dmd01   = DMA (RP (dmd, tdep->uint8));
-      struct m32c_reg *dct01   = DMA (RP (dct, tdep->uint16));
-      struct m32c_reg *drc01   = DMA (RP (drc, tdep->uint16));
-      struct m32c_reg *dma01   = DMA (RP (dma, tdep->data_addr_reg_type));
-      struct m32c_reg *dsa01   = DMA (RP (dsa, tdep->data_addr_reg_type));
-      struct m32c_reg *dra01   = DMA (RP (dra, tdep->data_addr_reg_type));
+      DMA (RP (dmd, tdep->uint8));
+      DMA (RP (dct, tdep->uint16));
+      DMA (RP (drc, tdep->uint16));
+      DMA (RP (dma, tdep->data_addr_reg_type));
+      DMA (RP (dsa, tdep->data_addr_reg_type));
+      DMA (RP (dra, tdep->data_addr_reg_type));
     }
 
   num_raw_regs = tdep->num_regs;
@@ -1237,7 +1236,7 @@ m32c_decode_srcdest4 (struct m32c_pv_state *st,
 
   switch (code)
     {
-    case 0x0: sd.reg = (size == 1 ? &st->r0 : &st->r0); break;
+    case 0x0: sd.reg = &st->r0; break;
     case 0x1: sd.reg = (size == 1 ? &st->r0 : &st->r1); break;
     case 0x2: sd.reg = (size == 1 ? &st->r1 : &st->r2); break;
     case 0x3: sd.reg = (size == 1 ? &st->r1 : &st->r3); break;
@@ -1952,22 +1951,6 @@ static const struct frame_unwind m32c_unwind = {
   default_frame_sniffer
 };
 
-
-static CORE_ADDR
-m32c_unwind_pc (struct gdbarch *arch, struct frame_info *next_frame)
-{
-  struct gdbarch_tdep *tdep = gdbarch_tdep (arch);
-  return frame_unwind_register_unsigned (next_frame, tdep->pc->num);
-}
-
-
-static CORE_ADDR
-m32c_unwind_sp (struct gdbarch *arch, struct frame_info *next_frame)
-{
-  struct gdbarch_tdep *tdep = gdbarch_tdep (arch);
-  return frame_unwind_register_unsigned (next_frame, tdep->sp->num);
-}
-
 
 /* Inferior calls.  */
 
@@ -2003,7 +1986,7 @@ m32c_unwind_sp (struct gdbarch *arch, struct frame_info *next_frame)
 static int
 m32c_reg_arg_type (struct type *type)
 {
-  enum type_code code = TYPE_CODE (type);
+  enum type_code code = type->code ();
 
   return (code == TYPE_CODE_INT
 	  || code == TYPE_CODE_ENUM
@@ -2017,7 +2000,8 @@ m32c_reg_arg_type (struct type *type)
 static CORE_ADDR
 m32c_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		      struct regcache *regcache, CORE_ADDR bp_addr, int nargs,
-		      struct value **args, CORE_ADDR sp, int struct_return,
+		      struct value **args, CORE_ADDR sp,
+		      function_call_return_method return_method,
 		      CORE_ADDR struct_addr)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
@@ -2037,11 +2021,11 @@ m32c_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
     struct type *func_type = value_type (function);
 
     /* Dereference function pointer types.  */
-    if (TYPE_CODE (func_type) == TYPE_CODE_PTR)
+    if (func_type->code () == TYPE_CODE_PTR)
       func_type = TYPE_TARGET_TYPE (func_type);
 
-    gdb_assert (TYPE_CODE (func_type) == TYPE_CODE_FUNC ||
-		TYPE_CODE (func_type) == TYPE_CODE_METHOD);
+    gdb_assert (func_type->code () == TYPE_CODE_FUNC ||
+		func_type->code () == TYPE_CODE_METHOD);
 
 #if 0
     /* The ABI description in gcc/config/m32c/m32c.abi says that
@@ -2049,13 +2033,13 @@ m32c_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
        separately, but the code in GCC doesn't actually do so.  */
     if (TYPE_PROTOTYPED (func_type))
 #endif
-      num_prototyped_args = TYPE_NFIELDS (func_type);
+      num_prototyped_args = func_type->num_fields ();
   }
 
   /* First, if the function returns an aggregate by value, push a
      pointer to a buffer for it.  This doesn't affect the way
      subsequent arguments are allocated to registers.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       int ptr_len = TYPE_LENGTH (tdep->ptr_voyd);
       sp -= ptr_len;
@@ -2139,21 +2123,6 @@ m32c_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 }
 
 
-static struct frame_id
-m32c_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
-{
-  /* This needs to return a frame ID whose PC is the return address
-     passed to m32c_push_dummy_call, and whose stack_addr is the SP
-     m32c_push_dummy_call returned.
-
-     m32c_unwind_sp gives us the CFA, which is the value the SP had
-     before the return address was pushed.  */
-  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
-  CORE_ADDR sp = get_frame_register_unsigned (this_frame, tdep->sp->num);
-  return frame_id_build (sp, get_frame_pc (this_frame));
-}
-
-
 
 /* Return values.  */
 
@@ -2184,7 +2153,7 @@ m32c_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
 static int
 m32c_return_by_passed_buf (struct type *type)
 {
-  enum type_code code = TYPE_CODE (type);
+  enum type_code code = type->code ();
 
   return (code == TYPE_CODE_STRUCT
 	  || code == TYPE_CODE_UNION);
@@ -2430,9 +2399,9 @@ m32c_m16c_address_to_pointer (struct gdbarch *gdbarch,
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   enum type_code target_code;
-  gdb_assert (TYPE_CODE (type) == TYPE_CODE_PTR || TYPE_IS_REFERENCE (type));
+  gdb_assert (type->code () == TYPE_CODE_PTR || TYPE_IS_REFERENCE (type));
 
-  target_code = TYPE_CODE (TYPE_TARGET_TYPE (type));
+  target_code = TYPE_TARGET_TYPE (type)->code ();
 
   if (target_code == TYPE_CODE_FUNC || target_code == TYPE_CODE_METHOD)
     {
@@ -2449,7 +2418,7 @@ m32c_m16c_address_to_pointer (struct gdbarch *gdbarch,
                "couldn't find a symbol at that address, to find trampoline."),
                paddress (gdbarch, addr));
 
-      func_name = MSYMBOL_LINKAGE_NAME (func_msym.minsym);
+      func_name = func_msym.minsym->linkage_name ();
       tramp_name = (char *) xmalloc (strlen (func_name) + 5);
       strcpy (tramp_name, func_name);
       strcat (tramp_name, ".plt");
@@ -2483,7 +2452,7 @@ m32c_m16c_address_to_pointer (struct gdbarch *gdbarch,
 		   "couldn't find trampoline named '%s.plt'.\n"
 		   "Returning pointer value %s instead; this may produce\n"
 		   "a useful result if converted back into an address by GDB,\n"
-		   "but will most likely not be useful otherwise.\n"),
+		   "but will most likely not be useful otherwise."),
 		   paddress (gdbarch, addr), func_name,
 		   paddress (gdbarch, ptrval));
 
@@ -2509,11 +2478,11 @@ m32c_m16c_pointer_to_address (struct gdbarch *gdbarch,
   CORE_ADDR ptr;
   enum type_code target_code;
 
-  gdb_assert (TYPE_CODE (type) == TYPE_CODE_PTR || TYPE_IS_REFERENCE (type));
+  gdb_assert (type->code () == TYPE_CODE_PTR || TYPE_IS_REFERENCE (type));
 
   ptr = extract_unsigned_integer (buf, TYPE_LENGTH (type), byte_order);
 
-  target_code = TYPE_CODE (TYPE_TARGET_TYPE (type));
+  target_code = TYPE_TARGET_TYPE (type)->code ();
 
   if (target_code == TYPE_CODE_FUNC || target_code == TYPE_CODE_METHOD)
     {
@@ -2523,7 +2492,7 @@ m32c_m16c_pointer_to_address (struct gdbarch *gdbarch,
 
       if (ptr_msym.minsym)
         {
-          const char *ptr_msym_name = MSYMBOL_LINKAGE_NAME (ptr_msym.minsym);
+          const char *ptr_msym_name = ptr_msym.minsym->linkage_name ();
           int len = strlen (ptr_msym_name);
 
           if (len > 4
@@ -2643,8 +2612,6 @@ m32c_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* Prologue analysis and unwinding.  */
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
   set_gdbarch_skip_prologue (gdbarch, m32c_skip_prologue);
-  set_gdbarch_unwind_pc (gdbarch, m32c_unwind_pc);
-  set_gdbarch_unwind_sp (gdbarch, m32c_unwind_sp);
 #if 0
   /* I'm dropping the dwarf2 sniffer because it has a few problems.
      They may be in the dwarf2 cfi code in GDB, or they may be in
@@ -2658,7 +2625,6 @@ m32c_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* Inferior calls.  */
   set_gdbarch_push_dummy_call (gdbarch, m32c_push_dummy_call);
   set_gdbarch_return_value (gdbarch, m32c_return_value);
-  set_gdbarch_dummy_id (gdbarch, m32c_dummy_id);
 
   /* Trampolines.  */
   set_gdbarch_skip_trampoline_code (gdbarch, m32c_skip_trampoline_code);
@@ -2678,8 +2644,9 @@ m32c_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   return gdbarch;
 }
 
+void _initialize_m32c_tdep ();
 void
-_initialize_m32c_tdep (void)
+_initialize_m32c_tdep ()
 {
   register_gdbarch_init (bfd_arch_m32c, m32c_gdbarch_init);
 

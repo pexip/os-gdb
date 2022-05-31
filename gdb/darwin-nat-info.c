@@ -1,5 +1,5 @@
 /* Darwin support for GDB, the GNU debugger.
-   Copyright (C) 1997-2018 Free Software Foundation, Inc.
+   Copyright (C) 1997-2020 Free Software Foundation, Inc.
 
    Contributed by Apple Computer, Inc.
 
@@ -34,6 +34,7 @@
 #include "value.h"
 #include "gdbcmd.h"
 #include "inferior.h"
+#include "gdbarch.h"
 
 #include <sys/sysctl.h>
 
@@ -607,14 +608,12 @@ darwin_debug_regions (task_t task, mach_vm_address_t address, int max)
 static void
 darwin_debug_regions_recurse (task_t task)
 {
-  mach_vm_address_t r_addr;
   mach_vm_address_t r_start;
   mach_vm_size_t r_size;
   natural_t r_depth;
   mach_msg_type_number_t r_info_size;
   vm_region_submap_short_info_data_64_t r_info;
   kern_return_t kret;
-  int ret;
   struct ui_out *uiout = current_uiout;
 
   ui_out_emit_table table_emitter (uiout, 9, -1, "regions");
@@ -666,14 +665,14 @@ darwin_debug_regions_recurse (task_t task)
 			     unparse_inheritance (r_info.inheritance));
 	uiout->field_string ("share-mode",
 			     unparse_share_mode (r_info.share_mode));
-	uiout->field_int ("depth", r_depth);
+	uiout->field_signed ("depth", r_depth);
 	uiout->field_string ("submap",
 			     r_info.is_submap ? _("sm ") : _("obj"));
 	tag = unparse_user_tag (r_info.user_tag);
 	if (tag)
 	  uiout->field_string ("tag", tag);
 	else
-	  uiout->field_int ("tag", r_info.user_tag);
+	  uiout->field_signed ("tag", r_info.user_tag);
       }
 
       uiout->text ("\n");
@@ -792,8 +791,6 @@ disp_exception (const darwin_exception_info *info)
 static void
 info_mach_exceptions_command (const char *args, int from_tty)
 {
-  int i;
-  task_t task;
   kern_return_t kret;
   darwin_exception_info info;
 
@@ -813,7 +810,7 @@ info_mach_exceptions_command (const char *args, int from_tty)
 	}
       else if (strcmp (args, "host") == 0)
 	{
-	  /* FIXME: This need a privilegied host port!  */
+	  /* FIXME: This needs a privileged host port!  */
 	  kret = host_get_exception_ports
 	    (darwin_host_self, EXC_MASK_ALL, info.masks,
 	     &info.count, info.ports, info.behaviors, info.flavors);
@@ -841,8 +838,9 @@ info_mach_exceptions_command (const char *args, int from_tty)
     }
 }
 
+void _initialize_darwin_info_commands ();
 void
-_initialize_darwin_info_commands (void)
+_initialize_darwin_info_commands ()
 {
   add_info ("mach-tasks", info_mach_tasks_command,
             _("Get list of tasks in system."));

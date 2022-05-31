@@ -1,6 +1,6 @@
 /* General GDB/Guile code.
 
-   Copyright (C) 2014-2018 Free Software Foundation, Inc.
+   Copyright (C) 2014-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,12 +30,13 @@
 #include "top.h"
 #include "extension-priv.h"
 #include "utils.h"
-#include "version.h"
+#include "gdbsupport/version.h"
 #ifdef HAVE_GUILE
 #include "guile.h"
 #include "guile-internal.h"
 #endif
 #include <signal.h>
+#include "gdbsupport/block-signals.h"
 
 /* The Guile version we're using.
    We *could* use the macros in libguile/version.h but that would preclude
@@ -46,8 +47,10 @@ int gdbscm_guile_major_version;
 int gdbscm_guile_minor_version;
 int gdbscm_guile_micro_version;
 
+#ifdef HAVE_GUILE
 /* The guile subdirectory within gdb's data-directory.  */
 static const char *guile_datadir;
+#endif
 
 /* Declared constants and enum for guile exception printing.  */
 const char gdbscm_print_excp_none[] = "none";
@@ -69,33 +72,6 @@ static const char *const guile_print_excp_enums[] =
    the default.  */
 const char *gdbscm_print_excp = gdbscm_print_excp_message;
 
-#ifdef HAVE_GUILE
-/* Forward decls, these are defined later.  */
-extern const struct extension_language_script_ops guile_extension_script_ops;
-extern const struct extension_language_ops guile_extension_ops;
-#endif
-
-/* The main struct describing GDB's interface to the Guile
-   extension language.  */
-extern const struct extension_language_defn extension_language_guile =
-{
-  EXT_LANG_GUILE,
-  "guile",
-  "Guile",
-
-  ".scm",
-  "-gdb.scm",
-
-  guile_control,
-
-#ifdef HAVE_GUILE
-  &guile_extension_script_ops,
-  &guile_extension_ops
-#else
-  NULL,
-  NULL
-#endif
-};
 
 #ifdef HAVE_GUILE
 
@@ -124,7 +100,7 @@ static const char boot_scm_filename[] = "boot.scm";
 
 /* The interface between gdb proper and loading of python scripts.  */
 
-const struct extension_language_script_ops guile_extension_script_ops =
+static const struct extension_language_script_ops guile_extension_script_ops =
 {
   gdbscm_source_script,
   gdbscm_source_objfile_script,
@@ -134,7 +110,7 @@ const struct extension_language_script_ops guile_extension_script_ops =
 
 /* The interface between gdb proper and guile scripting.  */
 
-const struct extension_language_ops guile_extension_ops =
+static const struct extension_language_ops guile_extension_ops =
 {
   gdbscm_finish_initialization,
   gdbscm_initialized,
@@ -157,7 +133,31 @@ const struct extension_language_ops guile_extension_ops =
   NULL, /* gdbscm_check_quit_flag, */
   NULL, /* gdbscm_set_quit_flag, */
 };
+#endif
 
+/* The main struct describing GDB's interface to the Guile
+   extension language.  */
+extern const struct extension_language_defn extension_language_guile =
+{
+  EXT_LANG_GUILE,
+  "guile",
+  "Guile",
+
+  ".scm",
+  "-gdb.scm",
+
+  guile_control,
+
+#ifdef HAVE_GUILE
+  &guile_extension_script_ops,
+  &guile_extension_ops
+#else
+  NULL,
+  NULL
+#endif
+};
+
+#ifdef HAVE_GUILE
 /* Implementation of the gdb "guile-repl" command.  */
 
 static void
@@ -197,15 +197,10 @@ guile_command (const char *arg, int from_tty)
 
   if (arg && *arg)
     {
-      char *msg = gdbscm_safe_eval_string (arg, 1);
+      gdb::unique_xmalloc_ptr<char> msg = gdbscm_safe_eval_string (arg, 1);
 
       if (msg != NULL)
-	{
-	  /* It is ok that this is a "dangling cleanup" because we
-	     throw immediately.  */
-	  make_cleanup (xfree, msg);
-	  error ("%s", msg);
-	}
+	error ("%s", msg.get ());
     }
   else
     {
@@ -253,24 +248,16 @@ static void
 gdbscm_eval_from_control_command
   (const struct extension_language_defn *extlang, struct command_line *cmd)
 {
-  char *script, *msg;
-  struct cleanup *cleanup;
+  char *script;
 
   if (cmd->body_list_1 != nullptr)
     error (_("Invalid \"guile\" block structure."));
 
-  cleanup = make_cleanup (null_cleanup, NULL);
-
   script = compute_scheme_string (cmd->body_list_0.get ());
-  msg = gdbscm_safe_eval_string (script, 0);
+  gdb::unique_xmalloc_ptr<char> msg = gdbscm_safe_eval_string (script, 0);
   xfree (script);
   if (msg != NULL)
-    {
-      make_cleanup (xfree, msg);
-      error ("%s", msg);
-    }
-
-  do_cleanups (cleanup);
+    error ("%s", msg.get ());
 }
 
 /* Read a file as Scheme code.
@@ -302,46 +289,33 @@ gdbscm_execute_gdb_command (SCM command_scm, SCM rest)
   int from_tty = 0, to_string = 0;
   const SCM keywords[] = { from_tty_keyword, to_string_keyword, SCM_BOOL_F };
   char *command;
-  struct cleanup *cleanups;
-  struct gdb_exception except = exception_none;
 
   gdbscm_parse_function_args (FUNC_NAME, SCM_ARG1, keywords, "s#tt",
 			      command_scm, &command, rest,
 			      &from_tty_arg_pos, &from_tty,
 			      &to_string_arg_pos, &to_string);
 
-  /* Note: The contents of "command" may get modified while it is
-     executed.  */
-  cleanups = make_cleanup (xfree, command);
-
-  std::string to_string_res;
-
-  TRY
+  return gdbscm_wrap ([=]
     {
+      gdb::unique_xmalloc_ptr<char> command_holder (command);
+      std::string to_string_res;
+
       scoped_restore restore_async = make_scoped_restore (&current_ui->async,
 							  0);
 
       scoped_restore preventer = prevent_dont_repeat ();
       if (to_string)
-	to_string_res = execute_command_to_string (command, from_tty);
+	to_string_res = execute_command_to_string (command, from_tty, false);
       else
 	execute_command (command, from_tty);
 
       /* Do any commands attached to breakpoint we stopped at.  */
       bpstat_do_actions ();
-    }
-  CATCH (ex, RETURN_MASK_ALL)
-    {
-      except = ex;
-    }
-  END_CATCH
 
-  do_cleanups (cleanups);
-  GDBSCM_HANDLE_GDB_EXCEPTION (except);
-
-  if (to_string)
-    return gdbscm_scm_from_c_string (to_string_res.c_str ());
-  return SCM_UNSPECIFIED;
+      if (to_string)
+	return gdbscm_scm_from_c_string (to_string_res.c_str ());
+      return SCM_UNSPECIFIED;
+    });
 }
 
 /* (data-directory) -> string */
@@ -349,7 +323,7 @@ gdbscm_execute_gdb_command (SCM command_scm, SCM rest)
 static SCM
 gdbscm_data_directory (void)
 {
-  return gdbscm_scm_from_c_string (gdb_datadir);
+  return gdbscm_scm_from_c_string (gdb_datadir.c_str ());
 }
 
 /* (guile-data-directory) -> string */
@@ -422,33 +396,6 @@ static struct cmd_list_element *set_guile_list;
 static struct cmd_list_element *show_guile_list;
 static struct cmd_list_element *info_guile_list;
 
-/* Function for use by 'set guile' prefix command.  */
-
-static void
-set_guile_command (const char *args, int from_tty)
-{
-  help_list (set_guile_list, "set guile ", all_commands, gdb_stdout);
-}
-
-/* Function for use by 'show guile' prefix command.  */
-
-static void
-show_guile_command (const char *args, int from_tty)
-{
-  cmd_show_list (show_guile_list, from_tty, "");
-}
-
-/* The "info scheme" command is defined as a prefix, with
-   allow_unknown 0.  Therefore, its own definition is called only for
-   "info scheme" with no args.  */
-
-static void
-info_guile_command (const char *args, int from_tty)
-{
-  printf_unfiltered (_("\"info guile\" must be followed"
-		       " by the name of an info command.\n"));
-  help_list (info_guile_list, "info guile ", all_commands, gdb_stdout);
-}
 
 /* Initialization.  */
 
@@ -592,7 +539,7 @@ handle_boot_error (void *boot_scm_file, SCM key, SCM args)
   warning (_("Could not complete Guile gdb module initialization from:\n"
 	     "%s.\n"
 	     "Limited Guile support is available.\n"
-	     "Suggest passing --data-directory=/path/to/gdb/data-directory.\n"),
+	     "Suggest passing --data-directory=/path/to/gdb/data-directory."),
 	   (const char *) boot_scm_file);
 
   return SCM_UNSPECIFIED;
@@ -606,7 +553,8 @@ initialize_scheme_side (void)
 {
   char *boot_scm_path;
 
-  guile_datadir = concat (gdb_datadir, SLASH_STRING, "guile", (char *) NULL);
+  guile_datadir = concat (gdb_datadir.c_str (), SLASH_STRING, "guile",
+			  (char *) NULL);
   boot_scm_path = concat (guile_datadir, SLASH_STRING, "gdb",
 			  SLASH_STRING, boot_scm_filename, (char *) NULL);
 
@@ -786,22 +734,22 @@ This command is only a placeholder.")
 	   );
   add_com_alias ("gu", "guile", class_obscure, 1);
 
-  add_prefix_cmd ("guile", class_obscure, set_guile_command,
-		  _("Prefix command for Guile preference settings."),
-		  &set_guile_list, "set guile ", 0,
-		  &setlist);
+  add_basic_prefix_cmd ("guile", class_obscure,
+			_("Prefix command for Guile preference settings."),
+			&set_guile_list, "set guile ", 0,
+			&setlist);
   add_alias_cmd ("gu", "guile", class_obscure, 1, &setlist);
 
-  add_prefix_cmd ("guile", class_obscure, show_guile_command,
-		  _("Prefix command for Guile preference settings."),
-		  &show_guile_list, "show guile ", 0,
-		  &showlist);
+  add_show_prefix_cmd ("guile", class_obscure,
+		       _("Prefix command for Guile preference settings."),
+		       &show_guile_list, "show guile ", 0,
+		       &showlist);
   add_alias_cmd ("gu", "guile", class_obscure, 1, &showlist);
 
-  add_prefix_cmd ("guile", class_obscure, info_guile_command,
-		  _("Prefix command for Guile info displays."),
-		  &info_guile_list, "info guile ", 0,
-		  &infolist);
+  add_basic_prefix_cmd ("guile", class_obscure,
+			_("Prefix command for Guile info displays."),
+			&info_guile_list, "info guile ", 0,
+			&infolist);
   add_info_alias ("gu", "guile", 1);
 
   /* The name "print-stack" is carried over from Python.
@@ -817,17 +765,14 @@ message == an error message without a stack will be printed."),
 			&set_guile_list, &show_guile_list);
 }
 
+void _initialize_guile ();
 void
-_initialize_guile (void)
+_initialize_guile ()
 {
   install_gdb_commands ();
 
 #if HAVE_GUILE
   {
-#ifdef HAVE_SIGPROCMASK
-    sigset_t sigchld_mask, prev_mask;
-#endif
-
     /* The Python support puts the C side in module "_gdb", leaving the Python
        side to define module "gdb" which imports "_gdb".  There is evidently no
        similar convention in Guile so we skip this.  */
@@ -839,25 +784,20 @@ _initialize_guile (void)
     scm_set_automatic_finalization_enabled (0);
 #endif
 
-#ifdef HAVE_SIGPROCMASK
-    /* Before we initialize Guile, block SIGCHLD.
+    /* Before we initialize Guile, block signals needed by gdb
+       (especially SIGCHLD).
        This is done so that all threads created during Guile initialization
        have SIGCHLD blocked.  PR 17247.
        Really libgc and Guile should do this, but we need to work with
        libgc 7.4.x.  */
-    sigemptyset (&sigchld_mask);
-    sigaddset (&sigchld_mask, SIGCHLD);
-    sigprocmask (SIG_BLOCK, &sigchld_mask, &prev_mask);
-#endif
+    {
+      gdb::block_signals blocker;
 
-    /* scm_with_guile is the most portable way to initialize Guile.
-       Plus we need to initialize the Guile support while in Guile mode
-       (e.g., called from within a call to scm_with_guile).  */
-    scm_with_guile (call_initialize_gdb_module, NULL);
-
-#ifdef HAVE_SIGPROCMASK
-    sigprocmask (SIG_SETMASK, &prev_mask, NULL);
-#endif
+      /* scm_with_guile is the most portable way to initialize Guile.
+	 Plus we need to initialize the Guile support while in Guile mode
+	 (e.g., called from within a call to scm_with_guile).  */
+      scm_with_guile (call_initialize_gdb_module, NULL);
+    }
 
     /* Set Guile's backtrace to match the "set guile print-stack" default.
        [N.B. The two settings are still separate.]

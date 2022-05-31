@@ -1,6 +1,6 @@
 /* Floating point routines for GDB, the GNU debugger.
 
-   Copyright (C) 2017-2018 Free Software Foundation, Inc.
+   Copyright (C) 2017-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,7 +21,7 @@
 #include "gdbtypes.h"
 #include "floatformat.h"
 #include "target-float.h"
-
+#include "gdbarch.h"
 
 /* Target floating-point operations.
 
@@ -627,7 +627,6 @@ host_float_ops<T>::from_target (const struct floatformat *fmt,
     }
 
   unsigned char *ufrom = (unsigned char *) from;
-  T dto;
   long exponent;
   unsigned long mant;
   unsigned int mant_bits, mant_off;
@@ -648,8 +647,8 @@ host_float_ops<T>::from_target (const struct floatformat *fmt,
     {
       double dto;
 
-      floatformat_to_double (fmt->split_half ? fmt->split_half : fmt,
-			     from, &dto);
+      floatformat_to_double	/* ARI: floatformat_to_double */
+	(fmt->split_half ? fmt->split_half : fmt, from, &dto);
       *to = (T) dto;
       return;
     }
@@ -685,7 +684,7 @@ host_float_ops<T>::from_target (const struct floatformat *fmt,
 
   mant_bits_left = fmt->man_len;
   mant_off = fmt->man_start;
-  dto = 0.0;
+  T dto = 0.0;
 
   special_exponent = exponent == 0 || exponent == fmt->exp_nan;
 
@@ -948,7 +947,11 @@ host_float_ops<T>::to_string (const gdb_byte *addr, const struct type *type,
 
   T host_float;
   from_target (type, addr, &host_float);
+
+  DIAGNOSTIC_PUSH
+  DIAGNOSTIC_IGNORE_FORMAT_NONLITERAL
   return string_printf (host_format.c_str (), host_float);
+  DIAGNOSTIC_POP
 }
 
 /* Parse string IN into a target floating-number of type TYPE and
@@ -977,7 +980,10 @@ host_float_ops<T>::from_string (gdb_byte *addr, const struct type *type,
     scan_format += scanf_length_modifier<T>::value;
   scan_format += "g%n";
 
+  DIAGNOSTIC_PUSH
+  DIAGNOSTIC_IGNORE_FORMAT_NONLITERAL
   num = sscanf (in.c_str (), scan_format.c_str(), &host_float, &n);
+  DIAGNOSTIC_POP
 
   /* The sscanf man page suggests not making any assumptions on the effect
      of %n on the result, so we don't.
@@ -1001,13 +1007,18 @@ host_float_ops<T>::to_longest (const gdb_byte *addr,
 {
   T host_float;
   from_target (type, addr, &host_float);
-  /* Converting an out-of-range value is undefined behavior in C, but we
-     prefer to return a defined value here.  */
-  if (host_float > std::numeric_limits<LONGEST>::max())
-    return std::numeric_limits<LONGEST>::max();
-  if (host_float < std::numeric_limits<LONGEST>::min())
+  T min_possible_range = static_cast<T>(std::numeric_limits<LONGEST>::min());
+  T max_possible_range = -min_possible_range;
+  /* host_float can be converted to an integer as long as it's in
+     the range [min_possible_range, max_possible_range). If not, it is either
+     too large, or too small, or is NaN; in this case return the maximum or
+     minimum possible value.  */
+  if (host_float < max_possible_range && host_float >= min_possible_range)
+    return static_cast<LONGEST> (host_float);
+  if (host_float < min_possible_range)
     return std::numeric_limits<LONGEST>::min();
-  return (LONGEST) host_float;
+  /* This line will be executed if host_float is NaN.  */
+  return std::numeric_limits<LONGEST>::max();
 }
 
 /* Convert signed integer VAL to a target floating-number of type TYPE
@@ -1731,7 +1742,7 @@ mpfr_float_ops::compare (const gdb_byte *x, const struct type *type_x,
 static void
 match_endianness (const gdb_byte *from, const struct type *type, gdb_byte *to)
 {
-  gdb_assert (TYPE_CODE (type) == TYPE_CODE_DECFLOAT);
+  gdb_assert (type->code () == TYPE_CODE_DECFLOAT);
 
   int len = TYPE_LENGTH (type);
   int i;
@@ -1742,7 +1753,7 @@ match_endianness (const gdb_byte *from, const struct type *type, gdb_byte *to)
 #define OPPOSITE_BYTE_ORDER BFD_ENDIAN_BIG
 #endif
 
-  if (gdbarch_byte_order (get_type_arch (type)) == OPPOSITE_BYTE_ORDER)
+  if (type_byte_order (type) == OPPOSITE_BYTE_ORDER)
     for (i = 0; i < len; i++)
       to[i] = from[len - i - 1];
   else
@@ -1757,7 +1768,7 @@ match_endianness (const gdb_byte *from, const struct type *type, gdb_byte *to)
 static void
 set_decnumber_context (decContext *ctx, const struct type *type)
 {
-  gdb_assert (TYPE_CODE (type) == TYPE_CODE_DECFLOAT);
+  gdb_assert (type->code () == TYPE_CODE_DECFLOAT);
 
   switch (TYPE_LENGTH (type))
     {
@@ -2131,7 +2142,7 @@ static bool
 target_float_same_category_p (const struct type *type1,
 			      const struct type *type2)
 {
-  return TYPE_CODE (type1) == TYPE_CODE (type2);
+  return type1->code () == type2->code ();
 }
 
 /* Return whether TYPE1 and TYPE2 use the same floating-point format.  */
@@ -2142,15 +2153,15 @@ target_float_same_format_p (const struct type *type1,
   if (!target_float_same_category_p (type1, type2))
     return false;
 
-  switch (TYPE_CODE (type1))
+  switch (type1->code ())
     {
       case TYPE_CODE_FLT:
 	return floatformat_from_type (type1) == floatformat_from_type (type2);
 
       case TYPE_CODE_DECFLOAT:
 	return (TYPE_LENGTH (type1) == TYPE_LENGTH (type2)
-		&& (gdbarch_byte_order (get_type_arch (type1))
-		    == gdbarch_byte_order (get_type_arch (type2))));
+		&& (type_byte_order (type1)
+		    == type_byte_order (type2)));
 
       default:
 	gdb_assert_not_reached ("unexpected type code");
@@ -2162,7 +2173,7 @@ target_float_same_format_p (const struct type *type1,
 static int
 target_float_format_length (const struct type *type)
 {
-  switch (TYPE_CODE (type))
+  switch (type->code ())
     {
       case TYPE_CODE_FLT:
 	return floatformat_totalsize_bytes (floatformat_from_type (type));
@@ -2194,7 +2205,7 @@ enum target_float_ops_kind
 static enum target_float_ops_kind
 get_target_float_ops_kind (const struct type *type)
 {
-  switch (TYPE_CODE (type))
+  switch (type->code ())
     {
       case TYPE_CODE_FLT:
         {
@@ -2251,7 +2262,7 @@ get_target_float_ops (enum target_float_ops_kind kind)
 
       /* For binary floating-point formats that do not match any host format,
          use mpfr_t as intermediate format to provide precise target-floating
-         point emulation.  However, if the MPFR library is not availabe,
+         point emulation.  However, if the MPFR library is not available,
          use the largest host floating-point type as intermediate format.  */
       case target_float_ops_kind::binary:
         {
@@ -2289,7 +2300,7 @@ get_target_float_ops (const struct type *type)
 static const target_float_ops *
 get_target_float_ops (const struct type *type1, const struct type *type2)
 {
-  gdb_assert (TYPE_CODE (type1) == TYPE_CODE (type2));
+  gdb_assert (type1->code () == type2->code ());
 
   enum target_float_ops_kind kind1 = get_target_float_ops_kind (type1);
   enum target_float_ops_kind kind2 = get_target_float_ops_kind (type2);
@@ -2304,10 +2315,10 @@ get_target_float_ops (const struct type *type1, const struct type *type2)
 bool
 target_float_is_valid (const gdb_byte *addr, const struct type *type)
 {
-  if (TYPE_CODE (type) == TYPE_CODE_FLT)
+  if (type->code () == TYPE_CODE_FLT)
     return floatformat_is_valid (floatformat_from_type (type), addr);
 
-  if (TYPE_CODE (type) == TYPE_CODE_DECFLOAT)
+  if (type->code () == TYPE_CODE_DECFLOAT)
     return true;
 
   gdb_assert_not_reached ("unexpected type code");
@@ -2318,11 +2329,11 @@ target_float_is_valid (const gdb_byte *addr, const struct type *type)
 bool
 target_float_is_zero (const gdb_byte *addr, const struct type *type)
 {
-  if (TYPE_CODE (type) == TYPE_CODE_FLT)
+  if (type->code () == TYPE_CODE_FLT)
     return (floatformat_classify (floatformat_from_type (type), addr)
 	    == float_zero);
 
-  if (TYPE_CODE (type) == TYPE_CODE_DECFLOAT)
+  if (type->code () == TYPE_CODE_DECFLOAT)
     return decimal_is_zero (addr, type);
 
   gdb_assert_not_reached ("unexpected type code");
@@ -2336,7 +2347,7 @@ target_float_to_string (const gdb_byte *addr, const struct type *type,
 {
   /* Unless we need to adhere to a specific format, provide special
      output for special cases of binary floating-point numbers.  */
-  if (format == nullptr && TYPE_CODE (type) == TYPE_CODE_FLT)
+  if (format == nullptr && type->code () == TYPE_CODE_FLT)
     {
       const struct floatformat *fmt = floatformat_from_type (type);
 

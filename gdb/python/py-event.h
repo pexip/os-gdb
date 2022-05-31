@@ -1,6 +1,6 @@
 /* Python interface to inferior events.
 
-   Copyright (C) 2009-2018 Free Software Foundation, Inc.
+   Copyright (C) 2009-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -17,14 +17,13 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
-#ifndef GDB_PY_EVENT_H
-#define GDB_PY_EVENT_H
+#ifndef PYTHON_PY_EVENT_H
+#define PYTHON_PY_EVENT_H
 
 #include "py-events.h"
 #include "command.h"
 #include "python-internal.h"
 #include "inferior.h"
-#include "py-ref.h"
 
 /* Declare all event types.  */
 #define GDB_PY_DEFINE_EVENT_TYPE(name, py_name, doc, base) \
@@ -68,9 +67,8 @@ extern gdbpy_ref<> create_event_object (PyTypeObject *py_type);
    running in non-stop mode then the event is thread specific, otherwise
    it is process wide.
    This function returns the currently stopped thread in non-stop mode and
-   Py_None otherwise.  In each case it returns a borrowed reference.  */
-extern PyObject *py_get_event_thread (ptid_t ptid)
-  CPYCHECKER_RETURNS_BORROWED_REF;
+   Py_None otherwise.  */
+extern gdbpy_ref<> py_get_event_thread (ptid_t ptid);
 
 extern gdbpy_ref<> create_thread_event_object (PyTypeObject *py_type,
 					       PyObject *thread);
@@ -85,4 +83,4 @@ extern int evpy_add_attribute (PyObject *event,
 int gdbpy_initialize_event_generic (PyTypeObject *type, const char *name)
   CPYCHECKER_NEGATIVE_RESULT_SETS_EXCEPTION;
 
-#endif /* GDB_PY_EVENT_H */
+#endif /* PYTHON_PY_EVENT_H */

@@ -1,7 +1,7 @@
 /* Functions specific to running gdb native on IA-64 running
    GNU/Linux.
 
-   Copyright (C) 1999-2018 Free Software Foundation, Inc.
+   Copyright (C) 1999-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,6 +21,7 @@
 #include "defs.h"
 #include "inferior.h"
 #include "target.h"
+#include "gdbarch.h"
 #include "gdbcore.h"
 #include "regcache.h"
 #include "ia64-tdep.h"
@@ -28,7 +29,7 @@
 
 #include <signal.h>
 #include "nat/gdb_ptrace.h"
-#include "gdb_wait.h"
+#include "gdbsupport/gdb_wait.h"
 #ifdef HAVE_SYS_REG_H
 #include <sys/reg.h>
 #endif
@@ -57,8 +58,6 @@ public:
 					ULONGEST offset, ULONGEST len,
 					ULONGEST *xfered_len) override;
 
-  const struct target_desc *read_description () override;
-
   /* Override watchpoint routines.  */
 
   /* The IA-64 architecture can step over a watch point (without
@@ -70,7 +69,7 @@ public:
      has determined that a hardware watchpoint has indeed been hit.
      The CPU will then be able to execute one instruction without
      triggering a watchpoint.  */
-  bool have_steppable_watchpoint () { return 1; }
+  bool have_steppable_watchpoint () override { return true; }
 
   int can_use_hw_breakpoint (enum bptype, int, int) override;
   bool stopped_by_watchpoint () override;
@@ -82,6 +81,8 @@ public:
   /* Override linux_nat_target low methods.  */
   void low_new_thread (struct lwp_info *lp) override;
   bool low_status_is_event (int status) override;
+
+  void enable_watchpoints_in_psr (ptid_t ptid);
 };
 
 static ia64_linux_nat_target the_ia64_linux_nat_target;
@@ -531,10 +532,10 @@ fill_fpregset (const struct regcache *regcache,
 #define IA64_PSR_DB (1UL << 24)
 #define IA64_PSR_DD (1UL << 39)
 
-static void
-enable_watchpoints_in_psr (ptid_t ptid)
+void
+ia64_linux_nat_target::enable_watchpoints_in_psr (ptid_t ptid)
 {
-  struct regcache *regcache = get_thread_regcache (ptid);
+  struct regcache *regcache = get_thread_regcache (this, ptid);
   ULONGEST psr;
 
   regcache_cooked_read_unsigned (regcache, IA64_PSR_REGNUM, &psr);
@@ -672,8 +673,8 @@ ia64_linux_nat_target::remove_watchpoint (CORE_ADDR addr, int len,
   return -1;
 }
 
-static void
-ia64_linux_new_thread (struct lwp_info *lp)
+void
+ia64_linux_nat_target::low_new_thread (struct lwp_info *lp)
 {
   int i, any;
 
@@ -719,10 +720,9 @@ ia64_linux_nat_target::stopped_by_watchpoint ()
   return stopped_data_address (&addr);
 }
 
-static int
-ia64_linux_can_use_hw_breakpoint (struct target_ops *self,
-				  enum bptype type,
-				  int cnt, int othertype)
+int
+ia64_linux_nat_target::can_use_hw_breakpoint (enum bptype type,
+					      int cnt, int othertype)
 {
   return 1;
 }
@@ -924,8 +924,9 @@ ia64_linux_nat_target::low_status_is_event (int status)
 				 || WSTOPSIG (status) == SIGILL);
 }
 
+void _initialize_ia64_linux_nat ();
 void
-_initialize_ia64_linux_nat (void)
+_initialize_ia64_linux_nat ()
 {
   /* Register the target.  */
   linux_target = &the_ia64_linux_nat_target;

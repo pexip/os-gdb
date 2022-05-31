@@ -1,6 +1,6 @@
 /* Native-dependent code for FreeBSD.
 
-   Copyright (C) 2004-2018 Free Software Foundation, Inc.
+   Copyright (C) 2004-2020 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,10 +21,17 @@
 #define FBSD_NAT_H
 
 #include "inf-ptrace.h"
+#include <osreldate.h>
+#include <sys/proc.h>
 
-#ifdef TRAP_BRKPT
-/* MIPS does not set si_code for SIGTRAP.  sparc64 reports
-   non-standard values in si_code for SIGTRAP.  */
+/* FreeBSD kernels 11.3 and later report valid si_code values for
+   SIGTRAP on all architectures.  Older FreeBSD kernels that supported
+   TRAP_BRKPT did not report valid values for MIPS and sparc64.  Even
+   older kernels without TRAP_BRKPT support did not report valid
+   values on any architecture.  */
+#if (__FreeBSD_kernel_version >= 1102502) || (__FreeBSD_version >= 1102502)
+# define USE_SIGTRAP_SIGINFO
+#elif defined(TRAP_BRKPT)
 # if !defined(__mips__) && !defined(__sparc64__)
 #  define USE_SIGTRAP_SIGINFO
 # endif
@@ -41,18 +48,16 @@ public:
 
   bool info_proc (const char *, enum info_proc_what) override;
 
-#ifdef KERN_PROC_AUXV
   enum target_xfer_status xfer_partial (enum target_object object,
 					const char *annex,
 					gdb_byte *readbuf,
 					const gdb_byte *writebuf,
 					ULONGEST offset, ULONGEST len,
 					ULONGEST *xfered_len) override;
-#endif
 
 #ifdef PT_LWPINFO
   bool thread_alive (ptid_t ptid) override;
-  const char *pid_to_str (ptid_t) override;
+  std::string pid_to_str (ptid_t) override;
 
 #ifdef HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
   const char *thread_name (struct thread_info *) override;
@@ -76,7 +81,7 @@ public:
 #endif
 
 #ifdef TDP_RFPPWAIT
-  int follow_fork (int, int) override;
+  bool follow_fork (bool, bool) override;
 
   int insert_fork_catchpoint (int) override;
   int remove_fork_catchpoint (int) override;
@@ -95,6 +100,8 @@ public:
     override;
 #endif
 #endif /* PT_LWPINFO */
+
+  bool supports_multi_process () override;
 };
 
 #endif /* fbsd-nat.h */

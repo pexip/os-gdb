@@ -1,6 +1,6 @@
 /* Target-dependent code for the Toshiba MeP for GDB, the GNU debugger.
 
-   Copyright (C) 2001-2018 Free Software Foundation, Inc.
+   Copyright (C) 2001-2020 Free Software Foundation, Inc.
 
    Contributed by Red Hat, Inc.
 
@@ -284,7 +284,7 @@ me_module_register_set (CONFIG_ATTR me_module,
 
 /* Given a hardware table entry HW representing a register set, return
    a pointer to the keyword table with all the register names.  If HW
-   is NULL, return NULL, to propage the "no such register set" info
+   is NULL, return NULL, to propagate the "no such register set" info
    along.  */
 static CGEN_KEYWORD *
 register_set_keyword_table (const CGEN_HW_ENTRY *hw)
@@ -1661,14 +1661,13 @@ mep_analyze_prologue (struct gdbarch *gdbarch,
 {
   CORE_ADDR pc;
   unsigned long insn;
-  int rn;
   pv_t reg[MEP_NUM_REGS];
   CORE_ADDR after_last_frame_setup_insn = start_pc;
 
   memset (result, 0, sizeof (*result));
   result->gdbarch = gdbarch;
 
-  for (rn = 0; rn < MEP_NUM_REGS; rn++)
+  for (int rn = 0; rn < MEP_NUM_REGS; rn++)
     {
       reg[rn] = pv_register (rn, 0);
       result->reg_offset[rn] = 1;
@@ -2062,23 +2061,6 @@ static const struct frame_unwind mep_frame_unwind = {
   default_frame_sniffer
 };
 
-
-/* Our general unwinding function can handle unwinding the PC.  */
-static CORE_ADDR
-mep_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
-{
-  return frame_unwind_register_unsigned (next_frame, MEP_PC_REGNUM);
-}
-
-
-/* Our general unwinding function can handle unwinding the SP.  */
-static CORE_ADDR
-mep_unwind_sp (struct gdbarch *gdbarch, struct frame_info *next_frame)
-{
-  return frame_unwind_register_unsigned (next_frame, MEP_SP_REGNUM);
-}
-
-
 
 /* Return values.  */
 
@@ -2259,12 +2241,11 @@ static CORE_ADDR
 mep_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
                      struct regcache *regcache, CORE_ADDR bp_addr,
                      int argc, struct value **argv, CORE_ADDR sp,
-                     int struct_return,
+		     function_call_return_method return_method,
                      CORE_ADDR struct_addr)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   CORE_ADDR *copy = (CORE_ADDR *) alloca (argc * sizeof (copy[0]));
-  CORE_ADDR func_addr = find_function_addr (function, NULL);
   int i;
 
   /* The number of the next register available to hold an argument.  */
@@ -2289,7 +2270,7 @@ mep_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 
   /* If we're returning a structure by value, push the pointer to the
      buffer as the first argument.  */
-  if (struct_return)
+  if (return_method == return_method_struct)
     {
       regcache_cooked_write_unsigned (regcache, arg_reg, struct_addr);
       arg_reg++;
@@ -2335,15 +2316,6 @@ mep_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   
   return sp;
 }
-
-
-static struct frame_id
-mep_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
-{
-  CORE_ADDR sp = get_frame_register_unsigned (this_frame, MEP_SP_REGNUM);
-  return frame_id_build (sp, get_frame_pc (this_frame));
-}
-
 
 
 /* Initialization.  */
@@ -2463,8 +2435,6 @@ mep_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   /* Frames and frame unwinding.  */
   frame_unwind_append_unwinder (gdbarch, &mep_frame_unwind);
-  set_gdbarch_unwind_pc (gdbarch, mep_unwind_pc);
-  set_gdbarch_unwind_sp (gdbarch, mep_unwind_sp);
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
   set_gdbarch_frame_args_skip (gdbarch, 0);
 
@@ -2474,13 +2444,13 @@ mep_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* Inferior function calls.  */
   set_gdbarch_frame_align (gdbarch, mep_frame_align);
   set_gdbarch_push_dummy_call (gdbarch, mep_push_dummy_call);
-  set_gdbarch_dummy_id (gdbarch, mep_dummy_id);
 
   return gdbarch;
 }
 
+void _initialize_mep_tdep ();
 void
-_initialize_mep_tdep (void)
+_initialize_mep_tdep ()
 {
   mep_csr_reggroup = reggroup_new ("csr", USER_REGGROUP);
   mep_cr_reggroup  = reggroup_new ("cr", USER_REGGROUP); 

@@ -1,6 +1,6 @@
 /* Target-dependent code for Analog Devices Blackfin processor, for GDB.
 
-   Copyright (C) 2005-2018 Free Software Foundation, Inc.
+   Copyright (C) 2005-2020 Free Software Foundation, Inc.
 
    Contributed by Analog Devices, Inc.
 
@@ -121,7 +121,7 @@ static const struct tramp_frame bfin_linux_sigframe =
   {
     { 0x00ADE128, 0xffffffff },	/* P0 = __NR_rt_sigreturn; */
     { 0x00A0, 0xffff },		/* EXCPT 0; */
-    { TRAMP_SENTINEL_INSN, -1 },
+    { TRAMP_SENTINEL_INSN, ULONGEST_MAX },
   },
   bfin_linux_sigframe_init,
 };
@@ -161,8 +161,9 @@ bfin_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
                                   bfin_linux_get_syscall_number);
 }
 
+void _initialize_bfin_linux_tdep ();
 void
-_initialize_bfin_linux_tdep (void)
+_initialize_bfin_linux_tdep ()
 {
   gdbarch_register_osabi (bfd_arch_bfin, 0, GDB_OSABI_LINUX,
                           bfin_linux_init_abi);

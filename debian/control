@@ -46,7 +46,7 @@ Build-Depends:
 Vcs-Git: https://salsa.debian.org/gdb-team/gdb.git
 Vcs-Browser: https://salsa.debian.org/gdb-team/gdb
 Homepage: http://www.gnu.org/s/gdb/
-XS-Pexip-Upstream: http://ftp.debian.org/debian/ buster
+XS-Pexip-Upstream: http://deb.debian.org/debian/ bullseye
 
 Package: gdb
 Architecture: any

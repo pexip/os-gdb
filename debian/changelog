@@ -1,3 +1,9 @@
+gdb (10.1-1.7pexip1) pexip; urgency=medium
+
+  * Initial bullseye build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 02 Jun 2022 14:42:13 +0100
+
 gdb (10.1-1.7) unstable; urgency=high
 
   * Non-maintainer upload.

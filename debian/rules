@@ -23,9 +23,7 @@ INSTALL = $(install)
 export INSTALL
 
 distribution := $(shell lsb_release -is)
-derivative   := $(shell if dpkg-vendor --derives-from Ubuntu; then echo Ubuntu; \
-			elif dpkg-vendor --derives-from Debian; then echo Debian; \
-			else echo Unknown; fi)
+derivative   := Debian
 
 # Support parallel=<n> in DEB_BUILD_OPTIONS (see #209008)
 ifneq (,$(filter parallel=%,$(subst $(COMMA), ,$(DEB_BUILD_OPTIONS))))

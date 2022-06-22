@@ -45,6 +45,8 @@ Build-Depends:
                libunwind-dev [ia64],
 # debuginfod
                libdebuginfod-dev [linux-any],
+# upstream issing deps
+               gfortran,
 Vcs-Git: https://salsa.debian.org/gdb-team/gdb.git
 Vcs-Browser: https://salsa.debian.org/gdb-team/gdb
 Homepage: https://www.gnu.org/s/gdb/

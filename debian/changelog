@@ -1,3 +1,9 @@
+gdb (10.1-1.7pexip3) pexip-bullseye; urgency=medium
+
+  * Rebuild for override changes
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Fri, 22 Jul 2022 11:53:04 +0100
+
 gdb (10.1-1.7pexip2) pexip-bullseye; urgency=medium
 
   * Main bullseye build

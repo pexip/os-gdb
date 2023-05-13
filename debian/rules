@@ -144,6 +144,7 @@ common_configure_args = \
 	--with-system-zlib \
 	--without-guile \
 	--without-babeltrace \
+	$(if $(filter $(DEB_HOST_ARCH), armhf arm64 mips mipsel ppc64el riscv64),--disable-sim) \
 	$(if $(filter linux, $(DEB_HOST_ARCH_OS)),--with-debuginfod) \
 	$(arch_config_args) \
 
@@ -432,7 +433,6 @@ binary-arch: build-arch install
 		  $(builddir_default)/gdb/doc/refcard.dvi \
 		  $(builddir_default)/gdb/doc/refcard.ps) \
 		gdb/contrib/
-	dh_installchangelogs -pgdb$(TS) gdb/ChangeLog
 
 ifneq (,$(filter minimal, $(variants)))
 	dh_installdocs -pgdb-minimal \
@@ -440,11 +440,12 @@ ifneq (,$(filter minimal, $(variants)))
 		$(if $(filter yes, $(nodoc_profile)),, \
 		  $(builddir_default)/gdb/doc/refcard.dvi \
 		  $(builddir_default)/gdb/doc/refcard.ps)
-	dh_installchangelogs -pgdb-minimal -XChangeLog
+	dh_installchangelogs -pgdb-minimal
 endif
 
 	dh_installdocs -pgdbserver gdbserver/README
-	dh_installchangelogs -pgdbserver gdbserver/ChangeLog
+	dh_installchangelogs -pgdbserver -pgdb$(TS)
+	dh_lintian
 
 	install -d debian/gdb-multiarch/usr/share/doc
 	ln -s gdb debian/gdb-multiarch/usr/share/doc/gdb-multiarch
@@ -461,6 +462,15 @@ endif
 	dh_builddeb -a
 
 binary: binary-indep binary-arch
+
+remove-gfdl-files:
+ifeq ($(GFDL_INVARIANT_FREE),yes)
+	rm -vf gdb/doc/*.1
+	rm -vf gdb/doc/*.5
+	rm -vf gdb/doc/*.info*
+	rm -vf readline/readline/doc/*.info
+	rm -vf zlib/contrib/dotzlib/DotZLib.chm
+endif
 
 .PHONY: build build-arch build-indep clean binary-indep binary-arch binary install
 

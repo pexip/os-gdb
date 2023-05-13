@@ -1,8 +1,8 @@
-/* A Bison parser, made by GNU Bison 3.5.1.  */
+/* A Bison parser, made by GNU Bison 3.8.2.  */
 
 /* Bison implementation for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2020 Free Software Foundation,
+   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2021 Free Software Foundation,
    Inc.
 
    This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* As a special exception, you may create a larger work that contains
    part or all of the Bison parser skeleton and distribute that work
@@ -34,6 +34,10 @@
 /* C LALR(1) parser skeleton written by Richard Stallman, by
    simplifying the original so-called "semantic" parser.  */
 
+/* DO NOT RELY ON FEATURES THAT ARE NOT DOCUMENTED in the manual,
+   especially those whose name start with YY_ or yy_.  They are
+   private implementation details that can be changed or removed.  */
+
 /* All symbols defined below should begin with yy or YY, to avoid
    infringing on user name space.  This should be done even for local
    variables, as they might otherwise be expanded by user macros.
@@ -41,14 +45,11 @@
    define necessary library symbols; they are noted "INFRINGES ON
    USER NAME SPACE" below.  */
 
-/* Undocumented macros, especially those whose name start with YY_,
-   are private implementation details.  Do not rely on them.  */
+/* Identify Bison output, and Bison version.  */
+#define YYBISON 30802
 
-/* Identify Bison output.  */
-#define YYBISON 1
-
-/* Bison version.  */
-#define YYBISON_VERSION "3.5.1"
+/* Bison version string.  */
+#define YYBISON_VERSION "3.8.2"
 
 /* Skeleton name.  */
 #define YYSKELETON_NAME "yacc.c"
@@ -82,6 +83,7 @@
 #include <ctype.h>
 #include <algorithm>
 #include "type-stack.h"
+#include "f-exp.h"
 
 #define parse_type(ps) builtin_type (ps->gdbarch ())
 #define parse_f_type(ps) builtin_f_type (ps->gdbarch ())
@@ -116,8 +118,21 @@ static void push_kind_type (LONGEST val, struct type *type);
 
 static struct type *convert_to_kind_type (struct type *basetype, int kind);
 
+static void wrap_unop_intrinsic (exp_opcode opcode);
 
-#line 121 "f-exp.c.tmp"
+static void wrap_binop_intrinsic (exp_opcode opcode);
+
+static void wrap_ternop_intrinsic (exp_opcode opcode);
+
+template<typename T>
+static void fortran_wrap2_kind (type *base_type);
+
+template<typename T>
+static void fortran_wrap3_kind (type *base_type);
+
+using namespace expr;
+
+#line 136 "f-exp.c.tmp"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -140,14 +155,6 @@ static struct type *convert_to_kind_type (struct type *basetype, int kind);
 #  endif
 # endif
 
-/* Enabling verbose error messages.  */
-#ifdef YYERROR_VERBOSE
-# undef YYERROR_VERBOSE
-# define YYERROR_VERBOSE 1
-#else
-# define YYERROR_VERBOSE 0
-#endif
-
 
 /* Debug traces.  */
 #ifndef YYDEBUG
@@ -157,110 +164,135 @@ static struct type *convert_to_kind_type (struct type *basetype, int kind);
 extern int yydebug;
 #endif
 
-/* Token type.  */
+/* Token kinds.  */
 #ifndef YYTOKENTYPE
 # define YYTOKENTYPE
   enum yytokentype
   {
-    INT = 258,
-    FLOAT = 259,
-    STRING_LITERAL = 260,
-    BOOLEAN_LITERAL = 261,
-    NAME = 262,
-    TYPENAME = 263,
-    NAME_OR_INT = 264,
-    SIZEOF = 265,
-    KIND = 266,
-    ERROR = 267,
-    INT_KEYWORD = 268,
-    INT_S2_KEYWORD = 269,
-    LOGICAL_S1_KEYWORD = 270,
-    LOGICAL_S2_KEYWORD = 271,
-    LOGICAL_S8_KEYWORD = 272,
-    LOGICAL_KEYWORD = 273,
-    REAL_KEYWORD = 274,
-    REAL_S8_KEYWORD = 275,
-    REAL_S16_KEYWORD = 276,
-    COMPLEX_KEYWORD = 277,
-    COMPLEX_S8_KEYWORD = 278,
-    COMPLEX_S16_KEYWORD = 279,
-    COMPLEX_S32_KEYWORD = 280,
-    BOOL_AND = 281,
-    BOOL_OR = 282,
-    BOOL_NOT = 283,
-    SINGLE = 284,
-    DOUBLE = 285,
-    PRECISION = 286,
-    CHARACTER = 287,
-    DOLLAR_VARIABLE = 288,
-    ASSIGN_MODIFY = 289,
-    UNOP_INTRINSIC = 290,
-    BINOP_INTRINSIC = 291,
-    ABOVE_COMMA = 292,
-    EQUAL = 293,
-    NOTEQUAL = 294,
-    LESSTHAN = 295,
-    GREATERTHAN = 296,
-    LEQ = 297,
-    GEQ = 298,
-    LSH = 299,
-    RSH = 300,
-    STARSTAR = 301,
-    UNARY = 302
+    YYEMPTY = -2,
+    YYEOF = 0,                     /* "end of file"  */
+    YYerror = 256,                 /* error  */
+    YYUNDEF = 257,                 /* "invalid token"  */
+    INT = 258,                     /* INT  */
+    FLOAT = 259,                   /* FLOAT  */
+    STRING_LITERAL = 260,          /* STRING_LITERAL  */
+    BOOLEAN_LITERAL = 261,         /* BOOLEAN_LITERAL  */
+    NAME = 262,                    /* NAME  */
+    TYPENAME = 263,                /* TYPENAME  */
+    COMPLETE = 264,                /* COMPLETE  */
+    NAME_OR_INT = 265,             /* NAME_OR_INT  */
+    SIZEOF = 266,                  /* SIZEOF  */
+    KIND = 267,                    /* KIND  */
+    ERROR = 268,                   /* ERROR  */
+    INT_S1_KEYWORD = 269,          /* INT_S1_KEYWORD  */
+    INT_S2_KEYWORD = 270,          /* INT_S2_KEYWORD  */
+    INT_KEYWORD = 271,             /* INT_KEYWORD  */
+    INT_S4_KEYWORD = 272,          /* INT_S4_KEYWORD  */
+    INT_S8_KEYWORD = 273,          /* INT_S8_KEYWORD  */
+    LOGICAL_S1_KEYWORD = 274,      /* LOGICAL_S1_KEYWORD  */
+    LOGICAL_S2_KEYWORD = 275,      /* LOGICAL_S2_KEYWORD  */
+    LOGICAL_KEYWORD = 276,         /* LOGICAL_KEYWORD  */
+    LOGICAL_S4_KEYWORD = 277,      /* LOGICAL_S4_KEYWORD  */
+    LOGICAL_S8_KEYWORD = 278,      /* LOGICAL_S8_KEYWORD  */
+    REAL_KEYWORD = 279,            /* REAL_KEYWORD  */
+    REAL_S4_KEYWORD = 280,         /* REAL_S4_KEYWORD  */
+    REAL_S8_KEYWORD = 281,         /* REAL_S8_KEYWORD  */
+    REAL_S16_KEYWORD = 282,        /* REAL_S16_KEYWORD  */
+    COMPLEX_KEYWORD = 283,         /* COMPLEX_KEYWORD  */
+    COMPLEX_S4_KEYWORD = 284,      /* COMPLEX_S4_KEYWORD  */
+    COMPLEX_S8_KEYWORD = 285,      /* COMPLEX_S8_KEYWORD  */
+    COMPLEX_S16_KEYWORD = 286,     /* COMPLEX_S16_KEYWORD  */
+    BOOL_AND = 287,                /* BOOL_AND  */
+    BOOL_OR = 288,                 /* BOOL_OR  */
+    BOOL_NOT = 289,                /* BOOL_NOT  */
+    SINGLE = 290,                  /* SINGLE  */
+    DOUBLE = 291,                  /* DOUBLE  */
+    PRECISION = 292,               /* PRECISION  */
+    CHARACTER = 293,               /* CHARACTER  */
+    DOLLAR_VARIABLE = 294,         /* DOLLAR_VARIABLE  */
+    ASSIGN_MODIFY = 295,           /* ASSIGN_MODIFY  */
+    UNOP_INTRINSIC = 296,          /* UNOP_INTRINSIC  */
+    BINOP_INTRINSIC = 297,         /* BINOP_INTRINSIC  */
+    UNOP_OR_BINOP_INTRINSIC = 298, /* UNOP_OR_BINOP_INTRINSIC  */
+    UNOP_OR_BINOP_OR_TERNOP_INTRINSIC = 299, /* UNOP_OR_BINOP_OR_TERNOP_INTRINSIC  */
+    ABOVE_COMMA = 300,             /* ABOVE_COMMA  */
+    EQUAL = 301,                   /* EQUAL  */
+    NOTEQUAL = 302,                /* NOTEQUAL  */
+    LESSTHAN = 303,                /* LESSTHAN  */
+    GREATERTHAN = 304,             /* GREATERTHAN  */
+    LEQ = 305,                     /* LEQ  */
+    GEQ = 306,                     /* GEQ  */
+    LSH = 307,                     /* LSH  */
+    RSH = 308,                     /* RSH  */
+    STARSTAR = 309,                /* STARSTAR  */
+    UNARY = 310                    /* UNARY  */
   };
+  typedef enum yytokentype yytoken_kind_t;
 #endif
-/* Tokens.  */
+/* Token kinds.  */
+#define YYEMPTY -2
+#define YYEOF 0
+#define YYerror 256
+#define YYUNDEF 257
 #define INT 258
 #define FLOAT 259
 #define STRING_LITERAL 260
 #define BOOLEAN_LITERAL 261
 #define NAME 262
 #define TYPENAME 263
-#define NAME_OR_INT 264
-#define SIZEOF 265
-#define KIND 266
-#define ERROR 267
-#define INT_KEYWORD 268
-#define INT_S2_KEYWORD 269
-#define LOGICAL_S1_KEYWORD 270
-#define LOGICAL_S2_KEYWORD 271
-#define LOGICAL_S8_KEYWORD 272
-#define LOGICAL_KEYWORD 273
-#define REAL_KEYWORD 274
-#define REAL_S8_KEYWORD 275
-#define REAL_S16_KEYWORD 276
-#define COMPLEX_KEYWORD 277
-#define COMPLEX_S8_KEYWORD 278
-#define COMPLEX_S16_KEYWORD 279
-#define COMPLEX_S32_KEYWORD 280
-#define BOOL_AND 281
-#define BOOL_OR 282
-#define BOOL_NOT 283
-#define SINGLE 284
-#define DOUBLE 285
-#define PRECISION 286
-#define CHARACTER 287
-#define DOLLAR_VARIABLE 288
-#define ASSIGN_MODIFY 289
-#define UNOP_INTRINSIC 290
-#define BINOP_INTRINSIC 291
-#define ABOVE_COMMA 292
-#define EQUAL 293
-#define NOTEQUAL 294
-#define LESSTHAN 295
-#define GREATERTHAN 296
-#define LEQ 297
-#define GEQ 298
-#define LSH 299
-#define RSH 300
-#define STARSTAR 301
-#define UNARY 302
+#define COMPLETE 264
+#define NAME_OR_INT 265
+#define SIZEOF 266
+#define KIND 267
+#define ERROR 268
+#define INT_S1_KEYWORD 269
+#define INT_S2_KEYWORD 270
+#define INT_KEYWORD 271
+#define INT_S4_KEYWORD 272
+#define INT_S8_KEYWORD 273
+#define LOGICAL_S1_KEYWORD 274
+#define LOGICAL_S2_KEYWORD 275
+#define LOGICAL_KEYWORD 276
+#define LOGICAL_S4_KEYWORD 277
+#define LOGICAL_S8_KEYWORD 278
+#define REAL_KEYWORD 279
+#define REAL_S4_KEYWORD 280
+#define REAL_S8_KEYWORD 281
+#define REAL_S16_KEYWORD 282
+#define COMPLEX_KEYWORD 283
+#define COMPLEX_S4_KEYWORD 284
+#define COMPLEX_S8_KEYWORD 285
+#define COMPLEX_S16_KEYWORD 286
+#define BOOL_AND 287
+#define BOOL_OR 288
+#define BOOL_NOT 289
+#define SINGLE 290
+#define DOUBLE 291
+#define PRECISION 292
+#define CHARACTER 293
+#define DOLLAR_VARIABLE 294
+#define ASSIGN_MODIFY 295
+#define UNOP_INTRINSIC 296
+#define BINOP_INTRINSIC 297
+#define UNOP_OR_BINOP_INTRINSIC 298
+#define UNOP_OR_BINOP_OR_TERNOP_INTRINSIC 299
+#define ABOVE_COMMA 300
+#define EQUAL 301
+#define NOTEQUAL 302
+#define LESSTHAN 303
+#define GREATERTHAN 304
+#define LEQ 305
+#define GEQ 306
+#define LSH 307
+#define RSH 308
+#define STARSTAR 309
+#define UNARY 310
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 99 "f-exp.y"
+#line 113 "f-exp.y"
 
     LONGEST lval;
     struct {
@@ -284,7 +316,7 @@ union YYSTYPE
     int *ivec;
   
 
-#line 288 "f-exp.c.tmp"
+#line 320 "f-exp.c.tmp"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -295,18 +327,119 @@ typedef union YYSTYPE YYSTYPE;
 
 extern YYSTYPE yylval;
 
+
 int yyparse (void);
 
 
 
+/* Symbol kind.  */
+enum yysymbol_kind_t
+{
+  YYSYMBOL_YYEMPTY = -2,
+  YYSYMBOL_YYEOF = 0,                      /* "end of file"  */
+  YYSYMBOL_YYerror = 1,                    /* error  */
+  YYSYMBOL_YYUNDEF = 2,                    /* "invalid token"  */
+  YYSYMBOL_INT = 3,                        /* INT  */
+  YYSYMBOL_FLOAT = 4,                      /* FLOAT  */
+  YYSYMBOL_STRING_LITERAL = 5,             /* STRING_LITERAL  */
+  YYSYMBOL_BOOLEAN_LITERAL = 6,            /* BOOLEAN_LITERAL  */
+  YYSYMBOL_NAME = 7,                       /* NAME  */
+  YYSYMBOL_TYPENAME = 8,                   /* TYPENAME  */
+  YYSYMBOL_COMPLETE = 9,                   /* COMPLETE  */
+  YYSYMBOL_NAME_OR_INT = 10,               /* NAME_OR_INT  */
+  YYSYMBOL_SIZEOF = 11,                    /* SIZEOF  */
+  YYSYMBOL_KIND = 12,                      /* KIND  */
+  YYSYMBOL_ERROR = 13,                     /* ERROR  */
+  YYSYMBOL_INT_S1_KEYWORD = 14,            /* INT_S1_KEYWORD  */
+  YYSYMBOL_INT_S2_KEYWORD = 15,            /* INT_S2_KEYWORD  */
+  YYSYMBOL_INT_KEYWORD = 16,               /* INT_KEYWORD  */
+  YYSYMBOL_INT_S4_KEYWORD = 17,            /* INT_S4_KEYWORD  */
+  YYSYMBOL_INT_S8_KEYWORD = 18,            /* INT_S8_KEYWORD  */
+  YYSYMBOL_LOGICAL_S1_KEYWORD = 19,        /* LOGICAL_S1_KEYWORD  */
+  YYSYMBOL_LOGICAL_S2_KEYWORD = 20,        /* LOGICAL_S2_KEYWORD  */
+  YYSYMBOL_LOGICAL_KEYWORD = 21,           /* LOGICAL_KEYWORD  */
+  YYSYMBOL_LOGICAL_S4_KEYWORD = 22,        /* LOGICAL_S4_KEYWORD  */
+  YYSYMBOL_LOGICAL_S8_KEYWORD = 23,        /* LOGICAL_S8_KEYWORD  */
+  YYSYMBOL_REAL_KEYWORD = 24,              /* REAL_KEYWORD  */
+  YYSYMBOL_REAL_S4_KEYWORD = 25,           /* REAL_S4_KEYWORD  */
+  YYSYMBOL_REAL_S8_KEYWORD = 26,           /* REAL_S8_KEYWORD  */
+  YYSYMBOL_REAL_S16_KEYWORD = 27,          /* REAL_S16_KEYWORD  */
+  YYSYMBOL_COMPLEX_KEYWORD = 28,           /* COMPLEX_KEYWORD  */
+  YYSYMBOL_COMPLEX_S4_KEYWORD = 29,        /* COMPLEX_S4_KEYWORD  */
+  YYSYMBOL_COMPLEX_S8_KEYWORD = 30,        /* COMPLEX_S8_KEYWORD  */
+  YYSYMBOL_COMPLEX_S16_KEYWORD = 31,       /* COMPLEX_S16_KEYWORD  */
+  YYSYMBOL_BOOL_AND = 32,                  /* BOOL_AND  */
+  YYSYMBOL_BOOL_OR = 33,                   /* BOOL_OR  */
+  YYSYMBOL_BOOL_NOT = 34,                  /* BOOL_NOT  */
+  YYSYMBOL_SINGLE = 35,                    /* SINGLE  */
+  YYSYMBOL_DOUBLE = 36,                    /* DOUBLE  */
+  YYSYMBOL_PRECISION = 37,                 /* PRECISION  */
+  YYSYMBOL_CHARACTER = 38,                 /* CHARACTER  */
+  YYSYMBOL_DOLLAR_VARIABLE = 39,           /* DOLLAR_VARIABLE  */
+  YYSYMBOL_ASSIGN_MODIFY = 40,             /* ASSIGN_MODIFY  */
+  YYSYMBOL_UNOP_INTRINSIC = 41,            /* UNOP_INTRINSIC  */
+  YYSYMBOL_BINOP_INTRINSIC = 42,           /* BINOP_INTRINSIC  */
+  YYSYMBOL_UNOP_OR_BINOP_INTRINSIC = 43,   /* UNOP_OR_BINOP_INTRINSIC  */
+  YYSYMBOL_UNOP_OR_BINOP_OR_TERNOP_INTRINSIC = 44, /* UNOP_OR_BINOP_OR_TERNOP_INTRINSIC  */
+  YYSYMBOL_45_ = 45,                       /* ','  */
+  YYSYMBOL_ABOVE_COMMA = 46,               /* ABOVE_COMMA  */
+  YYSYMBOL_47_ = 47,                       /* '='  */
+  YYSYMBOL_48_ = 48,                       /* '?'  */
+  YYSYMBOL_49_ = 49,                       /* '|'  */
+  YYSYMBOL_50_ = 50,                       /* '^'  */
+  YYSYMBOL_51_ = 51,                       /* '&'  */
+  YYSYMBOL_EQUAL = 52,                     /* EQUAL  */
+  YYSYMBOL_NOTEQUAL = 53,                  /* NOTEQUAL  */
+  YYSYMBOL_LESSTHAN = 54,                  /* LESSTHAN  */
+  YYSYMBOL_GREATERTHAN = 55,               /* GREATERTHAN  */
+  YYSYMBOL_LEQ = 56,                       /* LEQ  */
+  YYSYMBOL_GEQ = 57,                       /* GEQ  */
+  YYSYMBOL_LSH = 58,                       /* LSH  */
+  YYSYMBOL_RSH = 59,                       /* RSH  */
+  YYSYMBOL_60_ = 60,                       /* '@'  */
+  YYSYMBOL_61_ = 61,                       /* '+'  */
+  YYSYMBOL_62_ = 62,                       /* '-'  */
+  YYSYMBOL_63_ = 63,                       /* '*'  */
+  YYSYMBOL_64_ = 64,                       /* '/'  */
+  YYSYMBOL_STARSTAR = 65,                  /* STARSTAR  */
+  YYSYMBOL_66_ = 66,                       /* '%'  */
+  YYSYMBOL_UNARY = 67,                     /* UNARY  */
+  YYSYMBOL_68_ = 68,                       /* '('  */
+  YYSYMBOL_69_ = 69,                       /* ')'  */
+  YYSYMBOL_70_ = 70,                       /* '~'  */
+  YYSYMBOL_71_ = 71,                       /* ':'  */
+  YYSYMBOL_YYACCEPT = 72,                  /* $accept  */
+  YYSYMBOL_start = 73,                     /* start  */
+  YYSYMBOL_type_exp = 74,                  /* type_exp  */
+  YYSYMBOL_exp = 75,                       /* exp  */
+  YYSYMBOL_76_1 = 76,                      /* $@1  */
+  YYSYMBOL_77_2 = 77,                      /* $@2  */
+  YYSYMBOL_78_3 = 78,                      /* $@3  */
+  YYSYMBOL_arglist = 79,                   /* arglist  */
+  YYSYMBOL_subrange = 80,                  /* subrange  */
+  YYSYMBOL_complexnum = 81,                /* complexnum  */
+  YYSYMBOL_variable = 82,                  /* variable  */
+  YYSYMBOL_type = 83,                      /* type  */
+  YYSYMBOL_ptype = 84,                     /* ptype  */
+  YYSYMBOL_abs_decl = 85,                  /* abs_decl  */
+  YYSYMBOL_direct_abs_decl = 86,           /* direct_abs_decl  */
+  YYSYMBOL_func_mod = 87,                  /* func_mod  */
+  YYSYMBOL_typebase = 88,                  /* typebase  */
+  YYSYMBOL_nonempty_typelist = 89,         /* nonempty_typelist  */
+  YYSYMBOL_name = 90,                      /* name  */
+  YYSYMBOL_name_not_typename = 91          /* name_not_typename  */
+};
+typedef enum yysymbol_kind_t yysymbol_kind_t;
+
+
 /* Second part of user prologue.  */
-#line 122 "f-exp.y"
+#line 136 "f-exp.y"
 
 /* YYSTYPE gets defined by %union */
 static int parse_number (struct parser_state *, const char *, int,
 			 int, YYSTYPE *);
 
-#line 310 "f-exp.c.tmp"
+#line 443 "f-exp.c.tmp"
 
 
 #ifdef short
@@ -344,6 +477,18 @@ typedef __INT_LEAST16_TYPE__ yytype_int16;
 typedef int_least16_t yytype_int16;
 #else
 typedef short yytype_int16;
+#endif
+
+/* Work around bug in HP-UX 11.23, which defines these macros
+   incorrectly for preprocessor constants.  This workaround can likely
+   be removed in 2023, as HPE has promised support for HP-UX 11.23
+   (aka HP-UX 11i v2) only through the end of 2022; see Table 2 of
+   <https://h20195.www2.hpe.com/V2/getpdf.aspx/4AA4-7673ENW.pdf>.  */
+#ifdef __hpux
+# undef UINT_LEAST8_MAX
+# undef UINT_LEAST16_MAX
+# define UINT_LEAST8_MAX 255
+# define UINT_LEAST16_MAX 65535
 #endif
 
 #if defined __UINT_LEAST8_MAX__ && __UINT_LEAST8_MAX__ <= __INT_MAX__
@@ -405,6 +550,7 @@ typedef int yytype_uint16;
 
 #define YYSIZEOF(X) YY_CAST (YYPTRDIFF_T, sizeof (X))
 
+
 /* Stored state numbers (used for stacks). */
 typedef yytype_uint8 yy_state_t;
 
@@ -422,6 +568,7 @@ typedef int yy_state_fast_t;
 #  define YY_(Msgid) Msgid
 # endif
 #endif
+
 
 #ifndef YY_ATTRIBUTE_PURE
 # if defined __GNUC__ && 2 < __GNUC__ + (96 <= __GNUC_MINOR__)
@@ -441,17 +588,23 @@ typedef int yy_state_fast_t;
 
 /* Suppress unused-variable warnings by "using" E.  */
 #if ! defined lint || defined __GNUC__
-# define YYUSE(E) ((void) (E))
+# define YY_USE(E) ((void) (E))
 #else
-# define YYUSE(E) /* empty */
+# define YY_USE(E) /* empty */
 #endif
 
-#if defined __GNUC__ && ! defined __ICC && 407 <= __GNUC__ * 100 + __GNUC_MINOR__
 /* Suppress an incorrect diagnostic about yylval being uninitialized.  */
-# define YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN                            \
+#if defined __GNUC__ && ! defined __ICC && 406 <= __GNUC__ * 100 + __GNUC_MINOR__
+# if __GNUC__ * 100 + __GNUC_MINOR__ < 407
+#  define YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN                           \
+    _Pragma ("GCC diagnostic push")                                     \
+    _Pragma ("GCC diagnostic ignored \"-Wuninitialized\"")
+# else
+#  define YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN                           \
     _Pragma ("GCC diagnostic push")                                     \
     _Pragma ("GCC diagnostic ignored \"-Wuninitialized\"")              \
     _Pragma ("GCC diagnostic ignored \"-Wmaybe-uninitialized\"")
+# endif
 # define YY_IGNORE_MAYBE_UNINITIALIZED_END      \
     _Pragma ("GCC diagnostic pop")
 #else
@@ -480,7 +633,7 @@ typedef int yy_state_fast_t;
 
 #define YY_ASSERT(E) ((void) (0 && (E)))
 
-#if ! defined yyoverflow || YYERROR_VERBOSE
+#if !defined yyoverflow
 
 /* The parser invokes alloca or xmalloc; define the necessary symbols.  */
 
@@ -544,8 +697,7 @@ void xfree (void *); /* INFRINGES ON USER NAME SPACE */
 #   endif
 #  endif
 # endif
-#endif /* ! defined yyoverflow || YYERROR_VERBOSE */
-
+#endif /* !defined yyoverflow */
 
 #if (! defined yyoverflow \
      && (! defined __cplusplus \
@@ -608,27 +760,29 @@ union yyalloc
 #endif /* !YYCOPY_NEEDED */
 
 /* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  60
+#define YYFINAL  69
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   720
+#define YYLAST   924
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  64
+#define YYNTOKENS  72
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  18
+#define YYNNTS  20
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  96
+#define YYNRULES  113
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  157
+#define YYNSTATES  184
 
-#define YYUNDEFTOK  2
-#define YYMAXUTOK   302
+/* YYMAXUTOK -- Last valid token kind.  */
+#define YYMAXUTOK   310
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
    as returned by yylex, with out-of-bounds checking.  */
-#define YYTRANSLATE(YYX)                                                \
-  (0 <= (YYX) && (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
+#define YYTRANSLATE(YYX)                                \
+  (0 <= (YYX) && (YYX) <= YYMAXUTOK                     \
+   ? YY_CAST (yysymbol_kind_t, yytranslate[YYX])        \
+   : YYSYMBOL_YYUNDEF)
 
 /* YYTRANSLATE[TOKEN-NUM] -- Symbol number corresponding to TOKEN-NUM
    as returned by yylex.  */
@@ -637,16 +791,16 @@ static const yytype_int8 yytranslate[] =
        0,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,    58,    43,     2,
-      60,    61,    55,    53,    37,    54,     2,    56,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,    63,     2,
-       2,    39,     2,    40,    52,     2,     2,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,    66,    51,     2,
+      68,    69,    63,    61,    45,    62,     2,    64,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,    71,     2,
+       2,    47,     2,    48,    60,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,    42,     2,     2,     2,     2,     2,
+       2,     2,     2,     2,    50,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,    41,     2,    62,     2,     2,     2,
+       2,     2,     2,     2,    49,     2,    70,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -663,66 +817,70 @@ static const yytype_int8 yytranslate[] =
        5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
       15,    16,    17,    18,    19,    20,    21,    22,    23,    24,
       25,    26,    27,    28,    29,    30,    31,    32,    33,    34,
-      35,    36,    38,    44,    45,    46,    47,    48,    49,    50,
-      51,    57,    59
+      35,    36,    37,    38,    39,    40,    41,    42,    43,    44,
+      46,    52,    53,    54,    55,    56,    57,    58,    59,    65,
+      67
 };
 
 #if YYDEBUG
-  /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
+/* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   205,   205,   206,   209,   215,   220,   224,   228,   232,
-     236,   240,   244,   254,   253,   264,   268,   272,   275,   279,
-     283,   289,   295,   301,   307,   313,   317,   325,   331,   339,
-     343,   347,   351,   355,   359,   363,   367,   371,   375,   379,
-     383,   387,   391,   395,   399,   403,   407,   412,   416,   420,
-     426,   433,   444,   451,   454,   457,   468,   475,   483,   515,
-     518,   519,   570,   572,   574,   576,   578,   581,   583,   585,
-     587,   589,   593,   595,   600,   602,   604,   606,   608,   610,
-     612,   614,   616,   618,   620,   622,   624,   626,   628,   630,
-     632,   634,   636,   641,   646,   653,   657
+       0,   222,   222,   223,   226,   230,   235,   239,   243,   247,
+     251,   255,   259,   269,   268,   279,   285,   292,   291,   312,
+     311,   335,   338,   342,   346,   350,   356,   366,   375,   384,
+     395,   407,   419,   431,   443,   447,   457,   464,   471,   481,
+     493,   497,   501,   505,   509,   513,   517,   521,   525,   529,
+     533,   537,   541,   545,   549,   553,   557,   561,   566,   570,
+     574,   583,   590,   600,   609,   612,   616,   625,   629,   636,
+     644,   647,   648,   699,   701,   703,   705,   707,   710,   712,
+     714,   716,   718,   722,   724,   729,   731,   733,   735,   737,
+     739,   741,   743,   745,   747,   749,   751,   753,   755,   757,
+     759,   761,   763,   765,   767,   769,   771,   773,   775,   780,
+     785,   793,   795,   799
 };
 #endif
 
-#if YYDEBUG || YYERROR_VERBOSE || 0
+/** Accessing symbol of state STATE.  */
+#define YY_ACCESSING_SYMBOL(State) YY_CAST (yysymbol_kind_t, yystos[State])
+
+#if YYDEBUG || 0
+/* The user-facing name of the symbol whose (internal) number is
+   YYSYMBOL.  No bounds checking.  */
+static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
+
 /* YYTNAME[SYMBOL-NUM] -- String name of the symbol SYMBOL-NUM.
    First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
 static const char *const yytname[] =
 {
-  "$end", "error", "$undefined", "INT", "FLOAT", "STRING_LITERAL",
-  "BOOLEAN_LITERAL", "NAME", "TYPENAME", "NAME_OR_INT", "SIZEOF", "KIND",
-  "ERROR", "INT_KEYWORD", "INT_S2_KEYWORD", "LOGICAL_S1_KEYWORD",
-  "LOGICAL_S2_KEYWORD", "LOGICAL_S8_KEYWORD", "LOGICAL_KEYWORD",
-  "REAL_KEYWORD", "REAL_S8_KEYWORD", "REAL_S16_KEYWORD", "COMPLEX_KEYWORD",
-  "COMPLEX_S8_KEYWORD", "COMPLEX_S16_KEYWORD", "COMPLEX_S32_KEYWORD",
-  "BOOL_AND", "BOOL_OR", "BOOL_NOT", "SINGLE", "DOUBLE", "PRECISION",
-  "CHARACTER", "DOLLAR_VARIABLE", "ASSIGN_MODIFY", "UNOP_INTRINSIC",
-  "BINOP_INTRINSIC", "','", "ABOVE_COMMA", "'='", "'?'", "'|'", "'^'",
-  "'&'", "EQUAL", "NOTEQUAL", "LESSTHAN", "GREATERTHAN", "LEQ", "GEQ",
-  "LSH", "RSH", "'@'", "'+'", "'-'", "'*'", "'/'", "STARSTAR", "'%'",
-  "UNARY", "'('", "')'", "'~'", "':'", "$accept", "start", "type_exp",
-  "exp", "$@1", "arglist", "subrange", "complexnum", "variable", "type",
-  "ptype", "abs_decl", "direct_abs_decl", "func_mod", "typebase",
-  "nonempty_typelist", "name", "name_not_typename", YY_NULLPTRPTR
+  "\"end of file\"", "error", "\"invalid token\"", "INT", "FLOAT",
+  "STRING_LITERAL", "BOOLEAN_LITERAL", "NAME", "TYPENAME", "COMPLETE",
+  "NAME_OR_INT", "SIZEOF", "KIND", "ERROR", "INT_S1_KEYWORD",
+  "INT_S2_KEYWORD", "INT_KEYWORD", "INT_S4_KEYWORD", "INT_S8_KEYWORD",
+  "LOGICAL_S1_KEYWORD", "LOGICAL_S2_KEYWORD", "LOGICAL_KEYWORD",
+  "LOGICAL_S4_KEYWORD", "LOGICAL_S8_KEYWORD", "REAL_KEYWORD",
+  "REAL_S4_KEYWORD", "REAL_S8_KEYWORD", "REAL_S16_KEYWORD",
+  "COMPLEX_KEYWORD", "COMPLEX_S4_KEYWORD", "COMPLEX_S8_KEYWORD",
+  "COMPLEX_S16_KEYWORD", "BOOL_AND", "BOOL_OR", "BOOL_NOT", "SINGLE",
+  "DOUBLE", "PRECISION", "CHARACTER", "DOLLAR_VARIABLE", "ASSIGN_MODIFY",
+  "UNOP_INTRINSIC", "BINOP_INTRINSIC", "UNOP_OR_BINOP_INTRINSIC",
+  "UNOP_OR_BINOP_OR_TERNOP_INTRINSIC", "','", "ABOVE_COMMA", "'='", "'?'",
+  "'|'", "'^'", "'&'", "EQUAL", "NOTEQUAL", "LESSTHAN", "GREATERTHAN",
+  "LEQ", "GEQ", "LSH", "RSH", "'@'", "'+'", "'-'", "'*'", "'/'",
+  "STARSTAR", "'%'", "UNARY", "'('", "')'", "'~'", "':'", "$accept",
+  "start", "type_exp", "exp", "$@1", "$@2", "$@3", "arglist", "subrange",
+  "complexnum", "variable", "type", "ptype", "abs_decl", "direct_abs_decl",
+  "func_mod", "typebase", "nonempty_typelist", "name", "name_not_typename", YY_NULLPTRPTR
 };
+
+static const char *
+yysymbol_name (yysymbol_kind_t yysymbol)
+{
+  return yytname[yysymbol];
+}
 #endif
 
-# ifdef YYPRINT
-/* YYTOKNUM[NUM] -- (External) token number corresponding to the
-   (internal) symbol number NUM (which must be that of a token).  */
-static const yytype_int16 yytoknum[] =
-{
-       0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
-     265,   266,   267,   268,   269,   270,   271,   272,   273,   274,
-     275,   276,   277,   278,   279,   280,   281,   282,   283,   284,
-     285,   286,   287,   288,   289,   290,   291,    44,   292,    61,
-      63,   124,    94,    38,   293,   294,   295,   296,   297,   298,
-     299,   300,    64,    43,    45,    42,    47,   301,    37,   302,
-      40,    41,   126,    58
-};
-# endif
-
-#define YYPACT_NINF (-59)
+#define YYPACT_NINF (-103)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -732,283 +890,337 @@ static const yytype_int16 yytoknum[] =
 #define yytable_value_is_error(Yyn) \
   0
 
-  /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
-     STATE-NUM.  */
+/* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
+   STATE-NUM.  */
 static const yytype_int16 yypact[] =
 {
-     147,   -59,   -59,   -59,   -59,   -59,   -59,   -59,   182,   -58,
-     -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,
-     -59,   -59,   -59,   217,    11,    16,   -59,   -59,   -54,   -53,
-     217,   217,   217,   147,   217,    22,   -59,   515,   -59,   -59,
-     -59,   -16,   -59,   147,   -25,   217,   -25,   -59,   -59,   -59,
-     -59,   217,   217,   -25,   -25,   -25,   336,   -24,   -21,   -25,
-     -59,   217,   217,   217,   217,   217,   217,   217,   217,   217,
-     217,   217,   217,   217,   217,   217,   217,   217,   217,   217,
-     217,   217,    36,   -59,   -16,    -2,   278,   -59,   -11,   -59,
-      -1,   372,   408,   480,   217,   -59,   -59,   217,   591,   548,
-     515,   515,   610,   628,   645,   660,   660,    48,    48,    48,
-      48,    71,    71,   262,   139,   139,    35,    35,    35,   -59,
-     -59,    79,   -59,   -59,   -59,    20,   -59,   -59,    26,   -32,
-      -4,   -59,   252,   -59,   -59,   217,   515,   -25,   217,   301,
-     -13,   -59,    47,   -59,   599,   -59,   444,   515,   217,   217,
-     -59,    30,   -59,   -59,   515,   515,   -59
+     249,  -103,  -103,  -103,  -103,  -103,  -103,  -103,   291,   -62,
+    -103,  -103,  -103,  -103,  -103,  -103,  -103,  -103,  -103,  -103,
+    -103,  -103,  -103,  -103,  -103,  -103,  -103,  -103,   333,     6,
+      18,  -103,  -103,   -61,   -33,   -26,   -21,   333,   333,   333,
+     249,   333,    56,  -103,   718,  -103,  -103,  -103,    -6,  -103,
+     249,   -20,   333,   -20,  -103,  -103,  -103,  -103,   333,   333,
+    -103,  -103,   -20,   -20,   -20,   567,   -16,    -4,   -20,  -103,
+     333,   333,   333,   333,   333,   333,   333,   333,   333,   333,
+     333,   333,   333,   333,   333,   333,   333,   333,   333,   333,
+     333,    60,  -103,    -6,    -2,   432,  -103,    29,  -103,    40,
+     373,   605,   681,    88,    88,   333,  -103,  -103,   333,   802,
+     753,   718,   718,   821,   839,   856,   733,   733,    53,    53,
+      53,    53,   133,   133,    72,    38,    38,    58,    58,    58,
+    -103,  -103,  -103,    54,    88,  -103,  -103,  -103,    63,  -103,
+    -103,    59,   -40,    -5,  -103,   375,  -103,  -103,   333,   166,
+     456,   -18,  -103,    -9,   718,   -20,  -103,    51,   104,  -103,
+     812,  -103,   643,   333,   493,   180,    88,  -103,  -103,  -103,
+      75,  -103,  -103,   718,   333,   333,   530,   456,  -103,  -103,
+     718,   718,   333,   718
 };
 
-  /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
-     Performed when YYTABLE does not specify something else to do.  Zero
-     means the default is an error.  */
+/* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
+   Performed when YYTABLE does not specify something else to do.  Zero
+   means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       0,    50,    52,    57,    56,    96,    74,    51,     0,     0,
-      75,    76,    81,    80,    78,    79,    82,    83,    84,    85,
-      86,    87,    88,     0,     0,     0,    77,    54,     0,     0,
-       0,     0,     0,     0,     0,     0,     3,     2,    53,     4,
-      59,    60,    58,     0,    11,     0,     9,    91,    89,    92,
-      90,     0,     0,     7,     8,     6,     0,     0,     0,    10,
-       1,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,    61,    63,    68,    67,   113,    85,    62,     0,     0,
+      86,    87,    88,    89,    90,    92,    93,    94,    95,    96,
+      97,    98,    99,   100,   101,   102,   103,   104,     0,     0,
+       0,    91,    65,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     3,     2,    64,     4,    70,    71,    69,
+       0,    11,     0,     9,   107,   105,   108,   106,     0,     0,
+      17,    19,     7,     8,     6,     0,     0,     0,    10,     1,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,    13,    64,    62,     0,    61,    66,    71,
-       0,     0,     0,     0,     0,     5,    26,     0,    46,    47,
-      49,    48,    45,    44,    43,    37,    38,    41,    42,    39,
-      40,    35,    36,    29,    33,    34,    31,    32,    30,    95,
-      28,    17,    65,    69,    63,     0,    72,    93,     0,     0,
-       0,    70,    55,    12,    15,     0,    25,    27,    24,    18,
-       0,    19,     0,    67,     0,    73,     0,    23,    22,     0,
-      14,     0,    94,    16,    21,    20,    68
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,    13,    75,    73,     0,    72,    77,    82,     0,
+       0,     0,     0,    21,    21,     0,     5,    35,     0,    57,
+      58,    60,    59,    56,    55,    54,    48,    49,    52,    53,
+      50,    51,    46,    47,    40,    44,    45,    42,    43,    41,
+     111,   112,    39,    37,    21,    76,    80,    74,     0,    83,
+     109,     0,     0,     0,    81,    66,    12,    15,     0,    29,
+      22,     0,    23,     0,    34,    36,    38,     0,     0,    78,
+       0,    84,     0,     0,    28,    27,     0,    18,    20,    14,
+       0,   110,    16,    33,     0,     0,    26,    24,    25,    79,
+      32,    31,     0,    30
 };
 
-  /* YYPGOTO[NTERM-NUM].  */
+/* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -59,   -59,   -59,     0,   -59,   -59,   -59,   -59,   -59,     3,
-     -59,   -30,   -59,     8,   -59,   -59,   -59,   -59
+    -103,  -103,  -103,     0,  -103,  -103,  -103,  -102,   -41,  -103,
+    -103,     4,  -103,    48,  -103,    49,  -103,  -103,  -103,  -103
 };
 
-  /* YYDEFGOTO[NTERM-NUM].  */
-static const yytype_int16 yydefgoto[] =
+/* YYDEFGOTO[NTERM-NUM].  */
+static const yytype_uint8 yydefgoto[] =
 {
-      -1,    35,    36,    56,   121,   140,   141,    57,    38,   127,
-      40,    87,    88,    89,    41,   129,   120,    42
+       0,    42,    43,   150,   134,   103,   104,   151,   152,    66,
+      45,   140,    47,    96,    97,    98,    48,   142,   133,    49
 };
 
-  /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
-     positive, shift that token.  If negative, reduce the rule whose
-     number is the opposite.  If YYTABLE_NINF, syntax error.  */
+/* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
+   positive, shift that token.  If negative, reduce the rule whose
+   number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_uint8 yytable[] =
 {
-      37,   123,    45,    39,     6,   144,    51,    52,    44,    10,
+      44,   136,   153,     6,    46,   160,    52,    58,    51,    10,
       11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    22,    60,    46,   149,    24,    25,    84,    26,   145,
-      53,    54,    55,    47,    59,    83,    58,    96,    49,    85,
-      97,    84,    48,   119,    86,    91,    90,    50,   150,   130,
-     151,    92,    93,    85,   122,   124,   128,   126,    86,   142,
-     132,    98,    99,   100,   101,   102,   103,   104,   105,   106,
-     107,   108,   109,   110,   111,   112,   113,   114,   115,   116,
-     117,   118,     1,     2,     3,     4,     5,   143,     7,     8,
-       9,   156,    81,    82,   136,    83,   131,   137,    74,    75,
-      76,    77,    78,    79,    80,    81,    82,    23,    83,     0,
-       0,     0,    27,     0,    28,    29,     0,     0,     0,     0,
-       0,   139,    30,    76,    77,    78,    79,    80,    81,    82,
-       0,    83,   137,    31,    32,   146,     0,     0,   147,    33,
-       0,    34,   138,     0,     0,     0,     0,   152,   154,   155,
-       1,     2,     3,     4,     5,     6,     7,     8,     9,     0,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    22,     0,     0,    23,    24,    25,     0,    26,
-      27,     0,    28,    29,     0,     1,     2,     3,     4,     5,
-      30,     7,     8,     9,    79,    80,    81,    82,     0,    83,
-       0,    31,    32,     0,     0,     0,     0,    33,     0,    34,
-      23,     0,     0,     0,     0,    27,     0,    28,    29,     0,
-       1,     2,     3,     4,     5,    30,     7,     8,     9,     0,
-       0,     0,     0,     0,     0,     0,    31,    32,     0,     0,
-       0,     0,    43,     0,    34,    23,     0,     0,     0,     0,
-      27,     0,    28,    29,     0,     1,     2,     3,     4,     5,
-      30,     7,     8,     9,     0,     0,     0,     0,     0,     0,
-       0,    31,    32,     0,     0,     0,     0,    33,     0,    34,
-      23,     0,     0,     0,     0,    27,     6,    28,    29,   125,
-       0,    10,    11,    12,    13,    14,    15,    16,    17,    18,
-      19,    20,    21,    22,     0,     0,     0,    24,    25,     0,
-      26,     0,    33,     0,    34,    77,    78,    79,    80,    81,
-      82,    84,    83,     0,     0,     0,     0,    61,    62,     0,
-       0,     0,     0,    85,     0,    63,     0,     0,    86,   126,
-      64,     0,    65,    66,    67,    68,    69,    70,    71,    72,
-      73,    74,    75,    76,    77,    78,    79,    80,    81,    82,
-       0,    83,    61,    62,   148,     0,     0,     0,     0,     0,
-      63,     0,     0,    94,     0,    64,     0,    65,    66,    67,
-      68,    69,    70,    71,    72,    73,    74,    75,    76,    77,
-      78,    79,    80,    81,    82,     0,    83,    95,    61,    62,
-       0,     0,     0,     0,     0,     0,    63,     0,     0,     0,
-       0,    64,     0,    65,    66,    67,    68,    69,    70,    71,
-      72,    73,    74,    75,    76,    77,    78,    79,    80,    81,
-      82,     0,    83,   133,    61,    62,     0,     0,     0,     0,
-       0,     0,    63,     0,     0,     0,     0,    64,     0,    65,
-      66,    67,    68,    69,    70,    71,    72,    73,    74,    75,
-      76,    77,    78,    79,    80,    81,    82,     0,    83,   134,
-      61,    62,     0,     0,     0,     0,     0,     0,    63,     0,
-       0,     0,     0,    64,     0,    65,    66,    67,    68,    69,
-      70,    71,    72,    73,    74,    75,    76,    77,    78,    79,
-      80,    81,    82,     0,    83,   153,    61,    62,     0,     0,
-       0,     0,     0,     0,    63,     0,     0,   135,     0,    64,
-       0,    65,    66,    67,    68,    69,    70,    71,    72,    73,
-      74,    75,    76,    77,    78,    79,    80,    81,    82,     0,
-      83,    61,    62,     0,     0,     0,     0,     0,     0,    63,
-       0,     0,     0,     0,    64,     0,    65,    66,    67,    68,
-      69,    70,    71,    72,    73,    74,    75,    76,    77,    78,
-      79,    80,    81,    82,    61,    83,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,    65,
-      66,    67,    68,    69,    70,    71,    72,    73,    74,    75,
-      76,    77,    78,    79,    80,    81,    82,     6,    83,     0,
-       0,     0,    10,    11,    12,    13,    14,    15,    16,    17,
-      18,    19,    20,    21,    22,     0,     0,     0,    24,    25,
-       0,    26,    65,    66,    67,    68,    69,    70,    71,    72,
-      73,    74,    75,    76,    77,    78,    79,    80,    81,    82,
-       0,    83,    66,    67,    68,    69,    70,    71,    72,    73,
-      74,    75,    76,    77,    78,    79,    80,    81,    82,     0,
-      83,    67,    68,    69,    70,    71,    72,    73,    74,    75,
-      76,    77,    78,    79,    80,    81,    82,     0,    83,    68,
-      69,    70,    71,    72,    73,    74,    75,    76,    77,    78,
-      79,    80,    81,    82,     0,    83,    70,    71,    72,    73,
-      74,    75,    76,    77,    78,    79,    80,    81,    82,     0,
-      83
+      21,    22,    23,    24,    25,    26,    27,   166,    53,   161,
+      29,    30,   157,    31,    54,    59,   166,    62,    63,    64,
+      65,    68,    60,    55,    67,    93,    56,    61,    92,    93,
+      65,   167,   100,   107,    99,    57,    69,    94,   101,   102,
+     168,    94,    95,   156,   139,   108,    95,   130,   131,   132,
+     109,   110,   111,   112,   113,   114,   115,   116,   117,   118,
+     119,   120,   121,   122,   123,   124,   125,   126,   127,   128,
+     129,     1,     2,     3,     4,     5,   166,   143,     7,     8,
+       9,    88,    89,    90,    91,   154,    92,   170,   155,   145,
+     158,    83,    84,    85,    86,    87,    88,    89,    90,    91,
+     169,    92,    28,    90,    91,   178,    92,    32,   159,    33,
+      34,    35,    36,    86,    87,    88,    89,    90,    91,    37,
+      92,   135,   137,   141,   179,   155,   144,     0,   162,   164,
+      38,    39,     0,     0,     0,     0,    40,     0,    41,   149,
+       0,     0,     0,   173,   171,   176,   177,     0,     0,     1,
+       2,     3,     4,     5,   180,   181,     7,     8,     9,     0,
+       0,     0,   183,     1,     2,     3,     4,     5,     0,     0,
+       7,     8,     9,    85,    86,    87,    88,    89,    90,    91,
+      28,    92,     0,     0,     0,    32,     0,    33,    34,    35,
+      36,     0,     0,     0,    28,     0,     0,    37,     0,    32,
+       0,    33,    34,    35,    36,     0,     0,     0,    38,    39,
+       0,    37,     0,     0,    40,     0,    41,   163,     0,     0,
+       0,     0,    38,    39,     0,     0,     0,     0,    40,     0,
+      41,   175,     1,     2,     3,     4,     5,     6,     0,     7,
+       8,     9,     0,    10,    11,    12,    13,    14,    15,    16,
+      17,    18,    19,    20,    21,    22,    23,    24,    25,    26,
+      27,     0,     0,    28,    29,    30,     0,    31,    32,     0,
+      33,    34,    35,    36,     1,     2,     3,     4,     5,     0,
+      37,     7,     8,     9,     0,     0,     0,     0,     0,     0,
+       0,    38,    39,     0,     0,     0,     0,    40,     0,    41,
+       0,     0,     0,     0,     0,    28,     0,     0,     0,     0,
+      32,     0,    33,    34,    35,    36,     1,     2,     3,     4,
+       5,     0,    37,     7,     8,     9,     0,     0,     0,     0,
+       0,     0,     0,    38,    39,     0,     0,     0,     0,    50,
+       0,    41,     0,     0,     0,     0,     0,    28,     0,     0,
+       0,     0,    32,     0,    33,    34,    35,    36,     1,     2,
+       3,     4,     5,     0,    37,     7,     8,     9,     0,     0,
+       0,     0,     0,     0,     0,    38,    39,     0,     0,     0,
+       0,    40,     0,    41,     0,    70,    71,     0,     0,    28,
+       0,     0,     0,    72,    32,     0,    33,    34,    35,    36,
+      73,     0,    74,    75,    76,    77,    78,    79,    80,    81,
+      82,    83,    84,    85,    86,    87,    88,    89,    90,    91,
+       6,    92,   146,    40,   138,    41,    10,    11,    12,    13,
+      14,    15,    16,    17,    18,    19,    20,    21,    22,    23,
+      24,    25,    26,    27,     0,     0,     0,    29,    30,     0,
+      31,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,    93,     0,     0,     0,     0,    70,    71,
+       0,     0,     0,     0,     0,    94,    72,     0,     0,     0,
+      95,   139,     0,    73,     0,    74,    75,    76,    77,    78,
+      79,    80,    81,    82,    83,    84,    85,    86,    87,    88,
+      89,    90,    91,     0,    92,    70,    71,   165,     0,     0,
+       0,     0,     0,    72,     0,     0,     0,     0,     0,     0,
+      73,     0,    74,    75,    76,    77,    78,    79,    80,    81,
+      82,    83,    84,    85,    86,    87,    88,    89,    90,    91,
+       0,    92,    70,    71,   174,     0,     0,     0,     0,     0,
+      72,     0,     0,     0,     0,     0,     0,    73,     0,    74,
+      75,    76,    77,    78,    79,    80,    81,    82,    83,    84,
+      85,    86,    87,    88,    89,    90,    91,     0,    92,    70,
+      71,   182,     0,     0,     0,     0,     0,    72,     0,     0,
+       0,     0,   105,     0,    73,     0,    74,    75,    76,    77,
+      78,    79,    80,    81,    82,    83,    84,    85,    86,    87,
+      88,    89,    90,    91,     0,    92,   106,    70,    71,     0,
+       0,     0,     0,     0,     0,    72,     0,     0,     0,     0,
+       0,     0,    73,     0,    74,    75,    76,    77,    78,    79,
+      80,    81,    82,    83,    84,    85,    86,    87,    88,    89,
+      90,    91,     0,    92,   147,    70,    71,     0,     0,     0,
+       0,     0,     0,    72,     0,     0,     0,     0,     0,     0,
+      73,     0,    74,    75,    76,    77,    78,    79,    80,    81,
+      82,    83,    84,    85,    86,    87,    88,    89,    90,    91,
+       0,    92,   172,    70,    71,     0,     0,     0,     0,     0,
+       0,    72,     0,     0,     0,     0,   148,     0,    73,     0,
+      74,    75,    76,    77,    78,    79,    80,    81,    82,    83,
+      84,    85,    86,    87,    88,    89,    90,    91,     0,    92,
+      70,    71,     0,     0,     0,     0,     0,     0,    72,     0,
+       0,     0,     0,     0,     0,    73,     0,    74,    75,    76,
+      77,    78,    79,    80,    81,    82,    83,    84,    85,    86,
+      87,    88,    89,    90,    91,    70,    92,    79,    80,    81,
+      82,    83,    84,    85,    86,    87,    88,    89,    90,    91,
+       0,    92,    74,    75,    76,    77,    78,    79,    80,    81,
+      82,    83,    84,    85,    86,    87,    88,    89,    90,    91,
+       6,    92,     0,     0,     0,     0,    10,    11,    12,    13,
+      14,    15,    16,    17,    18,    19,    20,    21,    22,    23,
+      24,    25,    26,    27,     0,     0,     0,    29,    30,     0,
+      31,    74,    75,    76,    77,    78,    79,    80,    81,    82,
+      83,    84,    85,    86,    87,    88,    89,    90,    91,     0,
+      92,    75,    76,    77,    78,    79,    80,    81,    82,    83,
+      84,    85,    86,    87,    88,    89,    90,    91,     0,    92,
+      76,    77,    78,    79,    80,    81,    82,    83,    84,    85,
+      86,    87,    88,    89,    90,    91,     0,    92,    77,    78,
+      79,    80,    81,    82,    83,    84,    85,    86,    87,    88,
+      89,    90,    91,     0,    92
 };
 
 static const yytype_int16 yycheck[] =
 {
-       0,     3,    60,     0,     8,    37,    60,    60,     8,    13,
-      14,    15,    16,    17,    18,    19,    20,    21,    22,    23,
-      24,    25,     0,    23,    37,    29,    30,    43,    32,    61,
-      30,    31,    32,    22,    34,    60,    33,    61,    22,    55,
-      61,    43,    31,     7,    60,    45,    43,    31,    61,    60,
-       3,    51,    52,    55,    84,    85,    86,    61,    60,    39,
-      61,    61,    62,    63,    64,    65,    66,    67,    68,    69,
+       0,     3,   104,     8,     0,    45,    68,    68,     8,    14,
+      15,    16,    17,    18,    19,    20,    21,    22,    23,    24,
+      25,    26,    27,    28,    29,    30,    31,    45,    28,    69,
+      35,    36,   134,    38,    28,    68,    45,    37,    38,    39,
+      40,    41,    68,    37,    40,    51,    28,    68,    68,    51,
+      50,    69,    52,    69,    50,    37,     0,    63,    58,    59,
+      69,    63,    68,     9,    69,    69,    68,     7,     8,     9,
       70,    71,    72,    73,    74,    75,    76,    77,    78,    79,
-      80,    81,     3,     4,     5,     6,     7,    61,     9,    10,
-      11,    61,    57,    58,    94,    60,    88,    97,    50,    51,
-      52,    53,    54,    55,    56,    57,    58,    28,    60,    -1,
-      -1,    -1,    33,    -1,    35,    36,    -1,    -1,    -1,    -1,
-      -1,   121,    43,    52,    53,    54,    55,    56,    57,    58,
-      -1,    60,   132,    54,    55,   135,    -1,    -1,   138,    60,
-      -1,    62,    63,    -1,    -1,    -1,    -1,   144,   148,   149,
-       3,     4,     5,     6,     7,     8,     9,    10,    11,    -1,
-      13,    14,    15,    16,    17,    18,    19,    20,    21,    22,
-      23,    24,    25,    -1,    -1,    28,    29,    30,    -1,    32,
-      33,    -1,    35,    36,    -1,     3,     4,     5,     6,     7,
-      43,     9,    10,    11,    55,    56,    57,    58,    -1,    60,
-      -1,    54,    55,    -1,    -1,    -1,    -1,    60,    -1,    62,
-      28,    -1,    -1,    -1,    -1,    33,    -1,    35,    36,    -1,
-       3,     4,     5,     6,     7,    43,     9,    10,    11,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    54,    55,    -1,    -1,
-      -1,    -1,    60,    -1,    62,    28,    -1,    -1,    -1,    -1,
-      33,    -1,    35,    36,    -1,     3,     4,     5,     6,     7,
-      43,     9,    10,    11,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    54,    55,    -1,    -1,    -1,    -1,    60,    -1,    62,
-      28,    -1,    -1,    -1,    -1,    33,     8,    35,    36,    11,
-      -1,    13,    14,    15,    16,    17,    18,    19,    20,    21,
-      22,    23,    24,    25,    -1,    -1,    -1,    29,    30,    -1,
-      32,    -1,    60,    -1,    62,    53,    54,    55,    56,    57,
-      58,    43,    60,    -1,    -1,    -1,    -1,    26,    27,    -1,
-      -1,    -1,    -1,    55,    -1,    34,    -1,    -1,    60,    61,
-      39,    -1,    41,    42,    43,    44,    45,    46,    47,    48,
+      80,    81,    82,    83,    84,    85,    86,    87,    88,    89,
+      90,     3,     4,     5,     6,     7,    45,    68,    10,    11,
+      12,    63,    64,    65,    66,   105,    68,     3,   108,    69,
+      47,    58,    59,    60,    61,    62,    63,    64,    65,    66,
+      69,    68,    34,    65,    66,   166,    68,    39,    69,    41,
+      42,    43,    44,    61,    62,    63,    64,    65,    66,    51,
+      68,    93,    94,    95,    69,   145,    97,    -1,   148,   149,
+      62,    63,    -1,    -1,    -1,    -1,    68,    -1,    70,    71,
+      -1,    -1,    -1,   163,   160,   165,   166,    -1,    -1,     3,
+       4,     5,     6,     7,   174,   175,    10,    11,    12,    -1,
+      -1,    -1,   182,     3,     4,     5,     6,     7,    -1,    -1,
+      10,    11,    12,    60,    61,    62,    63,    64,    65,    66,
+      34,    68,    -1,    -1,    -1,    39,    -1,    41,    42,    43,
+      44,    -1,    -1,    -1,    34,    -1,    -1,    51,    -1,    39,
+      -1,    41,    42,    43,    44,    -1,    -1,    -1,    62,    63,
+      -1,    51,    -1,    -1,    68,    -1,    70,    71,    -1,    -1,
+      -1,    -1,    62,    63,    -1,    -1,    -1,    -1,    68,    -1,
+      70,    71,     3,     4,     5,     6,     7,     8,    -1,    10,
+      11,    12,    -1,    14,    15,    16,    17,    18,    19,    20,
+      21,    22,    23,    24,    25,    26,    27,    28,    29,    30,
+      31,    -1,    -1,    34,    35,    36,    -1,    38,    39,    -1,
+      41,    42,    43,    44,     3,     4,     5,     6,     7,    -1,
+      51,    10,    11,    12,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    62,    63,    -1,    -1,    -1,    -1,    68,    -1,    70,
+      -1,    -1,    -1,    -1,    -1,    34,    -1,    -1,    -1,    -1,
+      39,    -1,    41,    42,    43,    44,     3,     4,     5,     6,
+       7,    -1,    51,    10,    11,    12,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    62,    63,    -1,    -1,    -1,    -1,    68,
+      -1,    70,    -1,    -1,    -1,    -1,    -1,    34,    -1,    -1,
+      -1,    -1,    39,    -1,    41,    42,    43,    44,     3,     4,
+       5,     6,     7,    -1,    51,    10,    11,    12,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    62,    63,    -1,    -1,    -1,
+      -1,    68,    -1,    70,    -1,    32,    33,    -1,    -1,    34,
+      -1,    -1,    -1,    40,    39,    -1,    41,    42,    43,    44,
+      47,    -1,    49,    50,    51,    52,    53,    54,    55,    56,
+      57,    58,    59,    60,    61,    62,    63,    64,    65,    66,
+       8,    68,    69,    68,    12,    70,    14,    15,    16,    17,
+      18,    19,    20,    21,    22,    23,    24,    25,    26,    27,
+      28,    29,    30,    31,    -1,    -1,    -1,    35,    36,    -1,
+      38,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    51,    -1,    -1,    -1,    -1,    32,    33,
+      -1,    -1,    -1,    -1,    -1,    63,    40,    -1,    -1,    -1,
+      68,    69,    -1,    47,    -1,    49,    50,    51,    52,    53,
+      54,    55,    56,    57,    58,    59,    60,    61,    62,    63,
+      64,    65,    66,    -1,    68,    32,    33,    71,    -1,    -1,
+      -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,    -1,    -1,
+      47,    -1,    49,    50,    51,    52,    53,    54,    55,    56,
+      57,    58,    59,    60,    61,    62,    63,    64,    65,    66,
+      -1,    68,    32,    33,    71,    -1,    -1,    -1,    -1,    -1,
+      40,    -1,    -1,    -1,    -1,    -1,    -1,    47,    -1,    49,
+      50,    51,    52,    53,    54,    55,    56,    57,    58,    59,
+      60,    61,    62,    63,    64,    65,    66,    -1,    68,    32,
+      33,    71,    -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,
+      -1,    -1,    45,    -1,    47,    -1,    49,    50,    51,    52,
+      53,    54,    55,    56,    57,    58,    59,    60,    61,    62,
+      63,    64,    65,    66,    -1,    68,    69,    32,    33,    -1,
+      -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,
+      -1,    -1,    47,    -1,    49,    50,    51,    52,    53,    54,
+      55,    56,    57,    58,    59,    60,    61,    62,    63,    64,
+      65,    66,    -1,    68,    69,    32,    33,    -1,    -1,    -1,
+      -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,    -1,    -1,
+      47,    -1,    49,    50,    51,    52,    53,    54,    55,    56,
+      57,    58,    59,    60,    61,    62,    63,    64,    65,    66,
+      -1,    68,    69,    32,    33,    -1,    -1,    -1,    -1,    -1,
+      -1,    40,    -1,    -1,    -1,    -1,    45,    -1,    47,    -1,
       49,    50,    51,    52,    53,    54,    55,    56,    57,    58,
-      -1,    60,    26,    27,    63,    -1,    -1,    -1,    -1,    -1,
-      34,    -1,    -1,    37,    -1,    39,    -1,    41,    42,    43,
-      44,    45,    46,    47,    48,    49,    50,    51,    52,    53,
-      54,    55,    56,    57,    58,    -1,    60,    61,    26,    27,
-      -1,    -1,    -1,    -1,    -1,    -1,    34,    -1,    -1,    -1,
-      -1,    39,    -1,    41,    42,    43,    44,    45,    46,    47,
-      48,    49,    50,    51,    52,    53,    54,    55,    56,    57,
-      58,    -1,    60,    61,    26,    27,    -1,    -1,    -1,    -1,
-      -1,    -1,    34,    -1,    -1,    -1,    -1,    39,    -1,    41,
-      42,    43,    44,    45,    46,    47,    48,    49,    50,    51,
-      52,    53,    54,    55,    56,    57,    58,    -1,    60,    61,
-      26,    27,    -1,    -1,    -1,    -1,    -1,    -1,    34,    -1,
-      -1,    -1,    -1,    39,    -1,    41,    42,    43,    44,    45,
-      46,    47,    48,    49,    50,    51,    52,    53,    54,    55,
-      56,    57,    58,    -1,    60,    61,    26,    27,    -1,    -1,
-      -1,    -1,    -1,    -1,    34,    -1,    -1,    37,    -1,    39,
-      -1,    41,    42,    43,    44,    45,    46,    47,    48,    49,
-      50,    51,    52,    53,    54,    55,    56,    57,    58,    -1,
-      60,    26,    27,    -1,    -1,    -1,    -1,    -1,    -1,    34,
-      -1,    -1,    -1,    -1,    39,    -1,    41,    42,    43,    44,
-      45,    46,    47,    48,    49,    50,    51,    52,    53,    54,
-      55,    56,    57,    58,    26,    60,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    41,
-      42,    43,    44,    45,    46,    47,    48,    49,    50,    51,
-      52,    53,    54,    55,    56,    57,    58,     8,    60,    -1,
-      -1,    -1,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    22,    23,    24,    25,    -1,    -1,    -1,    29,    30,
-      -1,    32,    41,    42,    43,    44,    45,    46,    47,    48,
-      49,    50,    51,    52,    53,    54,    55,    56,    57,    58,
-      -1,    60,    42,    43,    44,    45,    46,    47,    48,    49,
-      50,    51,    52,    53,    54,    55,    56,    57,    58,    -1,
-      60,    43,    44,    45,    46,    47,    48,    49,    50,    51,
-      52,    53,    54,    55,    56,    57,    58,    -1,    60,    44,
-      45,    46,    47,    48,    49,    50,    51,    52,    53,    54,
-      55,    56,    57,    58,    -1,    60,    46,    47,    48,    49,
-      50,    51,    52,    53,    54,    55,    56,    57,    58,    -1,
-      60
+      59,    60,    61,    62,    63,    64,    65,    66,    -1,    68,
+      32,    33,    -1,    -1,    -1,    -1,    -1,    -1,    40,    -1,
+      -1,    -1,    -1,    -1,    -1,    47,    -1,    49,    50,    51,
+      52,    53,    54,    55,    56,    57,    58,    59,    60,    61,
+      62,    63,    64,    65,    66,    32,    68,    54,    55,    56,
+      57,    58,    59,    60,    61,    62,    63,    64,    65,    66,
+      -1,    68,    49,    50,    51,    52,    53,    54,    55,    56,
+      57,    58,    59,    60,    61,    62,    63,    64,    65,    66,
+       8,    68,    -1,    -1,    -1,    -1,    14,    15,    16,    17,
+      18,    19,    20,    21,    22,    23,    24,    25,    26,    27,
+      28,    29,    30,    31,    -1,    -1,    -1,    35,    36,    -1,
+      38,    49,    50,    51,    52,    53,    54,    55,    56,    57,
+      58,    59,    60,    61,    62,    63,    64,    65,    66,    -1,
+      68,    50,    51,    52,    53,    54,    55,    56,    57,    58,
+      59,    60,    61,    62,    63,    64,    65,    66,    -1,    68,
+      51,    52,    53,    54,    55,    56,    57,    58,    59,    60,
+      61,    62,    63,    64,    65,    66,    -1,    68,    52,    53,
+      54,    55,    56,    57,    58,    59,    60,    61,    62,    63,
+      64,    65,    66,    -1,    68
 };
 
-  /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
-     symbol of state STATE-NUM.  */
+/* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
+   state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     3,     4,     5,     6,     7,     8,     9,    10,    11,
-      13,    14,    15,    16,    17,    18,    19,    20,    21,    22,
-      23,    24,    25,    28,    29,    30,    32,    33,    35,    36,
-      43,    54,    55,    60,    62,    65,    66,    67,    72,    73,
-      74,    78,    81,    60,    67,    60,    67,    22,    31,    22,
-      31,    60,    60,    67,    67,    67,    67,    71,    73,    67,
-       0,    26,    27,    34,    39,    41,    42,    43,    44,    45,
-      46,    47,    48,    49,    50,    51,    52,    53,    54,    55,
-      56,    57,    58,    60,    43,    55,    60,    75,    76,    77,
-      73,    67,    67,    67,    37,    61,    61,    61,    67,    67,
-      67,    67,    67,    67,    67,    67,    67,    67,    67,    67,
-      67,    67,    67,    67,    67,    67,    67,    67,    67,     7,
-      80,    68,    75,     3,    75,    11,    61,    73,    75,    79,
-      60,    77,    61,    61,    61,    37,    67,    67,    63,    67,
-      69,    70,    39,    61,    37,    61,    67,    67,    63,    37,
-      61,     3,    73,    61,    67,    67,    61
+       0,     3,     4,     5,     6,     7,     8,    10,    11,    12,
+      14,    15,    16,    17,    18,    19,    20,    21,    22,    23,
+      24,    25,    26,    27,    28,    29,    30,    31,    34,    35,
+      36,    38,    39,    41,    42,    43,    44,    51,    62,    63,
+      68,    70,    73,    74,    75,    82,    83,    84,    88,    91,
+      68,    75,    68,    75,    28,    37,    28,    37,    68,    68,
+      68,    68,    75,    75,    75,    75,    81,    83,    75,     0,
+      32,    33,    40,    47,    49,    50,    51,    52,    53,    54,
+      55,    56,    57,    58,    59,    60,    61,    62,    63,    64,
+      65,    66,    68,    51,    63,    68,    85,    86,    87,    83,
+      75,    75,    75,    77,    78,    45,    69,    69,    69,    75,
+      75,    75,    75,    75,    75,    75,    75,    75,    75,    75,
+      75,    75,    75,    75,    75,    75,    75,    75,    75,    75,
+       7,     8,     9,    90,    76,    85,     3,    85,    12,    69,
+      83,    85,    89,    68,    87,    69,    69,    69,    45,    71,
+      75,    79,    80,    79,    75,    75,     9,    79,    47,    69,
+      45,    69,    75,    71,    75,    71,    45,    69,    69,    69,
+       3,    83,    69,    75,    71,    71,    75,    75,    80,    69,
+      75,    75,    71,    75
 };
 
-  /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
+/* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    64,    65,    65,    66,    67,    67,    67,    67,    67,
-      67,    67,    67,    68,    67,    67,    67,    69,    69,    69,
-      69,    70,    70,    70,    70,    71,    67,    67,    67,    67,
-      67,    67,    67,    67,    67,    67,    67,    67,    67,    67,
-      67,    67,    67,    67,    67,    67,    67,    67,    67,    67,
-      67,    67,    67,    67,    67,    67,    67,    67,    72,    73,
-      74,    74,    75,    75,    75,    75,    75,    76,    76,    76,
-      76,    76,    77,    77,    78,    78,    78,    78,    78,    78,
-      78,    78,    78,    78,    78,    78,    78,    78,    78,    78,
-      78,    78,    78,    79,    79,    80,    81
+       0,    72,    73,    73,    74,    75,    75,    75,    75,    75,
+      75,    75,    75,    76,    75,    75,    75,    77,    75,    78,
+      75,    79,    79,    79,    79,    79,    80,    80,    80,    80,
+      80,    80,    80,    80,    81,    75,    75,    75,    75,    75,
+      75,    75,    75,    75,    75,    75,    75,    75,    75,    75,
+      75,    75,    75,    75,    75,    75,    75,    75,    75,    75,
+      75,    75,    75,    75,    75,    75,    75,    75,    75,    82,
+      83,    84,    84,    85,    85,    85,    85,    85,    86,    86,
+      86,    86,    86,    87,    87,    88,    88,    88,    88,    88,
+      88,    88,    88,    88,    88,    88,    88,    88,    88,    88,
+      88,    88,    88,    88,    88,    88,    88,    88,    88,    89,
+      89,    90,    90,    91
 };
 
-  /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
+/* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
        0,     2,     1,     1,     1,     3,     2,     2,     2,     2,
-       2,     2,     4,     0,     5,     4,     6,     0,     1,     1,
-       3,     3,     2,     2,     1,     3,     3,     4,     3,     3,
+       2,     2,     4,     0,     5,     4,     6,     0,     5,     0,
+       5,     0,     1,     1,     3,     3,     3,     2,     2,     1,
+       5,     4,     4,     3,     3,     3,     4,     3,     4,     3,
        3,     3,     3,     3,     3,     3,     3,     3,     3,     3,
        3,     3,     3,     3,     3,     3,     3,     3,     3,     3,
-       1,     1,     1,     1,     1,     4,     1,     1,     1,     1,
-       1,     2,     1,     2,     1,     2,     1,     3,     5,     2,
-       2,     1,     2,     3,     1,     1,     1,     1,     1,     1,
-       1,     1,     1,     1,     1,     1,     1,     1,     1,     2,
-       2,     2,     2,     1,     3,     1,     1
+       3,     1,     1,     1,     1,     1,     4,     1,     1,     1,
+       1,     1,     2,     1,     2,     1,     2,     1,     3,     5,
+       2,     2,     1,     2,     3,     1,     1,     1,     1,     1,
+       1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
+       1,     1,     1,     1,     1,     2,     2,     2,     2,     1,
+       3,     1,     1,     1
 };
 
 
+enum { YYENOMEM = -2 };
+
 #define yyerrok         (yyerrstatus = 0)
 #define yyclearin       (yychar = YYEMPTY)
-#define YYEMPTY         (-2)
-#define YYEOF           0
 
 #define YYACCEPT        goto yyacceptlab
 #define YYABORT         goto yyabortlab
 #define YYERROR         goto yyerrorlab
+#define YYNOMEM         goto yyexhaustedlab
 
 
 #define YYRECOVERING()  (!!yyerrstatus)
@@ -1030,10 +1242,9 @@ static const yytype_int8 yyr2[] =
       }                                                           \
   while (0)
 
-/* Error token number */
-#define YYTERROR        1
-#define YYERRCODE       256
-
+/* Backward compatibility with an undocumented macro.
+   Use YYerror or YYUNDEF. */
+#define YYERRCODE YYUNDEF
 
 
 /* Enable debugging if requested.  */
@@ -1050,19 +1261,16 @@ do {                                            \
     YYFPRINTF Args;                             \
 } while (0)
 
-/* This macro is provided for backward compatibility. */
-#ifndef YY_LOCATION_PRINT
-# define YY_LOCATION_PRINT(File, Loc) ((void) 0)
-#endif
 
 
-# define YY_SYMBOL_PRINT(Title, Type, Value, Location)                    \
+
+# define YY_SYMBOL_PRINT(Title, Kind, Value, Location)                    \
 do {                                                                      \
   if (yydebug)                                                            \
     {                                                                     \
       YYFPRINTF (stderr, "%s ", Title);                                   \
       yy_symbol_print (stderr,                                            \
-                  Type, Value); \
+                  Kind, Value); \
       YYFPRINTF (stderr, "\n");                                           \
     }                                                                     \
 } while (0)
@@ -1073,18 +1281,15 @@ do {                                                                      \
 `-----------------------------------*/
 
 static void
-yy_symbol_value_print (FILE *yyo, int yytype, YYSTYPE const * const yyvaluep)
+yy_symbol_value_print (FILE *yyo,
+                       yysymbol_kind_t yykind, YYSTYPE const * const yyvaluep)
 {
   FILE *yyoutput = yyo;
-  YYUSE (yyoutput);
+  YY_USE (yyoutput);
   if (!yyvaluep)
     return;
-# ifdef YYPRINT
-  if (yytype < YYNTOKENS)
-    YYPRINT (yyo, yytoknum[yytype], *yyvaluep);
-# endif
   YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
-  YYUSE (yytype);
+  YY_USE (yykind);
   YY_IGNORE_MAYBE_UNINITIALIZED_END
 }
 
@@ -1094,12 +1299,13 @@ yy_symbol_value_print (FILE *yyo, int yytype, YYSTYPE const * const yyvaluep)
 `---------------------------*/
 
 static void
-yy_symbol_print (FILE *yyo, int yytype, YYSTYPE const * const yyvaluep)
+yy_symbol_print (FILE *yyo,
+                 yysymbol_kind_t yykind, YYSTYPE const * const yyvaluep)
 {
   YYFPRINTF (yyo, "%s %s (",
-             yytype < YYNTOKENS ? "token" : "nterm", yytname[yytype]);
+             yykind < YYNTOKENS ? "token" : "nterm", yysymbol_name (yykind));
 
-  yy_symbol_value_print (yyo, yytype, yyvaluep);
+  yy_symbol_value_print (yyo, yykind, yyvaluep);
   YYFPRINTF (yyo, ")");
 }
 
@@ -1132,7 +1338,8 @@ do {                                                            \
 `------------------------------------------------*/
 
 static void
-yy_reduce_print (yy_state_t *yyssp, YYSTYPE *yyvsp, int yyrule)
+yy_reduce_print (yy_state_t *yyssp, YYSTYPE *yyvsp,
+                 int yyrule)
 {
   int yylno = yyrline[yyrule];
   int yynrhs = yyr2[yyrule];
@@ -1144,9 +1351,8 @@ yy_reduce_print (yy_state_t *yyssp, YYSTYPE *yyvsp, int yyrule)
     {
       YYFPRINTF (stderr, "   $%d = ", yyi + 1);
       yy_symbol_print (stderr,
-                       yystos[+yyssp[yyi + 1 - yynrhs]],
-                       &yyvsp[(yyi + 1) - (yynrhs)]
-                                              );
+                       YY_ACCESSING_SYMBOL (+yyssp[yyi + 1 - yynrhs]),
+                       &yyvsp[(yyi + 1) - (yynrhs)]);
       YYFPRINTF (stderr, "\n");
     }
 }
@@ -1161,8 +1367,8 @@ do {                                    \
    multiple parsers can coexist.  */
 int yydebug;
 #else /* !YYDEBUG */
-# define YYDPRINTF(Args)
-# define YY_SYMBOL_PRINT(Title, Type, Value, Location)
+# define YYDPRINTF(Args) ((void) 0)
+# define YY_SYMBOL_PRINT(Title, Kind, Value, Location)
 # define YY_STACK_PRINT(Bottom, Top)
 # define YY_REDUCE_PRINT(Rule)
 #endif /* !YYDEBUG */
@@ -1185,265 +1391,38 @@ int yydebug;
 #endif
 
 
-#if YYERROR_VERBOSE
 
-# ifndef yystrlen
-#  if defined __GLIBC__ && defined _STRING_H
-#   define yystrlen(S) (YY_CAST (YYPTRDIFF_T, strlen (S)))
-#  else
-/* Return the length of YYSTR.  */
-static YYPTRDIFF_T
-yystrlen (const char *yystr)
-{
-  YYPTRDIFF_T yylen;
-  for (yylen = 0; yystr[yylen]; yylen++)
-    continue;
-  return yylen;
-}
-#  endif
-# endif
 
-# ifndef yystpcpy
-#  if defined __GLIBC__ && defined _STRING_H && defined _GNU_SOURCE
-#   define yystpcpy stpcpy
-#  else
-/* Copy YYSRC to YYDEST, returning the address of the terminating '\0' in
-   YYDEST.  */
-static char *
-yystpcpy (char *yydest, const char *yysrc)
-{
-  char *yyd = yydest;
-  const char *yys = yysrc;
 
-  while ((*yyd++ = *yys++) != '\0')
-    continue;
-
-  return yyd - 1;
-}
-#  endif
-# endif
-
-# ifndef yytnamerr
-/* Copy to YYRES the contents of YYSTR after stripping away unnecessary
-   quotes and backslashes, so that it's suitable for yyerror.  The
-   heuristic is that double-quoting is unnecessary unless the string
-   contains an apostrophe, a comma, or backslash (other than
-   backslash-backslash).  YYSTR is taken from yytname.  If YYRES is
-   null, do not copy; instead, return the length of what the result
-   would have been.  */
-static YYPTRDIFF_T
-yytnamerr (char *yyres, const char *yystr)
-{
-  if (*yystr == '"')
-    {
-      YYPTRDIFF_T yyn = 0;
-      char const *yyp = yystr;
-
-      for (;;)
-        switch (*++yyp)
-          {
-          case '\'':
-          case ',':
-            goto do_not_strip_quotes;
-
-          case '\\':
-            if (*++yyp != '\\')
-              goto do_not_strip_quotes;
-            else
-              goto append;
-
-          append:
-          default:
-            if (yyres)
-              yyres[yyn] = *yyp;
-            yyn++;
-            break;
-
-          case '"':
-            if (yyres)
-              yyres[yyn] = '\0';
-            return yyn;
-          }
-    do_not_strip_quotes: ;
-    }
-
-  if (yyres)
-    return yystpcpy (yyres, yystr) - yyres;
-  else
-    return yystrlen (yystr);
-}
-# endif
-
-/* Copy into *YYMSG, which is of size *YYMSG_ALLOC, an error message
-   about the unexpected token YYTOKEN for the state stack whose top is
-   YYSSP.
-
-   Return 0 if *YYMSG was successfully written.  Return 1 if *YYMSG is
-   not large enough to hold the message.  In that case, also set
-   *YYMSG_ALLOC to the required number of bytes.  Return 2 if the
-   required number of bytes is too large to store.  */
-static int
-yysyntax_error (YYPTRDIFF_T *yymsg_alloc, char **yymsg,
-                yy_state_t *yyssp, int yytoken)
-{
-  enum { YYERROR_VERBOSE_ARGS_MAXIMUM = 5 };
-  /* Internationalized format string. */
-  const char *yyformat = YY_NULLPTRPTR;
-  /* Arguments of yyformat: reported tokens (one for the "unexpected",
-     one per "expected"). */
-  char const *yyarg[YYERROR_VERBOSE_ARGS_MAXIMUM];
-  /* Actual size of YYARG. */
-  int yycount = 0;
-  /* Cumulated lengths of YYARG.  */
-  YYPTRDIFF_T yysize = 0;
-
-  /* There are many possibilities here to consider:
-     - If this state is a consistent state with a default action, then
-       the only way this function was invoked is if the default action
-       is an error action.  In that case, don't check for expected
-       tokens because there are none.
-     - The only way there can be no lookahead present (in yychar) is if
-       this state is a consistent state with a default action.  Thus,
-       detecting the absence of a lookahead is sufficient to determine
-       that there is no unexpected or expected token to report.  In that
-       case, just report a simple "syntax error".
-     - Don't assume there isn't a lookahead just because this state is a
-       consistent state with a default action.  There might have been a
-       previous inconsistent state, consistent state with a non-default
-       action, or user semantic action that manipulated yychar.
-     - Of course, the expected token list depends on states to have
-       correct lookahead information, and it depends on the parser not
-       to perform extra reductions after fetching a lookahead from the
-       scanner and before detecting a syntax error.  Thus, state merging
-       (from LALR or IELR) and default reductions corrupt the expected
-       token list.  However, the list is correct for canonical LR with
-       one exception: it will still contain any token that will not be
-       accepted due to an error action in a later state.
-  */
-  if (yytoken != YYEMPTY)
-    {
-      int yyn = yypact[+*yyssp];
-      YYPTRDIFF_T yysize0 = yytnamerr (YY_NULLPTRPTR, yytname[yytoken]);
-      yysize = yysize0;
-      yyarg[yycount++] = yytname[yytoken];
-      if (!yypact_value_is_default (yyn))
-        {
-          /* Start YYX at -YYN if negative to avoid negative indexes in
-             YYCHECK.  In other words, skip the first -YYN actions for
-             this state because they are default actions.  */
-          int yyxbegin = yyn < 0 ? -yyn : 0;
-          /* Stay within bounds of both yycheck and yytname.  */
-          int yychecklim = YYLAST - yyn + 1;
-          int yyxend = yychecklim < YYNTOKENS ? yychecklim : YYNTOKENS;
-          int yyx;
-
-          for (yyx = yyxbegin; yyx < yyxend; ++yyx)
-            if (yycheck[yyx + yyn] == yyx && yyx != YYTERROR
-                && !yytable_value_is_error (yytable[yyx + yyn]))
-              {
-                if (yycount == YYERROR_VERBOSE_ARGS_MAXIMUM)
-                  {
-                    yycount = 1;
-                    yysize = yysize0;
-                    break;
-                  }
-                yyarg[yycount++] = yytname[yyx];
-                {
-                  YYPTRDIFF_T yysize1
-                    = yysize + yytnamerr (YY_NULLPTRPTR, yytname[yyx]);
-                  if (yysize <= yysize1 && yysize1 <= YYSTACK_ALLOC_MAXIMUM)
-                    yysize = yysize1;
-                  else
-                    return 2;
-                }
-              }
-        }
-    }
-
-  switch (yycount)
-    {
-# define YYCASE_(N, S)                      \
-      case N:                               \
-        yyformat = S;                       \
-      break
-    default: /* Avoid compiler warnings. */
-      YYCASE_(0, YY_("syntax error"));
-      YYCASE_(1, YY_("syntax error, unexpected %s"));
-      YYCASE_(2, YY_("syntax error, unexpected %s, expecting %s"));
-      YYCASE_(3, YY_("syntax error, unexpected %s, expecting %s or %s"));
-      YYCASE_(4, YY_("syntax error, unexpected %s, expecting %s or %s or %s"));
-      YYCASE_(5, YY_("syntax error, unexpected %s, expecting %s or %s or %s or %s"));
-# undef YYCASE_
-    }
-
-  {
-    /* Don't count the "%s"s in the final size, but reserve room for
-       the terminator.  */
-    YYPTRDIFF_T yysize1 = yysize + (yystrlen (yyformat) - 2 * yycount) + 1;
-    if (yysize <= yysize1 && yysize1 <= YYSTACK_ALLOC_MAXIMUM)
-      yysize = yysize1;
-    else
-      return 2;
-  }
-
-  if (*yymsg_alloc < yysize)
-    {
-      *yymsg_alloc = 2 * yysize;
-      if (! (yysize <= *yymsg_alloc
-             && *yymsg_alloc <= YYSTACK_ALLOC_MAXIMUM))
-        *yymsg_alloc = YYSTACK_ALLOC_MAXIMUM;
-      return 1;
-    }
-
-  /* Avoid sprintf, as that infringes on the user's name space.
-     Don't have undefined behavior even if the translation
-     produced a string with the wrong number of "%s"s.  */
-  {
-    char *yyp = *yymsg;
-    int yyi = 0;
-    while ((*yyp = *yyformat) != '\0')
-      if (*yyp == '%' && yyformat[1] == 's' && yyi < yycount)
-        {
-          yyp += yytnamerr (yyp, yyarg[yyi++]);
-          yyformat += 2;
-        }
-      else
-        {
-          ++yyp;
-          ++yyformat;
-        }
-  }
-  return 0;
-}
-#endif /* YYERROR_VERBOSE */
 
 /*-----------------------------------------------.
 | Release the memory associated to this symbol.  |
 `-----------------------------------------------*/
 
 static void
-yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep)
+yydestruct (const char *yymsg,
+            yysymbol_kind_t yykind, YYSTYPE *yyvaluep)
 {
-  YYUSE (yyvaluep);
+  YY_USE (yyvaluep);
   if (!yymsg)
     yymsg = "Deleting";
-  YY_SYMBOL_PRINT (yymsg, yytype, yyvaluep, yylocationp);
+  YY_SYMBOL_PRINT (yymsg, yykind, yyvaluep, yylocationp);
 
   YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
-  YYUSE (yytype);
+  YY_USE (yykind);
   YY_IGNORE_MAYBE_UNINITIALIZED_END
 }
 
 
-
-
-/* The lookahead symbol.  */
+/* Lookahead token kind.  */
 int yychar;
 
 /* The semantic value of the lookahead symbol.  */
 YYSTYPE yylval;
 /* Number of syntax errors so far.  */
 int yynerrs;
+
+
 
 
 /*----------.
@@ -1453,43 +1432,36 @@ int yynerrs;
 int
 yyparse (void)
 {
-    yy_state_fast_t yystate;
+    yy_state_fast_t yystate = 0;
     /* Number of tokens to shift before error messages enabled.  */
-    int yyerrstatus;
+    int yyerrstatus = 0;
 
-    /* The stacks and their tools:
-       'yyss': related to states.
-       'yyvs': related to semantic values.
-
-       Refer to the stacks through separate pointers, to allow yyoverflow
+    /* Refer to the stacks through separate pointers, to allow yyoverflow
        to xreallocate them elsewhere.  */
 
-    /* The state stack.  */
+    /* Their size.  */
+    YYPTRDIFF_T yystacksize = YYINITDEPTH;
+
+    /* The state stack: array, bottom, top.  */
     yy_state_t yyssa[YYINITDEPTH];
-    yy_state_t *yyss;
-    yy_state_t *yyssp;
+    yy_state_t *yyss = yyssa;
+    yy_state_t *yyssp = yyss;
 
-    /* The semantic value stack.  */
+    /* The semantic value stack: array, bottom, top.  */
     YYSTYPE yyvsa[YYINITDEPTH];
-    YYSTYPE *yyvs;
-    YYSTYPE *yyvsp;
-
-    YYPTRDIFF_T yystacksize;
+    YYSTYPE *yyvs = yyvsa;
+    YYSTYPE *yyvsp = yyvs;
 
   int yyn;
+  /* The return value of yyparse.  */
   int yyresult;
-  /* Lookahead token as an internal (translated) token number.  */
-  int yytoken = 0;
+  /* Lookahead symbol kind.  */
+  yysymbol_kind_t yytoken = YYSYMBOL_YYEMPTY;
   /* The variables used to return semantic value and location from the
      action routines.  */
   YYSTYPE yyval;
 
-#if YYERROR_VERBOSE
-  /* Buffer for error messages, and its allocated size.  */
-  char yymsgbuf[128];
-  char *yymsg = yymsgbuf;
-  YYPTRDIFF_T yymsg_alloc = sizeof yymsgbuf;
-#endif
+
 
 #define YYPOPSTACK(N)   (yyvsp -= (N), yyssp -= (N))
 
@@ -1497,16 +1469,10 @@ yyparse (void)
      Keep to zero when no symbol should be popped.  */
   int yylen = 0;
 
-  yyssp = yyss = yyssa;
-  yyvsp = yyvs = yyvsa;
-  yystacksize = YYINITDEPTH;
-
   YYDPRINTF ((stderr, "Starting parse\n"));
 
-  yystate = 0;
-  yyerrstatus = 0;
-  yynerrs = 0;
   yychar = YYEMPTY; /* Cause a token to be read.  */
+
   goto yysetstate;
 
 
@@ -1528,10 +1494,11 @@ yysetstate:
   YY_IGNORE_USELESS_CAST_BEGIN
   *yyssp = YY_CAST (yy_state_t, yystate);
   YY_IGNORE_USELESS_CAST_END
+  YY_STACK_PRINT (yyss, yyssp);
 
   if (yyss + yystacksize - 1 <= yyssp)
 #if !defined yyoverflow && !defined YYSTACK_RELOCATE
-    goto yyexhaustedlab;
+    YYNOMEM;
 #else
     {
       /* Get the current used size of the three stacks, in elements.  */
@@ -1559,7 +1526,7 @@ yysetstate:
 # else /* defined YYSTACK_RELOCATE */
       /* Extend the stack our own way.  */
       if (YYMAXDEPTH <= yystacksize)
-        goto yyexhaustedlab;
+        YYNOMEM;
       yystacksize *= 2;
       if (YYMAXDEPTH < yystacksize)
         yystacksize = YYMAXDEPTH;
@@ -1570,10 +1537,10 @@ yysetstate:
           YY_CAST (union yyalloc *,
                    YYSTACK_ALLOC (YY_CAST (YYSIZE_T, YYSTACK_BYTES (yystacksize))));
         if (! yyptr)
-          goto yyexhaustedlab;
+          YYNOMEM;
         YYSTACK_RELOCATE (yyss_alloc, yyss);
         YYSTACK_RELOCATE (yyvs_alloc, yyvs);
-# undef YYSTACK_RELOCATE
+#  undef YYSTACK_RELOCATE
         if (yyss1 != yyssa)
           YYSTACK_FREE (yyss1);
       }
@@ -1591,6 +1558,7 @@ yysetstate:
         YYABORT;
     }
 #endif /* !defined yyoverflow && !defined YYSTACK_RELOCATE */
+
 
   if (yystate == YYFINAL)
     YYACCEPT;
@@ -1612,17 +1580,28 @@ yybackup:
 
   /* Not known => get a lookahead token if don't already have one.  */
 
-  /* YYCHAR is either YYEMPTY or YYEOF or a valid lookahead symbol.  */
+  /* YYCHAR is either empty, or end-of-input, or a valid lookahead.  */
   if (yychar == YYEMPTY)
     {
-      YYDPRINTF ((stderr, "Reading a token: "));
+      YYDPRINTF ((stderr, "Reading a token\n"));
       yychar = yylex ();
     }
 
   if (yychar <= YYEOF)
     {
-      yychar = yytoken = YYEOF;
+      yychar = YYEOF;
+      yytoken = YYSYMBOL_YYEOF;
       YYDPRINTF ((stderr, "Now at end of input.\n"));
+    }
+  else if (yychar == YYerror)
+    {
+      /* The scanner already issued an error message, process directly
+         to error recovery.  But do not keep the error token as
+         lookahead, it is too special and may lead us to an endless
+         loop in error recovery. */
+      yychar = YYUNDEF;
+      yytoken = YYSYMBOL_YYerror;
+      goto yyerrlab1;
     }
   else
     {
@@ -1692,399 +1671,542 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-  case 4:
-#line 210 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_TYPE);
-			  write_exp_elt_type (pstate, (yyvsp[0].tval));
-			  write_exp_elt_opcode (pstate, OP_TYPE); }
-#line 1702 "f-exp.c.tmp"
+  case 4: /* type_exp: type  */
+#line 227 "f-exp.y"
+                        { pstate->push_new<type_operation> ((yyvsp[0].tval)); }
+#line 1679 "f-exp.c.tmp"
     break;
 
-  case 5:
-#line 216 "f-exp.y"
+  case 5: /* exp: '(' exp ')'  */
+#line 231 "f-exp.y"
                         { }
-#line 1708 "f-exp.c.tmp"
+#line 1685 "f-exp.c.tmp"
     break;
 
-  case 6:
-#line 221 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, UNOP_IND); }
-#line 1714 "f-exp.c.tmp"
+  case 6: /* exp: '*' exp  */
+#line 236 "f-exp.y"
+                        { pstate->wrap<unop_ind_operation> (); }
+#line 1691 "f-exp.c.tmp"
     break;
 
-  case 7:
-#line 225 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, UNOP_ADDR); }
-#line 1720 "f-exp.c.tmp"
+  case 7: /* exp: '&' exp  */
+#line 240 "f-exp.y"
+                        { pstate->wrap<unop_addr_operation> (); }
+#line 1697 "f-exp.c.tmp"
     break;
 
-  case 8:
-#line 229 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, UNOP_NEG); }
-#line 1726 "f-exp.c.tmp"
+  case 8: /* exp: '-' exp  */
+#line 244 "f-exp.y"
+                        { pstate->wrap<unary_neg_operation> (); }
+#line 1703 "f-exp.c.tmp"
     break;
 
-  case 9:
-#line 233 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, UNOP_LOGICAL_NOT); }
-#line 1732 "f-exp.c.tmp"
+  case 9: /* exp: BOOL_NOT exp  */
+#line 248 "f-exp.y"
+                        { pstate->wrap<unary_logical_not_operation> (); }
+#line 1709 "f-exp.c.tmp"
     break;
 
-  case 10:
-#line 237 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, UNOP_COMPLEMENT); }
-#line 1738 "f-exp.c.tmp"
+  case 10: /* exp: '~' exp  */
+#line 252 "f-exp.y"
+                        { pstate->wrap<unary_complement_operation> (); }
+#line 1715 "f-exp.c.tmp"
     break;
 
-  case 11:
-#line 241 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, UNOP_SIZEOF); }
+  case 11: /* exp: SIZEOF exp  */
+#line 256 "f-exp.y"
+                        { pstate->wrap<unop_sizeof_operation> (); }
+#line 1721 "f-exp.c.tmp"
+    break;
+
+  case 12: /* exp: KIND '(' exp ')'  */
+#line 260 "f-exp.y"
+                        { pstate->wrap<fortran_kind_operation> (); }
+#line 1727 "f-exp.c.tmp"
+    break;
+
+  case 13: /* $@1: %empty  */
+#line 269 "f-exp.y"
+                        { pstate->start_arglist (); }
+#line 1733 "f-exp.c.tmp"
+    break;
+
+  case 14: /* exp: exp '(' $@1 arglist ')'  */
+#line 271 "f-exp.y"
+                        {
+			  std::vector<operation_up> args
+			    = pstate->pop_vector (pstate->end_arglist ());
+			  pstate->push_new<fortran_undetermined>
+			    (pstate->pop (), std::move (args));
+			}
 #line 1744 "f-exp.c.tmp"
     break;
 
-  case 12:
-#line 245 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, UNOP_FORTRAN_KIND); }
-#line 1750 "f-exp.c.tmp"
-    break;
-
-  case 13:
-#line 254 "f-exp.y"
-                        { pstate->start_arglist (); }
-#line 1756 "f-exp.c.tmp"
-    break;
-
-  case 14:
-#line 256 "f-exp.y"
-                        { write_exp_elt_opcode (pstate,
-						OP_F77_UNDETERMINED_ARGLIST);
-			  write_exp_elt_longcst (pstate,
-						 pstate->end_arglist ());
-			  write_exp_elt_opcode (pstate,
-					      OP_F77_UNDETERMINED_ARGLIST); }
-#line 1767 "f-exp.c.tmp"
-    break;
-
-  case 15:
-#line 265 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, (yyvsp[-3].opcode)); }
-#line 1773 "f-exp.c.tmp"
-    break;
-
-  case 16:
-#line 269 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, (yyvsp[-5].opcode)); }
-#line 1779 "f-exp.c.tmp"
-    break;
-
-  case 18:
-#line 276 "f-exp.y"
-                        { pstate->arglist_len = 1; }
-#line 1785 "f-exp.c.tmp"
-    break;
-
-  case 19:
+  case 15: /* exp: UNOP_INTRINSIC '(' exp ')'  */
 #line 280 "f-exp.y"
+                        {
+			  wrap_unop_intrinsic ((yyvsp[-3].opcode));
+			}
+#line 1752 "f-exp.c.tmp"
+    break;
+
+  case 16: /* exp: BINOP_INTRINSIC '(' exp ',' exp ')'  */
+#line 286 "f-exp.y"
+                        {
+			  wrap_binop_intrinsic ((yyvsp[-5].opcode));
+			}
+#line 1760 "f-exp.c.tmp"
+    break;
+
+  case 17: /* $@2: %empty  */
+#line 292 "f-exp.y"
+                        { pstate->start_arglist (); }
+#line 1766 "f-exp.c.tmp"
+    break;
+
+  case 18: /* exp: UNOP_OR_BINOP_INTRINSIC '(' $@2 arglist ')'  */
+#line 294 "f-exp.y"
+                        {
+			  const int n = pstate->end_arglist ();
+
+			  switch (n)
+			    {
+			    case 1:
+			      wrap_unop_intrinsic ((yyvsp[-4].opcode));
+			      break;
+			    case 2:
+			      wrap_binop_intrinsic ((yyvsp[-4].opcode));
+			      break;
+			    default:
+			      gdb_assert_not_reached
+				("wrong number of arguments for intrinsics");
+			    }
+			}
+#line 1787 "f-exp.c.tmp"
+    break;
+
+  case 19: /* $@3: %empty  */
+#line 312 "f-exp.y"
+                        { pstate->start_arglist (); }
+#line 1793 "f-exp.c.tmp"
+    break;
+
+  case 20: /* exp: UNOP_OR_BINOP_OR_TERNOP_INTRINSIC '(' $@3 arglist ')'  */
+#line 314 "f-exp.y"
+                        {
+			  const int n = pstate->end_arglist ();
+
+			  switch (n)
+			    {
+			    case 1:
+			      wrap_unop_intrinsic ((yyvsp[-4].opcode));
+			      break;
+			    case 2:
+			      wrap_binop_intrinsic ((yyvsp[-4].opcode));
+			      break;
+			    case 3:
+			      wrap_ternop_intrinsic ((yyvsp[-4].opcode));
+			      break;
+			    default:
+			      gdb_assert_not_reached
+				("wrong number of arguments for intrinsics");
+			    }
+			}
+#line 1817 "f-exp.c.tmp"
+    break;
+
+  case 22: /* arglist: exp  */
+#line 339 "f-exp.y"
                         { pstate->arglist_len = 1; }
-#line 1791 "f-exp.c.tmp"
+#line 1823 "f-exp.c.tmp"
     break;
 
-  case 20:
-#line 284 "f-exp.y"
-                        { pstate->arglist_len++; }
-#line 1797 "f-exp.c.tmp"
-    break;
-
-  case 21:
-#line 290 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_RANGE); 
-			  write_exp_elt_longcst (pstate, NONE_BOUND_DEFAULT);
-			  write_exp_elt_opcode (pstate, OP_RANGE); }
-#line 1805 "f-exp.c.tmp"
-    break;
-
-  case 22:
-#line 296 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_RANGE);
-			  write_exp_elt_longcst (pstate, HIGH_BOUND_DEFAULT);
-			  write_exp_elt_opcode (pstate, OP_RANGE); }
-#line 1813 "f-exp.c.tmp"
-    break;
-
-  case 23:
-#line 302 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_RANGE);
-			  write_exp_elt_longcst (pstate, LOW_BOUND_DEFAULT);
-			  write_exp_elt_opcode (pstate, OP_RANGE); }
-#line 1821 "f-exp.c.tmp"
-    break;
-
-  case 24:
-#line 308 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_RANGE);
-			  write_exp_elt_longcst (pstate, BOTH_BOUND_DEFAULT);
-			  write_exp_elt_opcode (pstate, OP_RANGE); }
+  case 23: /* arglist: subrange  */
+#line 343 "f-exp.y"
+                        { pstate->arglist_len = 1; }
 #line 1829 "f-exp.c.tmp"
     break;
 
-  case 25:
-#line 314 "f-exp.y"
-                        { }
+  case 24: /* arglist: arglist ',' exp  */
+#line 347 "f-exp.y"
+                        { pstate->arglist_len++; }
 #line 1835 "f-exp.c.tmp"
     break;
 
-  case 26:
-#line 318 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_COMPLEX);
-			  write_exp_elt_type (pstate,
-					      parse_f_type (pstate)
-					      ->builtin_complex_s16);
-			  write_exp_elt_opcode (pstate, OP_COMPLEX); }
-#line 1845 "f-exp.c.tmp"
+  case 25: /* arglist: arglist ',' subrange  */
+#line 351 "f-exp.y"
+                        { pstate->arglist_len++; }
+#line 1841 "f-exp.c.tmp"
     break;
 
-  case 27:
-#line 326 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, UNOP_CAST);
-			  write_exp_elt_type (pstate, (yyvsp[-2].tval));
-			  write_exp_elt_opcode (pstate, UNOP_CAST); }
+  case 26: /* subrange: exp ':' exp  */
+#line 357 "f-exp.y"
+                        {
+			  operation_up high = pstate->pop ();
+			  operation_up low = pstate->pop ();
+			  pstate->push_new<fortran_range_operation>
+			    (RANGE_STANDARD, std::move (low),
+			     std::move (high), operation_up ());
+			}
 #line 1853 "f-exp.c.tmp"
     break;
 
-  case 28:
-#line 332 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, STRUCTOP_STRUCT);
-                          write_exp_string (pstate, (yyvsp[0].sval));
-                          write_exp_elt_opcode (pstate, STRUCTOP_STRUCT); }
-#line 1861 "f-exp.c.tmp"
+  case 27: /* subrange: exp ':'  */
+#line 367 "f-exp.y"
+                        {
+			  operation_up low = pstate->pop ();
+			  pstate->push_new<fortran_range_operation>
+			    (RANGE_HIGH_BOUND_DEFAULT, std::move (low),
+			     operation_up (), operation_up ());
+			}
+#line 1864 "f-exp.c.tmp"
     break;
 
-  case 29:
-#line 340 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_REPEAT); }
-#line 1867 "f-exp.c.tmp"
+  case 28: /* subrange: ':' exp  */
+#line 376 "f-exp.y"
+                        {
+			  operation_up high = pstate->pop ();
+			  pstate->push_new<fortran_range_operation>
+			    (RANGE_LOW_BOUND_DEFAULT, operation_up (),
+			     std::move (high), operation_up ());
+			}
+#line 1875 "f-exp.c.tmp"
     break;
 
-  case 30:
-#line 344 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_EXP); }
-#line 1873 "f-exp.c.tmp"
+  case 29: /* subrange: ':'  */
+#line 385 "f-exp.y"
+                        {
+			  pstate->push_new<fortran_range_operation>
+			    (RANGE_LOW_BOUND_DEFAULT
+			     | RANGE_HIGH_BOUND_DEFAULT,
+			     operation_up (), operation_up (),
+			     operation_up ());
+			}
+#line 1887 "f-exp.c.tmp"
     break;
 
-  case 31:
-#line 348 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_MUL); }
-#line 1879 "f-exp.c.tmp"
+  case 30: /* subrange: exp ':' exp ':' exp  */
+#line 396 "f-exp.y"
+                        {
+			  operation_up stride = pstate->pop ();
+			  operation_up high = pstate->pop ();
+			  operation_up low = pstate->pop ();
+			  pstate->push_new<fortran_range_operation>
+			    (RANGE_STANDARD | RANGE_HAS_STRIDE,
+			     std::move (low), std::move (high),
+			     std::move (stride));
+			}
+#line 1901 "f-exp.c.tmp"
     break;
 
-  case 32:
-#line 352 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_DIV); }
-#line 1885 "f-exp.c.tmp"
-    break;
-
-  case 33:
-#line 356 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_ADD); }
-#line 1891 "f-exp.c.tmp"
-    break;
-
-  case 34:
-#line 360 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_SUB); }
-#line 1897 "f-exp.c.tmp"
-    break;
-
-  case 35:
-#line 364 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_LSH); }
-#line 1903 "f-exp.c.tmp"
-    break;
-
-  case 36:
-#line 368 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_RSH); }
-#line 1909 "f-exp.c.tmp"
-    break;
-
-  case 37:
-#line 372 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_EQUAL); }
+  case 31: /* subrange: exp ':' ':' exp  */
+#line 408 "f-exp.y"
+                        {
+			  operation_up stride = pstate->pop ();
+			  operation_up low = pstate->pop ();
+			  pstate->push_new<fortran_range_operation>
+			    (RANGE_HIGH_BOUND_DEFAULT
+			     | RANGE_HAS_STRIDE,
+			     std::move (low), operation_up (),
+			     std::move (stride));
+			}
 #line 1915 "f-exp.c.tmp"
     break;
 
-  case 38:
-#line 376 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_NOTEQUAL); }
-#line 1921 "f-exp.c.tmp"
+  case 32: /* subrange: ':' exp ':' exp  */
+#line 420 "f-exp.y"
+                        {
+			  operation_up stride = pstate->pop ();
+			  operation_up high = pstate->pop ();
+			  pstate->push_new<fortran_range_operation>
+			    (RANGE_LOW_BOUND_DEFAULT
+			     | RANGE_HAS_STRIDE,
+			     operation_up (), std::move (high),
+			     std::move (stride));
+			}
+#line 1929 "f-exp.c.tmp"
     break;
 
-  case 39:
-#line 380 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_LEQ); }
-#line 1927 "f-exp.c.tmp"
+  case 33: /* subrange: ':' ':' exp  */
+#line 432 "f-exp.y"
+                        {
+			  operation_up stride = pstate->pop ();
+			  pstate->push_new<fortran_range_operation>
+			    (RANGE_LOW_BOUND_DEFAULT
+			     | RANGE_HIGH_BOUND_DEFAULT
+			     | RANGE_HAS_STRIDE,
+			     operation_up (), operation_up (),
+			     std::move (stride));
+			}
+#line 1943 "f-exp.c.tmp"
     break;
 
-  case 40:
-#line 384 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_GEQ); }
-#line 1933 "f-exp.c.tmp"
+  case 34: /* complexnum: exp ',' exp  */
+#line 444 "f-exp.y"
+                        { }
+#line 1949 "f-exp.c.tmp"
     break;
 
-  case 41:
-#line 388 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_LESS); }
-#line 1939 "f-exp.c.tmp"
+  case 35: /* exp: '(' complexnum ')'  */
+#line 448 "f-exp.y"
+                        {
+			  operation_up rhs = pstate->pop ();
+			  operation_up lhs = pstate->pop ();
+			  pstate->push_new<complex_operation>
+			    (std::move (lhs), std::move (rhs),
+			     parse_f_type (pstate)->builtin_complex_s16);
+			}
+#line 1961 "f-exp.c.tmp"
     break;
 
-  case 42:
-#line 392 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_GTR); }
-#line 1945 "f-exp.c.tmp"
-    break;
-
-  case 43:
-#line 396 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_BITWISE_AND); }
-#line 1951 "f-exp.c.tmp"
-    break;
-
-  case 44:
-#line 400 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_BITWISE_XOR); }
-#line 1957 "f-exp.c.tmp"
-    break;
-
-  case 45:
-#line 404 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_BITWISE_IOR); }
-#line 1963 "f-exp.c.tmp"
-    break;
-
-  case 46:
-#line 408 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_LOGICAL_AND); }
-#line 1969 "f-exp.c.tmp"
-    break;
-
-  case 47:
-#line 413 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_LOGICAL_OR); }
-#line 1975 "f-exp.c.tmp"
-    break;
-
-  case 48:
-#line 417 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_ASSIGN); }
-#line 1981 "f-exp.c.tmp"
-    break;
-
-  case 49:
-#line 421 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, BINOP_ASSIGN_MODIFY);
-			  write_exp_elt_opcode (pstate, (yyvsp[-1].opcode));
-			  write_exp_elt_opcode (pstate, BINOP_ASSIGN_MODIFY); }
-#line 1989 "f-exp.c.tmp"
-    break;
-
-  case 50:
-#line 427 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_LONG);
-			  write_exp_elt_type (pstate, (yyvsp[0].typed_val).type);
-			  write_exp_elt_longcst (pstate, (LONGEST) ((yyvsp[0].typed_val).val));
-			  write_exp_elt_opcode (pstate, OP_LONG); }
-#line 1998 "f-exp.c.tmp"
-    break;
-
-  case 51:
-#line 434 "f-exp.y"
-                        { YYSTYPE val;
-			  parse_number (pstate, (yyvsp[0].ssym).stoken.ptr,
-					(yyvsp[0].ssym).stoken.length, 0, &val);
-			  write_exp_elt_opcode (pstate, OP_LONG);
-			  write_exp_elt_type (pstate, val.typed_val.type);
-			  write_exp_elt_longcst (pstate,
-						 (LONGEST)val.typed_val.val);
-			  write_exp_elt_opcode (pstate, OP_LONG); }
-#line 2011 "f-exp.c.tmp"
-    break;
-
-  case 52:
-#line 445 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_FLOAT);
-			  write_exp_elt_type (pstate, (yyvsp[0].typed_val_float).type);
-			  write_exp_elt_floatcst (pstate, (yyvsp[0].typed_val_float).val);
-			  write_exp_elt_opcode (pstate, OP_FLOAT); }
-#line 2020 "f-exp.c.tmp"
-    break;
-
-  case 55:
+  case 36: /* exp: '(' type ')' exp  */
 #line 458 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_LONG);
-			  write_exp_elt_type (pstate,
-					      parse_f_type (pstate)
-					      ->builtin_integer);
-			  (yyvsp[-1].tval) = check_typedef ((yyvsp[-1].tval));
-			  write_exp_elt_longcst (pstate,
-						 (LONGEST) TYPE_LENGTH ((yyvsp[-1].tval)));
-			  write_exp_elt_opcode (pstate, OP_LONG); }
+                        {
+			  pstate->push_new<unop_cast_operation>
+			    (pstate->pop (), (yyvsp[-2].tval));
+			}
+#line 1970 "f-exp.c.tmp"
+    break;
+
+  case 37: /* exp: exp '%' name  */
+#line 465 "f-exp.y"
+                        {
+			  pstate->push_new<fortran_structop_operation>
+			    (pstate->pop (), copy_name ((yyvsp[0].sval)));
+			}
+#line 1979 "f-exp.c.tmp"
+    break;
+
+  case 38: /* exp: exp '%' name COMPLETE  */
+#line 472 "f-exp.y"
+                        {
+			  structop_base_operation *op
+			    = new fortran_structop_operation (pstate->pop (),
+							      copy_name ((yyvsp[-1].sval)));
+			  pstate->mark_struct_expression (op);
+			  pstate->push (operation_up (op));
+			}
+#line 1991 "f-exp.c.tmp"
+    break;
+
+  case 39: /* exp: exp '%' COMPLETE  */
+#line 482 "f-exp.y"
+                        {
+			  structop_base_operation *op
+			    = new fortran_structop_operation (pstate->pop (),
+							      "");
+			  pstate->mark_struct_expression (op);
+			  pstate->push (operation_up (op));
+			}
+#line 2003 "f-exp.c.tmp"
+    break;
+
+  case 40: /* exp: exp '@' exp  */
+#line 494 "f-exp.y"
+                        { pstate->wrap2<repeat_operation> (); }
+#line 2009 "f-exp.c.tmp"
+    break;
+
+  case 41: /* exp: exp STARSTAR exp  */
+#line 498 "f-exp.y"
+                        { pstate->wrap2<exp_operation> (); }
+#line 2015 "f-exp.c.tmp"
+    break;
+
+  case 42: /* exp: exp '*' exp  */
+#line 502 "f-exp.y"
+                        { pstate->wrap2<mul_operation> (); }
+#line 2021 "f-exp.c.tmp"
+    break;
+
+  case 43: /* exp: exp '/' exp  */
+#line 506 "f-exp.y"
+                        { pstate->wrap2<div_operation> (); }
+#line 2027 "f-exp.c.tmp"
+    break;
+
+  case 44: /* exp: exp '+' exp  */
+#line 510 "f-exp.y"
+                        { pstate->wrap2<add_operation> (); }
 #line 2033 "f-exp.c.tmp"
     break;
 
-  case 56:
-#line 469 "f-exp.y"
-                        { write_exp_elt_opcode (pstate, OP_BOOL);
-			  write_exp_elt_longcst (pstate, (LONGEST) (yyvsp[0].lval));
-			  write_exp_elt_opcode (pstate, OP_BOOL);
-			}
-#line 2042 "f-exp.c.tmp"
+  case 45: /* exp: exp '-' exp  */
+#line 514 "f-exp.y"
+                        { pstate->wrap2<sub_operation> (); }
+#line 2039 "f-exp.c.tmp"
     break;
 
-  case 57:
-#line 476 "f-exp.y"
+  case 46: /* exp: exp LSH exp  */
+#line 518 "f-exp.y"
+                        { pstate->wrap2<lsh_operation> (); }
+#line 2045 "f-exp.c.tmp"
+    break;
+
+  case 47: /* exp: exp RSH exp  */
+#line 522 "f-exp.y"
+                        { pstate->wrap2<rsh_operation> (); }
+#line 2051 "f-exp.c.tmp"
+    break;
+
+  case 48: /* exp: exp EQUAL exp  */
+#line 526 "f-exp.y"
+                        { pstate->wrap2<equal_operation> (); }
+#line 2057 "f-exp.c.tmp"
+    break;
+
+  case 49: /* exp: exp NOTEQUAL exp  */
+#line 530 "f-exp.y"
+                        { pstate->wrap2<notequal_operation> (); }
+#line 2063 "f-exp.c.tmp"
+    break;
+
+  case 50: /* exp: exp LEQ exp  */
+#line 534 "f-exp.y"
+                        { pstate->wrap2<leq_operation> (); }
+#line 2069 "f-exp.c.tmp"
+    break;
+
+  case 51: /* exp: exp GEQ exp  */
+#line 538 "f-exp.y"
+                        { pstate->wrap2<geq_operation> (); }
+#line 2075 "f-exp.c.tmp"
+    break;
+
+  case 52: /* exp: exp LESSTHAN exp  */
+#line 542 "f-exp.y"
+                        { pstate->wrap2<less_operation> (); }
+#line 2081 "f-exp.c.tmp"
+    break;
+
+  case 53: /* exp: exp GREATERTHAN exp  */
+#line 546 "f-exp.y"
+                        { pstate->wrap2<gtr_operation> (); }
+#line 2087 "f-exp.c.tmp"
+    break;
+
+  case 54: /* exp: exp '&' exp  */
+#line 550 "f-exp.y"
+                        { pstate->wrap2<bitwise_and_operation> (); }
+#line 2093 "f-exp.c.tmp"
+    break;
+
+  case 55: /* exp: exp '^' exp  */
+#line 554 "f-exp.y"
+                        { pstate->wrap2<bitwise_xor_operation> (); }
+#line 2099 "f-exp.c.tmp"
+    break;
+
+  case 56: /* exp: exp '|' exp  */
+#line 558 "f-exp.y"
+                        { pstate->wrap2<bitwise_ior_operation> (); }
+#line 2105 "f-exp.c.tmp"
+    break;
+
+  case 57: /* exp: exp BOOL_AND exp  */
+#line 562 "f-exp.y"
+                        { pstate->wrap2<logical_and_operation> (); }
+#line 2111 "f-exp.c.tmp"
+    break;
+
+  case 58: /* exp: exp BOOL_OR exp  */
+#line 567 "f-exp.y"
+                        { pstate->wrap2<logical_or_operation> (); }
+#line 2117 "f-exp.c.tmp"
+    break;
+
+  case 59: /* exp: exp '=' exp  */
+#line 571 "f-exp.y"
+                        { pstate->wrap2<assign_operation> (); }
+#line 2123 "f-exp.c.tmp"
+    break;
+
+  case 60: /* exp: exp ASSIGN_MODIFY exp  */
+#line 575 "f-exp.y"
                         {
-			  write_exp_elt_opcode (pstate, OP_STRING);
-			  write_exp_string (pstate, (yyvsp[0].sval));
-			  write_exp_elt_opcode (pstate, OP_STRING);
+			  operation_up rhs = pstate->pop ();
+			  operation_up lhs = pstate->pop ();
+			  pstate->push_new<assign_modify_operation>
+			    ((yyvsp[-1].opcode), std::move (lhs), std::move (rhs));
 			}
-#line 2052 "f-exp.c.tmp"
+#line 2134 "f-exp.c.tmp"
     break;
 
-  case 58:
-#line 484 "f-exp.y"
+  case 61: /* exp: INT  */
+#line 584 "f-exp.y"
+                        {
+			  pstate->push_new<long_const_operation>
+			    ((yyvsp[0].typed_val).type, (yyvsp[0].typed_val).val);
+			}
+#line 2143 "f-exp.c.tmp"
+    break;
+
+  case 62: /* exp: NAME_OR_INT  */
+#line 591 "f-exp.y"
+                        { YYSTYPE val;
+			  parse_number (pstate, (yyvsp[0].ssym).stoken.ptr,
+					(yyvsp[0].ssym).stoken.length, 0, &val);
+			  pstate->push_new<long_const_operation>
+			    (val.typed_val.type,
+			     val.typed_val.val);
+			}
+#line 2155 "f-exp.c.tmp"
+    break;
+
+  case 63: /* exp: FLOAT  */
+#line 601 "f-exp.y"
+                        {
+			  float_data data;
+			  std::copy (std::begin ((yyvsp[0].typed_val_float).val), std::end ((yyvsp[0].typed_val_float).val),
+				     std::begin (data));
+			  pstate->push_new<float_const_operation> ((yyvsp[0].typed_val_float).type, data);
+			}
+#line 2166 "f-exp.c.tmp"
+    break;
+
+  case 65: /* exp: DOLLAR_VARIABLE  */
+#line 613 "f-exp.y"
+                        { pstate->push_dollar ((yyvsp[0].sval)); }
+#line 2172 "f-exp.c.tmp"
+    break;
+
+  case 66: /* exp: SIZEOF '(' type ')'  */
+#line 617 "f-exp.y"
+                        {
+			  (yyvsp[-1].tval) = check_typedef ((yyvsp[-1].tval));
+			  pstate->push_new<long_const_operation>
+			    (parse_f_type (pstate)->builtin_integer,
+			     (yyvsp[-1].tval)->length ());
+			}
+#line 2183 "f-exp.c.tmp"
+    break;
+
+  case 67: /* exp: BOOLEAN_LITERAL  */
+#line 626 "f-exp.y"
+                        { pstate->push_new<bool_operation> ((yyvsp[0].lval)); }
+#line 2189 "f-exp.c.tmp"
+    break;
+
+  case 68: /* exp: STRING_LITERAL  */
+#line 630 "f-exp.y"
+                        {
+			  pstate->push_new<string_operation>
+			    (copy_name ((yyvsp[0].sval)));
+			}
+#line 2198 "f-exp.c.tmp"
+    break;
+
+  case 69: /* variable: name_not_typename  */
+#line 637 "f-exp.y"
                         { struct block_symbol sym = (yyvsp[0].ssym).sym;
-
-			  if (sym.symbol)
-			    {
-			      if (symbol_read_needs_frame (sym.symbol))
-				pstate->block_tracker->update (sym);
-			      write_exp_elt_opcode (pstate, OP_VAR_VALUE);
-			      write_exp_elt_block (pstate, sym.block);
-			      write_exp_elt_sym (pstate, sym.symbol);
-			      write_exp_elt_opcode (pstate, OP_VAR_VALUE);
-			      break;
-			    }
-			  else
-			    {
-			      struct bound_minimal_symbol msymbol;
-			      std::string arg = copy_name ((yyvsp[0].ssym).stoken);
-
-			      msymbol =
-				lookup_bound_minimal_symbol (arg.c_str ());
-			      if (msymbol.minsym != NULL)
-				write_exp_msymbol (pstate, msymbol);
-			      else if (!have_full_symbols () && !have_partial_symbols ())
-				error (_("No symbol table is loaded.  Use the \"file\" command."));
-			      else
-				error (_("No symbol \"%s\" in current context."),
-				       arg.c_str ());
-			    }
+			  std::string name = copy_name ((yyvsp[0].ssym).stoken);
+			  pstate->push_symbol (name.c_str (), sym);
 			}
-#line 2085 "f-exp.c.tmp"
+#line 2207 "f-exp.c.tmp"
     break;
 
-  case 61:
-#line 520 "f-exp.y"
+  case 72: /* ptype: typebase abs_decl  */
+#line 649 "f-exp.y"
                 {
 		  /* This is where the interesting stuff happens.  */
 		  int done = 0;
@@ -2133,215 +2255,251 @@ yyreduce:
 		      }
 		  (yyval.tval) = follow_type;
 		}
-#line 2138 "f-exp.c.tmp"
+#line 2260 "f-exp.c.tmp"
     break;
 
-  case 62:
-#line 571 "f-exp.y"
+  case 73: /* abs_decl: '*'  */
+#line 700 "f-exp.y"
                         { type_stack->push (tp_pointer); (yyval.voidval) = 0; }
-#line 2144 "f-exp.c.tmp"
+#line 2266 "f-exp.c.tmp"
     break;
 
-  case 63:
-#line 573 "f-exp.y"
+  case 74: /* abs_decl: '*' abs_decl  */
+#line 702 "f-exp.y"
                         { type_stack->push (tp_pointer); (yyval.voidval) = (yyvsp[0].voidval); }
-#line 2150 "f-exp.c.tmp"
+#line 2272 "f-exp.c.tmp"
     break;
 
-  case 64:
-#line 575 "f-exp.y"
+  case 75: /* abs_decl: '&'  */
+#line 704 "f-exp.y"
                         { type_stack->push (tp_reference); (yyval.voidval) = 0; }
-#line 2156 "f-exp.c.tmp"
+#line 2278 "f-exp.c.tmp"
     break;
 
-  case 65:
-#line 577 "f-exp.y"
+  case 76: /* abs_decl: '&' abs_decl  */
+#line 706 "f-exp.y"
                         { type_stack->push (tp_reference); (yyval.voidval) = (yyvsp[0].voidval); }
-#line 2162 "f-exp.c.tmp"
+#line 2284 "f-exp.c.tmp"
     break;
 
-  case 67:
-#line 582 "f-exp.y"
+  case 78: /* direct_abs_decl: '(' abs_decl ')'  */
+#line 711 "f-exp.y"
                         { (yyval.voidval) = (yyvsp[-1].voidval); }
-#line 2168 "f-exp.c.tmp"
+#line 2290 "f-exp.c.tmp"
     break;
 
-  case 68:
-#line 584 "f-exp.y"
+  case 79: /* direct_abs_decl: '(' KIND '=' INT ')'  */
+#line 713 "f-exp.y"
                         { push_kind_type ((yyvsp[-1].typed_val).val, (yyvsp[-1].typed_val).type); }
-#line 2174 "f-exp.c.tmp"
+#line 2296 "f-exp.c.tmp"
     break;
 
-  case 69:
-#line 586 "f-exp.y"
+  case 80: /* direct_abs_decl: '*' INT  */
+#line 715 "f-exp.y"
                         { push_kind_type ((yyvsp[0].typed_val).val, (yyvsp[0].typed_val).type); }
-#line 2180 "f-exp.c.tmp"
+#line 2302 "f-exp.c.tmp"
     break;
 
-  case 70:
-#line 588 "f-exp.y"
+  case 81: /* direct_abs_decl: direct_abs_decl func_mod  */
+#line 717 "f-exp.y"
                         { type_stack->push (tp_function); }
-#line 2186 "f-exp.c.tmp"
+#line 2308 "f-exp.c.tmp"
     break;
 
-  case 71:
-#line 590 "f-exp.y"
+  case 82: /* direct_abs_decl: func_mod  */
+#line 719 "f-exp.y"
                         { type_stack->push (tp_function); }
-#line 2192 "f-exp.c.tmp"
+#line 2314 "f-exp.c.tmp"
     break;
 
-  case 72:
-#line 594 "f-exp.y"
+  case 83: /* func_mod: '(' ')'  */
+#line 723 "f-exp.y"
                         { (yyval.voidval) = 0; }
-#line 2198 "f-exp.c.tmp"
+#line 2320 "f-exp.c.tmp"
     break;
 
-  case 73:
-#line 596 "f-exp.y"
+  case 84: /* func_mod: '(' nonempty_typelist ')'  */
+#line 725 "f-exp.y"
                         { xfree ((yyvsp[-1].tvec)); (yyval.voidval) = 0; }
-#line 2204 "f-exp.c.tmp"
+#line 2326 "f-exp.c.tmp"
     break;
 
-  case 74:
-#line 601 "f-exp.y"
+  case 85: /* typebase: TYPENAME  */
+#line 730 "f-exp.y"
                         { (yyval.tval) = (yyvsp[0].tsym).type; }
-#line 2210 "f-exp.c.tmp"
+#line 2332 "f-exp.c.tmp"
     break;
 
-  case 75:
-#line 603 "f-exp.y"
-                        { (yyval.tval) = parse_f_type (pstate)->builtin_integer; }
-#line 2216 "f-exp.c.tmp"
+  case 86: /* typebase: INT_S1_KEYWORD  */
+#line 732 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_integer_s1; }
+#line 2338 "f-exp.c.tmp"
     break;
 
-  case 76:
-#line 605 "f-exp.y"
+  case 87: /* typebase: INT_S2_KEYWORD  */
+#line 734 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_integer_s2; }
-#line 2222 "f-exp.c.tmp"
+#line 2344 "f-exp.c.tmp"
     break;
 
-  case 77:
-#line 607 "f-exp.y"
+  case 88: /* typebase: INT_KEYWORD  */
+#line 736 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_integer; }
+#line 2350 "f-exp.c.tmp"
+    break;
+
+  case 89: /* typebase: INT_S4_KEYWORD  */
+#line 738 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_integer; }
+#line 2356 "f-exp.c.tmp"
+    break;
+
+  case 90: /* typebase: INT_S8_KEYWORD  */
+#line 740 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_integer_s8; }
+#line 2362 "f-exp.c.tmp"
+    break;
+
+  case 91: /* typebase: CHARACTER  */
+#line 742 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_character; }
-#line 2228 "f-exp.c.tmp"
+#line 2368 "f-exp.c.tmp"
     break;
 
-  case 78:
-#line 609 "f-exp.y"
-                        { (yyval.tval) = parse_f_type (pstate)->builtin_logical_s8; }
-#line 2234 "f-exp.c.tmp"
-    break;
-
-  case 79:
-#line 611 "f-exp.y"
-                        { (yyval.tval) = parse_f_type (pstate)->builtin_logical; }
-#line 2240 "f-exp.c.tmp"
-    break;
-
-  case 80:
-#line 613 "f-exp.y"
-                        { (yyval.tval) = parse_f_type (pstate)->builtin_logical_s2; }
-#line 2246 "f-exp.c.tmp"
-    break;
-
-  case 81:
-#line 615 "f-exp.y"
+  case 92: /* typebase: LOGICAL_S1_KEYWORD  */
+#line 744 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_logical_s1; }
-#line 2252 "f-exp.c.tmp"
+#line 2374 "f-exp.c.tmp"
     break;
 
-  case 82:
-#line 617 "f-exp.y"
+  case 93: /* typebase: LOGICAL_S2_KEYWORD  */
+#line 746 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_logical_s2; }
+#line 2380 "f-exp.c.tmp"
+    break;
+
+  case 94: /* typebase: LOGICAL_KEYWORD  */
+#line 748 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_logical; }
+#line 2386 "f-exp.c.tmp"
+    break;
+
+  case 95: /* typebase: LOGICAL_S4_KEYWORD  */
+#line 750 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_logical; }
+#line 2392 "f-exp.c.tmp"
+    break;
+
+  case 96: /* typebase: LOGICAL_S8_KEYWORD  */
+#line 752 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_logical_s8; }
+#line 2398 "f-exp.c.tmp"
+    break;
+
+  case 97: /* typebase: REAL_KEYWORD  */
+#line 754 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_real; }
-#line 2258 "f-exp.c.tmp"
+#line 2404 "f-exp.c.tmp"
     break;
 
-  case 83:
-#line 619 "f-exp.y"
+  case 98: /* typebase: REAL_S4_KEYWORD  */
+#line 756 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_real; }
+#line 2410 "f-exp.c.tmp"
+    break;
+
+  case 99: /* typebase: REAL_S8_KEYWORD  */
+#line 758 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_real_s8; }
-#line 2264 "f-exp.c.tmp"
+#line 2416 "f-exp.c.tmp"
     break;
 
-  case 84:
-#line 621 "f-exp.y"
+  case 100: /* typebase: REAL_S16_KEYWORD  */
+#line 760 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_real_s16; }
-#line 2270 "f-exp.c.tmp"
+#line 2422 "f-exp.c.tmp"
     break;
 
-  case 85:
-#line 623 "f-exp.y"
+  case 101: /* typebase: COMPLEX_KEYWORD  */
+#line 762 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_complex; }
+#line 2428 "f-exp.c.tmp"
+    break;
+
+  case 102: /* typebase: COMPLEX_S4_KEYWORD  */
+#line 764 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_complex; }
+#line 2434 "f-exp.c.tmp"
+    break;
+
+  case 103: /* typebase: COMPLEX_S8_KEYWORD  */
+#line 766 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_complex_s8; }
-#line 2276 "f-exp.c.tmp"
+#line 2440 "f-exp.c.tmp"
     break;
 
-  case 86:
-#line 625 "f-exp.y"
-                        { (yyval.tval) = parse_f_type (pstate)->builtin_complex_s8; }
-#line 2282 "f-exp.c.tmp"
-    break;
-
-  case 87:
-#line 627 "f-exp.y"
+  case 104: /* typebase: COMPLEX_S16_KEYWORD  */
+#line 768 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_complex_s16; }
-#line 2288 "f-exp.c.tmp"
+#line 2446 "f-exp.c.tmp"
     break;
 
-  case 88:
-#line 629 "f-exp.y"
-                        { (yyval.tval) = parse_f_type (pstate)->builtin_complex_s32; }
-#line 2294 "f-exp.c.tmp"
-    break;
-
-  case 89:
-#line 631 "f-exp.y"
+  case 105: /* typebase: SINGLE PRECISION  */
+#line 770 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_real;}
-#line 2300 "f-exp.c.tmp"
+#line 2452 "f-exp.c.tmp"
     break;
 
-  case 90:
-#line 633 "f-exp.y"
+  case 106: /* typebase: DOUBLE PRECISION  */
+#line 772 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_real_s8;}
-#line 2306 "f-exp.c.tmp"
+#line 2458 "f-exp.c.tmp"
     break;
 
-  case 91:
-#line 635 "f-exp.y"
+  case 107: /* typebase: SINGLE COMPLEX_KEYWORD  */
+#line 774 "f-exp.y"
+                        { (yyval.tval) = parse_f_type (pstate)->builtin_complex;}
+#line 2464 "f-exp.c.tmp"
+    break;
+
+  case 108: /* typebase: DOUBLE COMPLEX_KEYWORD  */
+#line 776 "f-exp.y"
                         { (yyval.tval) = parse_f_type (pstate)->builtin_complex_s8;}
-#line 2312 "f-exp.c.tmp"
+#line 2470 "f-exp.c.tmp"
     break;
 
-  case 92:
-#line 637 "f-exp.y"
-                        { (yyval.tval) = parse_f_type (pstate)->builtin_complex_s16;}
-#line 2318 "f-exp.c.tmp"
-    break;
-
-  case 93:
-#line 642 "f-exp.y"
+  case 109: /* nonempty_typelist: type  */
+#line 781 "f-exp.y"
                 { (yyval.tvec) = (struct type **) xmalloc (sizeof (struct type *) * 2);
 		  (yyval.ivec)[0] = 1;	/* Number of types in vector */
 		  (yyval.tvec)[1] = (yyvsp[0].tval);
 		}
-#line 2327 "f-exp.c.tmp"
+#line 2479 "f-exp.c.tmp"
     break;
 
-  case 94:
-#line 647 "f-exp.y"
+  case 110: /* nonempty_typelist: nonempty_typelist ',' type  */
+#line 786 "f-exp.y"
                 { int len = sizeof (struct type *) * (++((yyvsp[-2].ivec)[0]) + 1);
 		  (yyval.tvec) = (struct type **) xrealloc ((char *) (yyvsp[-2].tvec), len);
 		  (yyval.tvec)[(yyval.ivec)[0]] = (yyvsp[0].tval);
 		}
-#line 2336 "f-exp.c.tmp"
+#line 2488 "f-exp.c.tmp"
     break;
 
-  case 95:
-#line 654 "f-exp.y"
-                {  (yyval.sval) = (yyvsp[0].ssym).stoken; }
-#line 2342 "f-exp.c.tmp"
+  case 111: /* name: NAME  */
+#line 794 "f-exp.y"
+                { (yyval.sval) = (yyvsp[0].ssym).stoken; }
+#line 2494 "f-exp.c.tmp"
+    break;
+
+  case 112: /* name: TYPENAME  */
+#line 796 "f-exp.y"
+                { (yyval.sval) = (yyvsp[0].tsym).stoken; }
+#line 2500 "f-exp.c.tmp"
     break;
 
 
-#line 2346 "f-exp.c.tmp"
+#line 2504 "f-exp.c.tmp"
 
       default: break;
     }
@@ -2356,11 +2514,10 @@ yyreduce:
      case of YYERROR or YYBACKUP, subsequent parser actions might lead
      to an incorrect destructor call or verbose syntax error message
      before the lookahead is translated.  */
-  YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
+  YY_SYMBOL_PRINT ("-> $$ =", YY_CAST (yysymbol_kind_t, yyr1[yyn]), &yyval, &yyloc);
 
   YYPOPSTACK (yylen);
   yylen = 0;
-  YY_STACK_PRINT (yyss, yyssp);
 
   *++yyvsp = yyval;
 
@@ -2384,49 +2541,13 @@ yyreduce:
 yyerrlab:
   /* Make sure we have latest lookahead translation.  See comments at
      user semantic actions for why this is necessary.  */
-  yytoken = yychar == YYEMPTY ? YYEMPTY : YYTRANSLATE (yychar);
-
+  yytoken = yychar == YYEMPTY ? YYSYMBOL_YYEMPTY : YYTRANSLATE (yychar);
   /* If not already recovering from an error, report this error.  */
   if (!yyerrstatus)
     {
       ++yynerrs;
-#if ! YYERROR_VERBOSE
       yyerror (YY_("syntax error"));
-#else
-# define YYSYNTAX_ERROR yysyntax_error (&yymsg_alloc, &yymsg, \
-                                        yyssp, yytoken)
-      {
-        char const *yymsgp = YY_("syntax error");
-        int yysyntax_error_status;
-        yysyntax_error_status = YYSYNTAX_ERROR;
-        if (yysyntax_error_status == 0)
-          yymsgp = yymsg;
-        else if (yysyntax_error_status == 1)
-          {
-            if (yymsg != yymsgbuf)
-              YYSTACK_FREE (yymsg);
-            yymsg = YY_CAST (char *, YYSTACK_ALLOC (YY_CAST (YYSIZE_T, yymsg_alloc)));
-            if (!yymsg)
-              {
-                yymsg = yymsgbuf;
-                yymsg_alloc = sizeof yymsgbuf;
-                yysyntax_error_status = 2;
-              }
-            else
-              {
-                yysyntax_error_status = YYSYNTAX_ERROR;
-                yymsgp = yymsg;
-              }
-          }
-        yyerror (yymsgp);
-        if (yysyntax_error_status == 2)
-          goto yyexhaustedlab;
-      }
-# undef YYSYNTAX_ERROR
-#endif
     }
-
-
 
   if (yyerrstatus == 3)
     {
@@ -2460,6 +2581,7 @@ yyerrorlab:
      label yyerrorlab therefore never appears in user code.  */
   if (0)
     YYERROR;
+  ++yynerrs;
 
   /* Do not reclaim the symbols of the rule whose action triggered
      this YYERROR.  */
@@ -2476,13 +2598,14 @@ yyerrorlab:
 yyerrlab1:
   yyerrstatus = 3;      /* Each real token shifted decrements this.  */
 
+  /* Pop stack until we find a state that shifts the error token.  */
   for (;;)
     {
       yyn = yypact[yystate];
       if (!yypact_value_is_default (yyn))
         {
-          yyn += YYTERROR;
-          if (0 <= yyn && yyn <= YYLAST && yycheck[yyn] == YYTERROR)
+          yyn += YYSYMBOL_YYerror;
+          if (0 <= yyn && yyn <= YYLAST && yycheck[yyn] == YYSYMBOL_YYerror)
             {
               yyn = yytable[yyn];
               if (0 < yyn)
@@ -2496,7 +2619,7 @@ yyerrlab1:
 
 
       yydestruct ("Error: popping",
-                  yystos[yystate], yyvsp);
+                  YY_ACCESSING_SYMBOL (yystate), yyvsp);
       YYPOPSTACK (1);
       yystate = *yyssp;
       YY_STACK_PRINT (yyss, yyssp);
@@ -2508,7 +2631,7 @@ yyerrlab1:
 
 
   /* Shift the error token.  */
-  YY_SYMBOL_PRINT ("Shifting", yystos[yyn], yyvsp, yylsp);
+  YY_SYMBOL_PRINT ("Shifting", YY_ACCESSING_SYMBOL (yyn), yyvsp, yylsp);
 
   yystate = yyn;
   goto yynewstate;
@@ -2519,7 +2642,7 @@ yyerrlab1:
 `-------------------------------------*/
 yyacceptlab:
   yyresult = 0;
-  goto yyreturn;
+  goto yyreturnlab;
 
 
 /*-----------------------------------.
@@ -2527,24 +2650,22 @@ yyacceptlab:
 `-----------------------------------*/
 yyabortlab:
   yyresult = 1;
-  goto yyreturn;
+  goto yyreturnlab;
 
 
-#if !defined yyoverflow || YYERROR_VERBOSE
-/*-------------------------------------------------.
-| yyexhaustedlab -- memory exhaustion comes here.  |
-`-------------------------------------------------*/
+/*-----------------------------------------------------------.
+| yyexhaustedlab -- YYNOMEM (memory exhaustion) comes here.  |
+`-----------------------------------------------------------*/
 yyexhaustedlab:
   yyerror (YY_("memory exhausted"));
   yyresult = 2;
-  /* Fall through.  */
-#endif
+  goto yyreturnlab;
 
 
-/*-----------------------------------------------------.
-| yyreturn -- parsing is finished, return the result.  |
-`-----------------------------------------------------*/
-yyreturn:
+/*----------------------------------------------------------.
+| yyreturnlab -- parsing is finished, clean up and return.  |
+`----------------------------------------------------------*/
+yyreturnlab:
   if (yychar != YYEMPTY)
     {
       /* Make sure we have latest lookahead translation.  See comments at
@@ -2560,21 +2681,192 @@ yyreturn:
   while (yyssp != yyss)
     {
       yydestruct ("Cleanup: popping",
-                  yystos[+*yyssp], yyvsp);
+                  YY_ACCESSING_SYMBOL (+*yyssp), yyvsp);
       YYPOPSTACK (1);
     }
 #ifndef yyoverflow
   if (yyss != yyssa)
     YYSTACK_FREE (yyss);
 #endif
-#if YYERROR_VERBOSE
-  if (yymsg != yymsgbuf)
-    YYSTACK_FREE (yymsg);
-#endif
+
   return yyresult;
 }
-#line 667 "f-exp.y"
 
+#line 809 "f-exp.y"
+
+
+/* Called to match intrinsic function calls with one argument to their
+   respective implementation and push the operation.  */
+
+static void
+wrap_unop_intrinsic (exp_opcode code)
+{
+  switch (code)
+    {
+    case UNOP_ABS:
+      pstate->wrap<fortran_abs_operation> ();
+      break;
+    case FORTRAN_FLOOR:
+      pstate->wrap<fortran_floor_operation_1arg> ();
+      break;
+    case FORTRAN_CEILING:
+      pstate->wrap<fortran_ceil_operation_1arg> ();
+      break;
+    case UNOP_FORTRAN_ALLOCATED:
+      pstate->wrap<fortran_allocated_operation> ();
+      break;
+    case UNOP_FORTRAN_RANK:
+      pstate->wrap<fortran_rank_operation> ();
+      break;
+    case UNOP_FORTRAN_SHAPE:
+      pstate->wrap<fortran_array_shape_operation> ();
+      break;
+    case UNOP_FORTRAN_LOC:
+      pstate->wrap<fortran_loc_operation> ();
+      break;
+    case FORTRAN_ASSOCIATED:
+      pstate->wrap<fortran_associated_1arg> ();
+      break;
+    case FORTRAN_ARRAY_SIZE:
+      pstate->wrap<fortran_array_size_1arg> ();
+      break;
+    case FORTRAN_CMPLX:
+      pstate->wrap<fortran_cmplx_operation_1arg> ();
+      break;
+    case FORTRAN_LBOUND:
+    case FORTRAN_UBOUND:
+      pstate->push_new<fortran_bound_1arg> (code, pstate->pop ());
+      break;
+    default:
+      gdb_assert_not_reached ("unhandled intrinsic");
+    }
+}
+
+/* Called to match intrinsic function calls with two arguments to their
+   respective implementation and push the operation.  */
+
+static void
+wrap_binop_intrinsic (exp_opcode code)
+{
+  switch (code)
+    {
+    case FORTRAN_FLOOR:
+      fortran_wrap2_kind<fortran_floor_operation_2arg>
+	(parse_f_type (pstate)->builtin_integer);
+      break;
+    case FORTRAN_CEILING:
+      fortran_wrap2_kind<fortran_ceil_operation_2arg>
+	(parse_f_type (pstate)->builtin_integer);
+      break;
+    case BINOP_MOD:
+      pstate->wrap2<fortran_mod_operation> ();
+      break;
+    case BINOP_FORTRAN_MODULO:
+      pstate->wrap2<fortran_modulo_operation> ();
+      break;
+    case FORTRAN_CMPLX:
+      pstate->wrap2<fortran_cmplx_operation_2arg> ();
+      break;
+    case FORTRAN_ASSOCIATED:
+      pstate->wrap2<fortran_associated_2arg> ();
+      break;
+    case FORTRAN_ARRAY_SIZE:
+      pstate->wrap2<fortran_array_size_2arg> ();
+      break;
+    case FORTRAN_LBOUND:
+    case FORTRAN_UBOUND:
+      {
+	operation_up arg2 = pstate->pop ();
+	operation_up arg1 = pstate->pop ();
+	pstate->push_new<fortran_bound_2arg> (code, std::move (arg1),
+					      std::move (arg2));
+      }
+      break;
+    default:
+      gdb_assert_not_reached ("unhandled intrinsic");
+    }
+}
+
+/* Called to match intrinsic function calls with three arguments to their
+   respective implementation and push the operation.  */
+
+static void
+wrap_ternop_intrinsic (exp_opcode code)
+{
+  switch (code)
+    {
+    case FORTRAN_LBOUND:
+    case FORTRAN_UBOUND:
+      {
+	operation_up kind_arg = pstate->pop ();
+	operation_up arg2 = pstate->pop ();
+	operation_up arg1 = pstate->pop ();
+
+	value *val = kind_arg->evaluate (nullptr, pstate->expout.get (),
+					 EVAL_AVOID_SIDE_EFFECTS);
+	gdb_assert (val != nullptr);
+
+	type *follow_type
+	  = convert_to_kind_type (parse_f_type (pstate)->builtin_integer,
+				  value_as_long (val));
+
+	pstate->push_new<fortran_bound_3arg> (code, std::move (arg1),
+					      std::move (arg2), follow_type);
+      }
+      break;
+    case FORTRAN_ARRAY_SIZE:
+      fortran_wrap3_kind<fortran_array_size_3arg>
+	(parse_f_type (pstate)->builtin_integer);
+      break;
+    case FORTRAN_CMPLX:
+      fortran_wrap3_kind<fortran_cmplx_operation_3arg>
+	(parse_f_type (pstate)->builtin_complex);
+      break;
+    default:
+      gdb_assert_not_reached ("unhandled intrinsic");
+    }
+}
+
+/* A helper that pops two operations (similar to wrap2), evaluates the last one
+   assuming it is a kind parameter, and wraps them in some other operation
+   pushing it to the stack.  */
+
+template<typename T>
+static void
+fortran_wrap2_kind (type *base_type)
+{
+  operation_up kind_arg = pstate->pop ();
+  operation_up arg = pstate->pop ();
+
+  value *val = kind_arg->evaluate (nullptr, pstate->expout.get (),
+				   EVAL_AVOID_SIDE_EFFECTS);
+  gdb_assert (val != nullptr);
+
+  type *follow_type = convert_to_kind_type (base_type, value_as_long (val));
+
+  pstate->push_new<T> (std::move (arg), follow_type);
+}
+
+/* A helper that pops three operations, evaluates the last one assuming it is a
+   kind parameter, and wraps them in some other operation pushing it to the
+   stack.  */
+
+template<typename T>
+static void
+fortran_wrap3_kind (type *base_type)
+{
+  operation_up kind_arg = pstate->pop ();
+  operation_up arg2 = pstate->pop ();
+  operation_up arg1 = pstate->pop ();
+
+  value *val = kind_arg->evaluate (nullptr, pstate->expout.get (),
+				   EVAL_AVOID_SIDE_EFFECTS);
+  gdb_assert (val != nullptr);
+
+  type *follow_type = convert_to_kind_type (base_type, value_as_long (val));
+
+  pstate->push_new<T> (std::move (arg1), std::move (arg2), follow_type);
+}
 
 /* Take care of parsing a number (anything that starts with a digit).
    Set yylval and return the token type; update lexptr.
@@ -2586,8 +2878,8 @@ static int
 parse_number (struct parser_state *par_state,
 	      const char *p, int len, int parsed_float, YYSTYPE *putithere)
 {
-  LONGEST n = 0;
-  LONGEST prevn = 0;
+  ULONGEST n = 0;
+  ULONGEST prevn = 0;
   int c;
   int base = input_radix;
   int unsigned_p = 0;
@@ -2618,7 +2910,7 @@ parse_number (struct parser_state *par_state,
     }
 
   /* Handle base-switching prefixes 0x, 0t, 0d, 0 */
-  if (p[0] == '0')
+  if (p[0] == '0' && len > 1)
     switch (p[1])
       {
       case 'x':
@@ -2671,16 +2963,11 @@ parse_number (struct parser_state *par_state,
 	  n *= base;
 	  n += i;
 	}
-      /* Portably test for overflow (only works for nonzero values, so make
-	 a second check for zero).  */
-      if ((prevn >= n) && n != 0)
-	unsigned_p=1;		/* Try something unsigned */
-      /* If range checking enabled, portably test for unsigned overflow.  */
-      if (RANGE_CHECK && n != 0)
-	{
-	  if ((unsigned_p && (unsigned)prevn >= (unsigned)n))
-	    range_error (_("Overflow on numeric constant."));
-	}
+      /* Test for overflow.  */
+      if (prevn == 0 && n == 0)
+	;
+      else if (RANGE_CHECK && prevn >= n)
+	range_error (_("Overflow on numeric constant."));
       prevn = n;
     }
   
@@ -2695,7 +2982,8 @@ parse_number (struct parser_state *par_state,
      but too many compilers warn about that, when ints and longs
      are the same size.  So we shift it twice, with fewer bits
      each time, for the same result.  */
-  
+
+  int bits_available;
   if ((gdbarch_int_bit (par_state->gdbarch ())
        != gdbarch_long_bit (par_state->gdbarch ())
        && ((n >> 2)
@@ -2703,19 +2991,22 @@ parse_number (struct parser_state *par_state,
 							    shift warning */
       || long_p)
     {
-      high_bit = ((ULONGEST)1)
-      << (gdbarch_long_bit (par_state->gdbarch ())-1);
+      bits_available = gdbarch_long_bit (par_state->gdbarch ());
       unsigned_type = parse_type (par_state)->builtin_unsigned_long;
       signed_type = parse_type (par_state)->builtin_long;
-    }
+  }
   else 
     {
-      high_bit =
-	((ULONGEST)1) << (gdbarch_int_bit (par_state->gdbarch ()) - 1);
+      bits_available = gdbarch_int_bit (par_state->gdbarch ());
       unsigned_type = parse_type (par_state)->builtin_unsigned_int;
       signed_type = parse_type (par_state)->builtin_int;
     }    
+  high_bit = ((ULONGEST)1) << (bits_available - 1);
   
+  if (RANGE_CHECK
+      && ((n >> 2) >> (bits_available - 2)))
+    range_error (_("Overflow on numeric constant."));
+
   putithere->typed_val.val = n;
   
   /* If the high bit of the worked out type is set then this number
@@ -2737,7 +3028,7 @@ push_kind_type (LONGEST val, struct type *type)
 {
   int ival;
 
-  if (TYPE_UNSIGNED (type))
+  if (type->is_unsigned ())
     {
       ULONGEST uval = static_cast <ULONGEST> (val);
       if (uval > INT_MAX)
@@ -2769,14 +3060,14 @@ convert_to_kind_type (struct type *basetype, int kind)
       if (kind == 1)
 	return parse_f_type (pstate)->builtin_character;
     }
-  else if (basetype == parse_f_type (pstate)->builtin_complex_s8)
+  else if (basetype == parse_f_type (pstate)->builtin_complex)
     {
       if (kind == 4)
-	return parse_f_type (pstate)->builtin_complex_s8;
+	return parse_f_type (pstate)->builtin_complex;
       else if (kind == 8)
-	return parse_f_type (pstate)->builtin_complex_s16;
+	return parse_f_type (pstate)->builtin_complex_s8;
       else if (kind == 16)
-	return parse_f_type (pstate)->builtin_complex_s32;
+	return parse_f_type (pstate)->builtin_complex_s16;
     }
   else if (basetype == parse_f_type (pstate)->builtin_real)
     {
@@ -2800,7 +3091,9 @@ convert_to_kind_type (struct type *basetype, int kind)
     }
   else if (basetype == parse_f_type (pstate)->builtin_integer)
     {
-      if (kind == 2)
+      if (kind == 1)
+	return parse_f_type (pstate)->builtin_integer_s1;
+      else if (kind == 2)
 	return parse_f_type (pstate)->builtin_integer_s2;
       else if (kind == 4)
 	return parse_f_type (pstate)->builtin_integer;
@@ -2831,19 +3124,29 @@ struct token
   bool case_sensitive;
 };
 
-static const struct token dot_ops[] =
+/* List of Fortran operators.  */
+
+static const struct token fortran_operators[] =
 {
-  { ".and.", BOOL_AND, BINOP_END, false },
-  { ".or.", BOOL_OR, BINOP_END, false },
-  { ".not.", BOOL_NOT, BINOP_END, false },
-  { ".eq.", EQUAL, BINOP_END, false },
-  { ".eqv.", EQUAL, BINOP_END, false },
-  { ".neqv.", NOTEQUAL, BINOP_END, false },
-  { ".ne.", NOTEQUAL, BINOP_END, false },
-  { ".le.", LEQ, BINOP_END, false },
-  { ".ge.", GEQ, BINOP_END, false },
-  { ".gt.", GREATERTHAN, BINOP_END, false },
-  { ".lt.", LESSTHAN, BINOP_END, false },
+  { ".and.", BOOL_AND, OP_NULL, false },
+  { ".or.", BOOL_OR, OP_NULL, false },
+  { ".not.", BOOL_NOT, OP_NULL, false },
+  { ".eq.", EQUAL, OP_NULL, false },
+  { ".eqv.", EQUAL, OP_NULL, false },
+  { ".neqv.", NOTEQUAL, OP_NULL, false },
+  { ".xor.", NOTEQUAL, OP_NULL, false },
+  { "==", EQUAL, OP_NULL, false },
+  { ".ne.", NOTEQUAL, OP_NULL, false },
+  { "/=", NOTEQUAL, OP_NULL, false },
+  { ".le.", LEQ, OP_NULL, false },
+  { "<=", LEQ, OP_NULL, false },
+  { ".ge.", GEQ, OP_NULL, false },
+  { ">=", GEQ, OP_NULL, false },
+  { ".gt.", GREATERTHAN, OP_NULL, false },
+  { ">", GREATERTHAN, OP_NULL, false },
+  { ".lt.", LESSTHAN, OP_NULL, false },
+  { "<", LESSTHAN, OP_NULL, false },
+  { "**", STARSTAR, BINOP_EXP, false },
 };
 
 /* Holds the Fortran representation of a boolean, and the integer value we
@@ -2864,36 +3167,49 @@ static const struct f77_boolean_val boolean_values[]  =
   { ".false.", 0 }
 };
 
-static const struct token f77_keywords[] =
+static const token f_keywords[] =
 {
   /* Historically these have always been lowercase only in GDB.  */
-  { "complex_16", COMPLEX_S16_KEYWORD, BINOP_END, true },
-  { "complex_32", COMPLEX_S32_KEYWORD, BINOP_END, true },
-  { "character", CHARACTER, BINOP_END, true },
-  { "integer_2", INT_S2_KEYWORD, BINOP_END, true },
-  { "logical_1", LOGICAL_S1_KEYWORD, BINOP_END, true },
-  { "logical_2", LOGICAL_S2_KEYWORD, BINOP_END, true },
-  { "logical_8", LOGICAL_S8_KEYWORD, BINOP_END, true },
-  { "complex_8", COMPLEX_S8_KEYWORD, BINOP_END, true },
-  { "integer", INT_KEYWORD, BINOP_END, true },
-  { "logical", LOGICAL_KEYWORD, BINOP_END, true },
-  { "real_16", REAL_S16_KEYWORD, BINOP_END, true },
-  { "complex", COMPLEX_KEYWORD, BINOP_END, true },
-  { "sizeof", SIZEOF, BINOP_END, true },
-  { "real_8", REAL_S8_KEYWORD, BINOP_END, true },
-  { "real", REAL_KEYWORD, BINOP_END, true },
-  { "single", SINGLE, BINOP_END, true },
-  { "double", DOUBLE, BINOP_END, true },
-  { "precision", PRECISION, BINOP_END, true },
+  { "character", CHARACTER, OP_NULL, true },
+  { "complex", COMPLEX_KEYWORD, OP_NULL, true },
+  { "complex_4", COMPLEX_S4_KEYWORD, OP_NULL, true },
+  { "complex_8", COMPLEX_S8_KEYWORD, OP_NULL, true },
+  { "complex_16", COMPLEX_S16_KEYWORD, OP_NULL, true },
+  { "integer_1", INT_S1_KEYWORD, OP_NULL, true },
+  { "integer_2", INT_S2_KEYWORD, OP_NULL, true },
+  { "integer_4", INT_S4_KEYWORD, OP_NULL, true },
+  { "integer", INT_KEYWORD, OP_NULL, true },
+  { "integer_8", INT_S8_KEYWORD, OP_NULL, true },
+  { "logical_1", LOGICAL_S1_KEYWORD, OP_NULL, true },
+  { "logical_2", LOGICAL_S2_KEYWORD, OP_NULL, true },
+  { "logical", LOGICAL_KEYWORD, OP_NULL, true },
+  { "logical_4", LOGICAL_S4_KEYWORD, OP_NULL, true },
+  { "logical_8", LOGICAL_S8_KEYWORD, OP_NULL, true },
+  { "real", REAL_KEYWORD, OP_NULL, true },
+  { "real_4", REAL_S4_KEYWORD, OP_NULL, true },
+  { "real_8", REAL_S8_KEYWORD, OP_NULL, true },
+  { "real_16", REAL_S16_KEYWORD, OP_NULL, true },
+  { "sizeof", SIZEOF, OP_NULL, true },
+  { "single", SINGLE, OP_NULL, true },
+  { "double", DOUBLE, OP_NULL, true },
+  { "precision", PRECISION, OP_NULL, true },
   /* The following correspond to actual functions in Fortran and are case
      insensitive.  */
-  { "kind", KIND, BINOP_END, false },
+  { "kind", KIND, OP_NULL, false },
   { "abs", UNOP_INTRINSIC, UNOP_ABS, false },
   { "mod", BINOP_INTRINSIC, BINOP_MOD, false },
-  { "floor", UNOP_INTRINSIC, UNOP_FORTRAN_FLOOR, false },
-  { "ceiling", UNOP_INTRINSIC, UNOP_FORTRAN_CEILING, false },
+  { "floor", UNOP_OR_BINOP_INTRINSIC, FORTRAN_FLOOR, false },
+  { "ceiling", UNOP_OR_BINOP_INTRINSIC, FORTRAN_CEILING, false },
   { "modulo", BINOP_INTRINSIC, BINOP_FORTRAN_MODULO, false },
-  { "cmplx", BINOP_INTRINSIC, BINOP_FORTRAN_CMPLX, false },
+  { "cmplx", UNOP_OR_BINOP_OR_TERNOP_INTRINSIC, FORTRAN_CMPLX, false },
+  { "lbound", UNOP_OR_BINOP_OR_TERNOP_INTRINSIC, FORTRAN_LBOUND, false },
+  { "ubound", UNOP_OR_BINOP_OR_TERNOP_INTRINSIC, FORTRAN_UBOUND, false },
+  { "allocated", UNOP_INTRINSIC, UNOP_FORTRAN_ALLOCATED, false },
+  { "associated", UNOP_OR_BINOP_INTRINSIC, FORTRAN_ASSOCIATED, false },
+  { "rank", UNOP_INTRINSIC, UNOP_FORTRAN_RANK, false },
+  { "size", UNOP_OR_BINOP_OR_TERNOP_INTRINSIC, FORTRAN_ARRAY_SIZE, false },
+  { "shape", UNOP_INTRINSIC, UNOP_FORTRAN_SHAPE, false },
+  { "loc", UNOP_INTRINSIC, UNOP_FORTRAN_LOC, false },
 };
 
 /* Implementation of a dynamically expandable buffer for processing input
@@ -2970,6 +3286,15 @@ match_string_literal (void)
     }
 }
 
+/* This is set if a NAME token appeared at the very end of the input
+   string, with no whitespace separating the name from the EOF.  This
+   is used only when parsing to do field name completion.  */
+static bool saw_name_at_eof;
+
+/* This is set if the previously-returned token was a structure
+   operator '%'.  */
+static bool last_was_structop;
+
 /* Read one token, getting characters through lexptr.  */
 
 static int
@@ -2979,7 +3304,10 @@ yylex (void)
   int namelen;
   unsigned int token;
   const char *tokstart;
-  
+  bool saw_structop = last_was_structop;
+
+  last_was_structop = false;
+
  retry:
  
   pstate->prev_lexptr = pstate->lexptr;
@@ -2991,41 +3319,39 @@ yylex (void)
 
   if (*pstate->lexptr == '.')
     {
-      for (int i = 0; i < ARRAY_SIZE (boolean_values); i++)
+      for (const auto &candidate : boolean_values)
 	{
-	  if (strncasecmp (tokstart, boolean_values[i].name,
-			   strlen (boolean_values[i].name)) == 0)
+	  if (strncasecmp (tokstart, candidate.name,
+			   strlen (candidate.name)) == 0)
 	    {
-	      pstate->lexptr += strlen (boolean_values[i].name);
-	      yylval.lval = boolean_values[i].value;
+	      pstate->lexptr += strlen (candidate.name);
+	      yylval.lval = candidate.value;
 	      return BOOLEAN_LITERAL;
 	    }
 	}
     }
 
-  /* See if it is a special .foo. operator.  */
-  for (int i = 0; i < ARRAY_SIZE (dot_ops); i++)
-    if (strncasecmp (tokstart, dot_ops[i].oper,
-		     strlen (dot_ops[i].oper)) == 0)
+  /* See if it is a Fortran operator.  */
+  for (const auto &candidate : fortran_operators)
+    if (strncasecmp (tokstart, candidate.oper,
+		     strlen (candidate.oper)) == 0)
       {
-	gdb_assert (!dot_ops[i].case_sensitive);
-	pstate->lexptr += strlen (dot_ops[i].oper);
-	yylval.opcode = dot_ops[i].opcode;
-	return dot_ops[i].token;
+	gdb_assert (!candidate.case_sensitive);
+	pstate->lexptr += strlen (candidate.oper);
+	yylval.opcode = candidate.opcode;
+	return candidate.token;
       }
-
-  /* See if it is an exponentiation operator.  */
-
-  if (strncmp (tokstart, "**", 2) == 0)
-    {
-      pstate->lexptr += 2;
-      yylval.opcode = BINOP_EXP;
-      return STARSTAR;
-    }
 
   switch (c = *tokstart)
     {
     case 0:
+      if (saw_name_at_eof)
+	{
+	  saw_name_at_eof = false;
+	  return COMPLETE;
+	}
+      else if (pstate->parse_completion && saw_structop)
+	return COMPLETE;
       return 0;
       
     case ' ':
@@ -3075,7 +3401,7 @@ yylex (void)
     case '8':
     case '9':
       {
-        /* It's a number.  */
+	/* It's a number.  */
 	int got_dot = 0, got_e = 0, got_d = 0, toktype;
 	const char *p = tokstart;
 	int hex = input_radix > 10;
@@ -3116,8 +3442,8 @@ yylex (void)
 	toktype = parse_number (pstate, tokstart, p - tokstart,
 				got_dot|got_e|got_d,
 				&yylval);
-        if (toktype == ERROR)
-          {
+	if (toktype == ERROR)
+	  {
 	    char *err_copy = (char *) alloca (p - tokstart + 1);
 	    
 	    memcpy (err_copy, tokstart, p - tokstart);
@@ -3127,12 +3453,14 @@ yylex (void)
 	pstate->lexptr = p;
 	return toktype;
       }
-      
+
+    case '%':
+      last_was_structop = true;
+      /* Fall through.  */
     case '+':
     case '-':
     case '*':
     case '/':
-    case '%':
     case '|':
     case '&':
     case '^':
@@ -3174,33 +3502,30 @@ yylex (void)
   
   /* Catch specific keywords.  */
 
-  for (int i = 0; i < ARRAY_SIZE (f77_keywords); i++)
-    if (strlen (f77_keywords[i].oper) == namelen
-	&& ((!f77_keywords[i].case_sensitive
-	     && strncasecmp (tokstart, f77_keywords[i].oper, namelen) == 0)
-	    || (f77_keywords[i].case_sensitive
-		&& strncmp (tokstart, f77_keywords[i].oper, namelen) == 0)))
+  for (const auto &keyword : f_keywords)
+    if (strlen (keyword.oper) == namelen
+	&& ((!keyword.case_sensitive
+	     && strncasecmp (tokstart, keyword.oper, namelen) == 0)
+	    || (keyword.case_sensitive
+		&& strncmp (tokstart, keyword.oper, namelen) == 0)))
       {
-	yylval.opcode = f77_keywords[i].opcode;
-	return f77_keywords[i].token;
+	yylval.opcode = keyword.opcode;
+	return keyword.token;
       }
 
   yylval.sval.ptr = tokstart;
   yylval.sval.length = namelen;
   
   if (*tokstart == '$')
-    {
-      write_dollar_variable (pstate, yylval.sval);
-      return DOLLAR_VARIABLE;
-    }
-  
+    return DOLLAR_VARIABLE;
+
   /* Use token-type TYPENAME for symbols that happen to be defined
      currently as names of types; NAME for other symbols.
      The caller is not constrained to care about the distinction.  */
   {
     std::string tmp = copy_name (yylval.sval);
     struct block_symbol result;
-    enum domain_enum_tag lookup_domains[] =
+    const domain_enum lookup_domains[] =
     {
       STRUCT_DOMAIN,
       VAR_DOMAIN,
@@ -3208,13 +3533,13 @@ yylex (void)
     };
     int hextype;
 
-    for (int i = 0; i < ARRAY_SIZE (lookup_domains); ++i)
+    for (const auto &domain : lookup_domains)
       {
 	result = lookup_symbol (tmp.c_str (), pstate->expression_context_block,
-				lookup_domains[i], NULL);
-	if (result.symbol && SYMBOL_CLASS (result.symbol) == LOC_TYPEDEF)
+				domain, NULL);
+	if (result.symbol && result.symbol->aclass () == LOC_TYPEDEF)
 	  {
-	    yylval.tsym.type = SYMBOL_TYPE (result.symbol);
+	    yylval.tsym.type = result.symbol->type ();
 	    return TYPENAME;
 	  }
 
@@ -3244,7 +3569,10 @@ yylex (void)
 	    return NAME_OR_INT;
 	  }
       }
-    
+
+    if (pstate->parse_completion && *pstate->lexptr == '\0')
+      saw_name_at_eof = true;
+
     /* Any other kind of symbol */
     yylval.ssym.sym = result;
     yylval.ssym.is_a_field_of_this = false;
@@ -3253,7 +3581,7 @@ yylex (void)
 }
 
 int
-f_parse (struct parser_state *par_state)
+f_language::parser (struct parser_state *par_state) const
 {
   /* Setting up the parser state.  */
   scoped_restore pstate_restore = make_scoped_restore (&pstate);
@@ -3261,13 +3589,18 @@ f_parse (struct parser_state *par_state)
 							parser_debug);
   gdb_assert (par_state != NULL);
   pstate = par_state;
+  last_was_structop = false;
+  saw_name_at_eof = false;
   paren_depth = 0;
 
   struct type_stack stack;
   scoped_restore restore_type_stack = make_scoped_restore (&type_stack,
 							   &stack);
 
-  return yyparse ();
+  int result = yyparse ();
+  if (!result)
+    pstate->set_operation (pstate->pop ());
+  return result;
 }
 
 static void

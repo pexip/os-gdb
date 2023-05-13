@@ -9,9 +9,9 @@ Subject: gdb_configure.nat
 
 Index: gdb/gdb/configure.nat
 ===================================================================
---- gdb.orig/gdb/configure.nat	2019-02-22 11:22:25.383811537 +0100
-+++ gdb/gdb/configure.nat	2019-02-22 11:23:41.284731325 +0100
-@@ -214,7 +214,7 @@
+--- gdb.orig/gdb/configure.nat
++++ gdb/gdb/configure.nat
+@@ -215,7 +215,7 @@ case ${gdb_host} in
  	    i386)
  		# Host: Intel 386 running the GNU Hurd
  		NATDEPFILES='i386-gnu-nat.o gnu-nat.o \

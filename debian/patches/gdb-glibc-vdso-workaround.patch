@@ -19,7 +19,7 @@ Index: gdb/gdb/solib.c
 ===================================================================
 --- gdb.orig/gdb/solib.c
 +++ gdb/gdb/solib.c
-@@ -859,8 +859,11 @@ update_solib_list (int from_tty)
+@@ -902,8 +902,11 @@ update_solib_list (int from_tty)
  
  	  try
  	    {

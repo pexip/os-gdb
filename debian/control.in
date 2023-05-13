@@ -1,10 +1,9 @@
 Source: gdb
 Maintainer: Héctor Orón Martínez <zumbi@debian.org>
-Uploaders: Riku Voipio <riku.voipio@linaro.org>,
-           Sergio Durigan Junior <sergiodj@debian.org>
+Uploaders: Sergio Durigan Junior <sergiodj@debian.org>
 Section: devel
 Priority: optional
-Standards-Version: 4.5.1
+Standards-Version: 4.6.2
 Rules-Requires-Root: binary-targets
 Build-Depends:
 # Packaging deps
@@ -28,10 +27,11 @@ Build-Depends:
                texlive-base <!nodoc>,
 # Libdev deps
                libexpat1-dev,
-               libncurses5-dev,
+               libncurses-dev,
                libreadline-dev,
                zlib1g-dev,
                liblzma-dev,
+               libzstd-dev,
                libbabeltrace-dev,
                libipt-dev [amd64 i386 x32],
                libsource-highlight-dev,

@@ -57,17 +57,17 @@ Index: gdb/gdb/printcmd.c
 ===================================================================
 --- gdb.orig/gdb/printcmd.c
 +++ gdb/gdb/printcmd.c
-@@ -1210,6 +1210,10 @@ print_command_1 (const char *args, int v
+@@ -1875,6 +1875,10 @@ x_command (const char *exp, int from_tty
  
-   if (exp != nullptr && *exp)
+   if (exp != 0 && *exp != 0)
      {
 +      /* '*((int *(*) (void)) __errno_location) ()' is incompatible with
 +         function descriptors.  */
 +      if (target_has_execution && strcmp (exp, "errno") == 0)
 +          exp = "*(*(int *(*)(void)) __errno_location) ()";
        expression_up expr = parse_expression (exp);
-       val = evaluate_expression (expr.get ());
-     }
+       /* Cause expression not to be there any more if this command is
+ 	 repeated with Newline.  But don't clobber a user-defined
 Index: gdb/gdb/testsuite/gdb.dwarf2/dw2-errno.c
 ===================================================================
 --- /dev/null

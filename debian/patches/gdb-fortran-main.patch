@@ -24,13 +24,11 @@ might disturb the debugging.  But I am not sure how much it is.
  2 files changed, 47 insertions(+), 2 deletions(-)
  create mode 100644 gdb/testsuite/gdb.fortran/lang.exp
 
-Index: gdb/gdb/symtab.c
-===================================================================
---- gdb.orig/gdb/symtab.c
-+++ gdb/gdb/symtab.c
-@@ -6156,7 +6156,13 @@ find_main_name (void)
-       return;
-     }
+--- a/gdb/symtab.c
++++ b/gdb/symtab.c
+@@ -6300,7 +6300,13 @@ find_main_name (void)
+   if (symbol_found_p)
+     return;
  
 -  set_main_name ("main", language_unknown);
 +/* Fallback to "MAIN__" (g77 and gfortran) if we can find it in the
@@ -43,10 +41,8 @@ Index: gdb/gdb/symtab.c
  }
  
  /* See symtab.h.  */
-Index: gdb/gdb/testsuite/gdb.fortran/lang.exp
-===================================================================
 --- /dev/null
-+++ gdb/gdb/testsuite/gdb.fortran/lang.exp
++++ b/gdb/testsuite/gdb.fortran/lang.exp
 @@ -0,0 +1,40 @@
 +# Copyright 2005 Free Software Foundation, Inc.
 +

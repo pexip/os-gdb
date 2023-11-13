@@ -1,11 +1,10 @@
-branch-updates.diff
-#branch-doc-updates.diff
 gdb-fortran-main.patch
 solve_PATH_MAX_issue.patch
 gdb-6.5-bz185337-resolve-tls-without-debuginfo-v2.patch
 gdb-glibc-vdso-workaround.patch
 load-versioned-libcc1.patch
 gdb_configure.nat.patch
-struct-thread_info.patch
-gdb_bsd-kvm.c.diff
-2bf3b79d05bf85e41cbdcb020bd1cc424f59dd9a.diff
+fork-inferior-fix
+fix-build.patch
+fix-crash-in-inside_main_func.patch
+aarch64-pauth-registers.patch

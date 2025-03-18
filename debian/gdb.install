@@ -1,5 +1,9 @@
 usr/bin/gdb
-usr/bin/gcore
+
+# usr/bin/gcore is installed manually because it may not be available
+# on all systems.
+
+usr/bin/gstack
 usr/share/gdb
 usr/include/gdb/jit-reader.h
 # usr/share/man/man1/gdb.1

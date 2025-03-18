@@ -1,55 +1,56 @@
 #!/bin/bash
 
-set -e
+# This script assumes that it will be called like:
+#
+#   SCRIPT --upstream-version VERSION
+#
+# It also assumes that it will be invoked from inside the source tree.
+#
+# It works with uscan v4.
 
-tarball=$1
-if ! test -f "$tarball"; then
-  echo "Could not open $tarball"
-  exit 1
-fi
+set -ex
+set -o pipefail
 
-tardir=$(dirname "$tarball")
-tardir=$(cd "$tardir" && pwd)
-version=$(basename "$tarball" | sed "s/^gdb-//; s/\.tar\.\(gz\|xz\|bz2\)\$//")
-debversion=${version}
-tarball="$tardir"/$(basename "$tarball")
-dfsg="$tardir/gdb_$debversion.orig.tar.xz"
-doc="$tardir/gdb-doc_$version.orig.tar.xz"
+die()
+{
+    printf "E: %s\n" "$*"
+    exit 1
+}
 
-dir=`cd $(dirname "$0") && pwd`
+UPSTREAM_VERSION="${2}"
 
-temp=$(mktemp -d)
-olddir=`pwd`
+TARBALL=$(realpath -e "../gdb_${UPSTREAM_VERSION}.orig.tar.xz")
 
-cd "$temp"
+TARDIR=$(dirname "${TARBALL}")
+DFSG_TAR="${TARDIR}/gdb_${UPSTREAM_VERSION}.orig.tar.xz"
+DOC_TAR="${TARDIR}/gdb-doc_${UPSTREAM_VERSION}.orig.tar.xz"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "${tmpdir}"' EXIT ERR INT
+
+cd "${tmpdir}"
 mkdir src
 cd src
-tar -xf "$tarball"
+tar xf "${TARBALL}"
 cd ..
 
-src=src/gdb-$version
-dest=gdb-$debversion
-destdoc=gdb-doc-$debversion
+src=$(readlink -f "src/gdb-${UPSTREAM_VERSION}")
+dest=$(readlink -f "gdb-${UPSTREAM_VERSION}")
+destdoc=$(readlink -f "gdb-doc-${UPSTREAM_VERSION}")
 
-if ! test -d "$src"; then
-  echo "Could not find source directory $src"
-  exit 1
+[ ! -d "${src}" ] && die "Could not find source directory ${src}"
+
+if [ -z "${dest}" ] || [ -e "${dest}" ]; then
+  die "Could not create dest directory ${dest}"
 fi
 
-if test -z "$dest" || test -e "$dest"; then
-  echo "Could not create dest directory $dest"
-  exit 1
-fi
+cp -a "${src}" "${dest}"
+cp -a "${src}" "${destdoc}"
 
-src=`cd "$src" && pwd`
-
-cp -a "$src" "$dest"
-cp -a "$src" "$destdoc"
-
-pushd "$dest" > /dev/null
+pushd "${dest}" > /dev/null
 
 # All of the gdb manpages are GFDL'd now
-rm -f $(find gdb \( -name '*.[1-9]' \))
+find gdb -type f -name '*.[1-9]' -delete
 
 # Almost all of the texinfo documentation is GFDL.  PSIM's is not, but
 # we don't need that manual especially anyway.  Special care must be taken
@@ -57,28 +58,24 @@ rm -f $(find gdb \( -name '*.[1-9]' \))
 # all pregenerated info files, then replace all texinfo files with dummy
 # versions.
 
-rm -f $(find . \( -name \*.info -o -name \*.info-\* \))
-rm -f $(find . \( -name \*.chm \))
+find . -type f \( -name '*.info' -o -name '*.info-*' \) -delete
+find . -type f -name '*.chm' -delete
 
-for f in $(find . \( -name \*.texinfo -o -name \*.texi \)); do
-  if test $(basename $f) = observer.texi; then
-    sed -ne '/@c This/,/@c any later/p; /@deftype/p' "$src/$f" > $f
-    continue
-  fi
-
-  echo > "$f"
-done
+find . -type f \( -name '*.texinfo' -o -name '*.texi' \) | \
+    while read -r file; do
+        if [ "$(basename "${file}")" = "observer.texi" ]; then
+            sed -ne '/@c This/,/@c any later/p; /@deftype/p' "${src}/${file}" > "${file}"
+            continue
+        fi
+        echo > "${file}"
+    done
 
 popd > /dev/null
 
-tar --auto-compress -cf "$dfsg" gdb-$debversion
+tar --auto-compress -cf "${DFSG_TAR}" "gdb-${UPSTREAM_VERSION}"
 
-pushd "$destdoc" > /dev/null
-rm -f $(find . \( -name \*.chm \))
+pushd "${destdoc}" > /dev/null
+find . -type f -name '*.chm' -delete
 popd > /dev/null
 
-tar --auto-compress -cf "$doc" gdb-doc-$debversion
-
-# XXX maybe we should install this as an exit handler?
-cd "$olddir"
-rm -rf $temp
+tar --auto-compress -cf "${DOC_TAR}" "gdb-doc-${UPSTREAM_VERSION}"

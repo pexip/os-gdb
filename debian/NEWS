@@ -1,3 +1,35 @@
+gdb (16.2-2) unstable; urgency=medium
+
+  The gdb-multiarch binary package has been reintroduced.
+
+  In order to try to minimize the final installed size of the package, and
+  acknowledging that most users are likely not going to need a
+  multiarch-capable GDB installed, the gdb-multiarch package has been
+  reintroduced.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Mon, 17 Feb 2025 00:19:12 -0500
+
+gdb (16.0.90.20250111-1~exp2) experimental; urgency=medium
+
+  The gdb-minimal and gdb-multiarch binary packages have been removed.
+
+  gdb-minimal contained a stripped-down version of GDB in order to be
+  installed on systems where there was no need for a fully fledged
+  debugger.  One of its main benefits was supposed to be its smaller size.
+  In the end, the storage space saved by gdb-minimal was only 1 megabyte,
+  while it increased the maintenance burden (and package build time).  For
+  that reason, the package was dropped and the regular gdb package now
+  replaces it.
+
+  gdb-multiarch shipped a GDB build that supported multiple target
+  architectures.  Again, this was a maintenance burden and GDB's build
+  system should be reliable enough so that we can safely enable the
+  supported for *all* target architectures without issues.  This is what
+  is now done, and the regular gdb package now ships with support for all
+  supported architectures.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sun, 19 Jan 2025 01:08:05 -0500
+
 gdb (8.2-1) unstable; urgency=medium
 
   gdb-python2 package has been removed, starting with GDB 8.2.

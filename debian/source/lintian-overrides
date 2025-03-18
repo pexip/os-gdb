@@ -1,0 +1,6 @@
+# This is intentional.
+no-dh-sequencer [debian/rules]
+
+# This will demand an upstream change that will likely be
+# controversial.
+autotools-pkg-config-macro-not-cross-compilation-safe AC_PATH_PROG [gdb/configure.ac:1128]

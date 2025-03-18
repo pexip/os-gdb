@@ -4,25 +4,29 @@ SPACE := $(EMPTY) $(EMPTY)
 COMMA := ,
 
 include /usr/share/dpkg/architecture.mk
-
-SOURCE_DATE_EPOCH ?= $(shell dpkg-parsechangelog -SDate | date -f- +%s)
-deb_version := $(shell dpkg-parsechangelog | awk '/^Version:/ {print $$2}')
+include /usr/share/dpkg/pkg-info.mk
+include /usr/share/dpkg/vendor.mk
 
 # The top-level configure script fails to pass these down properly ...
-export CPPFLAGS
-export LDFLAGS
-CPPFLAGS += -fPIC
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/buildflags.mk
 
-install = /usr/bin/install -p
+CXXFLAGS += -fPIC
+CFLAGS += -fPIC
+export $(DPKG_BUILDFLAGS_LIST)
+
+# Ensure texlive respects DEB_TIMESTAMP
+export FORCE_SOURCE_DATE=1
+# Also force "TeX output" string in dvi file, thus %DVIPSSource in the ps file
+FAKETIME = TZ=UTC faketime "$(shell TZ=UTC date +"%Y-%m-%d %T" --date=@$(DEB_TIMESTAMP))"
 
 # Rather paranoid than sorry. Make the shell exit with an error if an
 # untested command fails.
 SHELL += -e
 
-INSTALL = $(install)
-export INSTALL
+export INSTALL = /usr/bin/install -p
 
-distribution := $(shell lsb_release -is)
 derivative   := $(shell if dpkg-vendor --derives-from Ubuntu; then echo Ubuntu; \
 			elif dpkg-vendor --derives-from Debian; then echo Debian; \
 			else echo Unknown; fi)
@@ -117,12 +121,32 @@ ifdef GDB_TARGET
   run_tests := disabled for cross builds
 endif
 
+# List of architectures where tests are flaky (and therefore
+# disabled).
+FLAKY_TEST_ARCHITECTURES = \
+	alpha \
+	hppa \
+	sparc64 \
+	x32
+
+ifneq (,$(filter $(DEB_HOST_ARCH),$(FLAKY_TEST_ARCHITECTURES)))
+  run_tests := disable on $(DEB_HOST_ARCH) due to flakiness
+endif
+
+# Architectures where gdbserver's libinproctrace is available.
+LIBINPROCTRACE_AVAILABLE_ARCHITECTURES = \
+	amd64 \
+	arm64 \
+	i386 \
+	ppc64el \
+	s390x \
+	powerpc \
+	ppc64 \
+	x32
+
 # ---------- configure options, for all variants ----------
 
-variants = default multiarch minimal
-ifeq ($(derivative),Ubuntu)
-  variants = default multiarch
-endif
+variants = default multiarch
 
 # We pass srcdir explicitly to avoid an extra '/.' at the end of it.  That
 # causes a harmless, but ugly, testsuite failure in maint.exp.
@@ -136,7 +160,7 @@ common_configure_args = \
 	--disable-silent-rules \
 	--disable-gdbtk \
 	--disable-shared \
-	--with-pkgversion='$(distribution)___$(deb_version)' \
+	--with-pkgversion='$(DEB_VENDOR)___$(DEB_VERSION)' \
 	--srcdir=$(CURDIR) \
 	--disable-readline \
 	--with-system-readline \
@@ -144,7 +168,6 @@ common_configure_args = \
 	--with-system-zlib \
 	--without-guile \
 	--without-babeltrace \
-	$(if $(filter $(DEB_HOST_ARCH), armhf arm64 mips mipsel ppc64el riscv64),--disable-sim) \
 	$(if $(filter linux, $(DEB_HOST_ARCH_OS)),--with-debuginfod) \
 	$(arch_config_args) \
 
@@ -155,68 +178,17 @@ default_configure_args = \
 	--with-lzma \
 	--with-python=python3 \
 	--with-xxhash \
-	--with-mpfr \
-
-# multiarch targets; this is taken from the binutils-multiarch package but
-# doesn't seem like a terribly nice list; see
-# <20110117211551.GA7216@bee.dooz.org> for discussion -- locally updated
-MULTIARCH_TARGETS := \
-	aarch64-linux-gnu \
-	alpha-linux-gnu \
-	arm-linux-gnu \
-	arm-linux-gnueabi \
-	arm-linux-gnueabihf \
-	arm-none-eabi \
-	hppa-linux-gnu \
-	i686-linux-gnu \
-	ia64-linux-gnu \
-	m68k-linux-gnu \
-	m68k-rtems \
-	mips-linux-gnu \
-	mipsel-linux-gnu \
-	mips64-linux-gnu \
-	mips64el-linux-gnu \
-	powerpc-linux-gnu \
-	powerpc-linux-gnuspe \
-	powerpc64le-linux-gnu \
-	powerpc64-linux-gnu \
-	ppc64-linux-gnu \
-	riscv32-linux-gnu \
-	riscv64-linux-gnu \
-	s390-linux-gnu \
-	s390x-linux-gnu \
-	sh-linux-gnu \
-	sparc-linux-gnu \
-	sparc64-linux-gnu \
-	x86_64-linux-gnu \
-	x86_64-linux-gnux32 \
-	m32r-linux-gnu
-
-# broken, see https://launchpad.net/bugs/1233185
-#MULTIARCH_TARGETS := all
-#	--enable-targets=$(MULTIARCH_TARGETS) \
-# multiarch flags
+	--enable-64-bit-bfd
 
 multiarch_configure_args = \
 	$(default_configure_args) \
-	--enable-64-bit-bfd \
-	--enable-targets=$(subst $(SPACE),$(COMMA),$(MULTIARCH_TARGETS)) \
-	--disable-sim \
-	--enable-obsolete
-
-# Minimal flags
-minimal_configure_args = \
-	$(common_configure_args) \
-	--disable-tui \
-	--without-python \
-	--without-babeltrace \
-	--disable-source-highlight \
-	--without-mpfr \
+	--enable-targets=all \
+	--enable-obsolete \
+	--disable-sim
 
 # ---------- configure and build targets ----------
 
 builddir_default	= build/default
-builddir_minimal	= build/minimal
 builddir_multiarch	= build/multiarch
 builddir_source		= build/gdb
 
@@ -236,13 +208,43 @@ stamps/build-%: stamps/configure-%
 	    $(MAKE) -C $(builddir_default) info))
 	$(if $(filter yes, $(nodoc_profile)),, \
 	  $(if $(filter default, $*), \
-	    $(MAKE) -C $(builddir_$*)/gdb/doc refcard.dvi refcard.ps))
+	    $(FAKETIME) $(MAKE) -C $(builddir_$*)/gdb/doc refcard.dvi refcard.ps))
 	touch $@
+
+# GDB's testsuite has historically been flaky and its results haven't
+# been very trustworthy.  Instead of running the entire testsuite (and
+# wasting a lot of time and CPU), pick only a subset of tests that are
+# known to be non-flaky.  If any of these fail, something is really
+# wrong.
+#
+# This list was inspired by
+# https://sourceware.org/git/?p=builder.git;a=blob;f=builder/master.cfg
+TESTS_NON_FLAKY = \
+	gdb.base/break-always.exp \
+	gdb.base/break-caller-line.exp \
+	gdb.base/break-entry.exp \
+	gdb.base/break.exp \
+	gdb.base/break-fun-addr.exp \
+	gdb.base/break-idempotent.exp \
+	gdb.base/break-include.exp \
+	gdb.base/break-inline.exp \
+	gdb.base/break-main-file-remove-fail.exp \
+	gdb.base/break-on-linker-gcd-function.exp \
+	gdb.base/breakpoint-in-ro-region.exp \
+	gdb.base/breakpoint-shadow.exp \
+	gdb.base/break-probes.exp \
+	gdb.gdb/unittest.exp \
+	gdb.server/unittest.exp
 
 stamps/check: stamps/build-default
 ifeq ($(run_tests),yes)
-	$(MAKE) $(NJOBS) -C $(builddir_default)/gdb check \
-	  || echo "*** Tests failed, of course. ***"
+#	Run the non-flaky tests.
+#
+#	Don't parallelize because things can get racy, and we're not
+#	dealing with that many tests anyway.
+	$(MAKE) -C $(builddir_default)/gdb \
+		check//unix check//native-gdbserver check//native-extended-gdbserver \
+		TESTS="$(TESTS_NON_FLAKY)"
 else
 	@echo "***Tests disabled: $(run_tests) ***"
 endif
@@ -262,10 +264,6 @@ clean: debian/control
 	  mv -f gdb/version.in.backup gdb/version.in; \
 	fi
 
-#	# For snapshots this is appropriate; careful of release tarballs
-#	# which include .gmo files.
-#	find -type f -name '*.gmo' | xargs rm -f
-
 	# Prevent gratuitous rebuilds of the BFD documentation, since it
 	# updates the copy in the source directory.
 	find bfd -name bfd.info\* | xargs --no-run-if-empty touch
@@ -279,6 +277,10 @@ install: install-pre
 	rm -rf debian/gdb-doc/usr/share/man
 
 	dh_install
+
+ifeq (,$(filter $(DEB_HOST_ARCH),hurd-amd64))
+	install -m 755 debian/tmp/usr/bin/gcore debian/gdb$(TS)/usr/bin/gcore
+endif
 
 	install -d debian/gdb$(TS)/usr/share/man/man1; \
 	install -m 644 debian/gcore.1 debian/gdb$(TS)/usr/share/man/man1/.
@@ -301,14 +303,6 @@ ifneq ($(GFDL_INVARIANT_FREE),yes)
 		debian/gdb$(TS)/usr/share/man/man1/.
 endif
 
-ifeq ($(run_tests),yes)
-  ifneq (,$(wildcard $(builddir_default)/gdb/testsuite/gdb.sum))
-	install -d debian/gdb$(TS)/usr/share/doc/gdb
-	install -m 644 $(builddir_default)/gdb/testsuite/gdb.sum \
-		debian/gdb$(TS)/usr/share/doc/gdb/check.log
-  endif
-endif
-
 ifneq ($(DEB_CROSS),yes)
 	: # Only ship a global gdbinit for the native GDB.
 	install -d debian/gdb$(TS)/etc/gdb
@@ -326,29 +320,16 @@ endif
 	install -m 755 $(builddir_multiarch)/gdb/gdb debian/gdb-multiarch/usr/bin/gdb-multiarch
 
 	: # gdbserver install
+ifneq (,$(filter $(DEB_HOST_ARCH),$(LIBINPROCTRACE_AVAILABLE_ARCHITECTURES)))
 	install -d debian/gdbserver/usr/lib
-	: # This file is only built on some arches (x86 ones, so far)
-	-install debian/tmp/usr/lib/libinproctrace.so debian/gdbserver/usr/lib/
+	install debian/tmp/usr/lib/libinproctrace.so debian/gdbserver/usr/lib/
+endif
+
 ifneq ($(GFDL_INVARIANT_FREE),yes)
 	install -d debian/gdbserver/usr/share/man/man1
 	install -m 644 $(builddir_default)/gdb/doc/gdbserver.1 \
 		debian/gdbserver/usr/share/man/man1/.
 endif
-
-ifneq (,$(filter minimal, $(variants)))
-	: # gdb-minimal install
-	install -d debian/gdb-minimal/usr/bin
-	$(INSTALL) -m 755 -o root -g root \
-		$(builddir_minimal)/gdb/gdb debian/gdb-minimal/usr/bin/gdb
-
-	$(INSTALL) -m 755 -o root -g root \
-		$(builddir_minimal)/gdb/gcore debian/gdb-minimal/usr/bin/gcore
-endif
-
-	: # Only ship a global gdbinit for the native GDB.
-	install -d debian/gdb-minimal/etc/gdb
-	install -d debian/gdb-minimal/etc/gdb/gdbinit.d
-	install -m 644 debian/gdbinit debian/gdb-minimal/etc/gdb/
 
 ifeq ($(with_doc),yes)
 	install -d debian/gdb-doc/usr/share/info
@@ -383,19 +364,16 @@ install-indep: install-pre
 	  && tar cfJ $(CURDIR)/debian/gdb-source/usr/src/gdb.tar.xz \
 	     --format=gnu \
 	     --mode=755 \
-	     --mtime="@$(SOURCE_DATE_EPOCH)" --clamp-mtime \
+	     --mtime="@$(DEB_TIMESTAMP)" --clamp-mtime \
 	     --numeric-owner --owner=0 --group=0 \
 	     --sort=name \
 	     $(notdir $(builddir_source))
 
 
-debian/control: debian/control.in debian/control.minimal debian/control.doc $(FORCE_CONTROL)
+debian/control: debian/control.in debian/control.doc $(FORCE_CONTROL)
 	cat debian/control.in \
 		| sed "s/@TS@/$(TS)/g" \
 		> debian/control
-ifneq (,$(filter minimal, $(variants)))
-	cat debian/control.minimal >> debian/control
-endif
 ifeq ($(with_doc),yes)
 	cat debian/control.doc >> debian/control
 endif
@@ -405,10 +383,8 @@ ifeq ($(DEB_CROSS),yes)
 		debian/gdb.install > debian/gdb$(TS).install
 endif
 
+
 gdb_substvars =
-ifeq (,$(filter minimal, $(variants)))
-  gdb_substvars = -Vgdb:minimal='gdb-minimal (= $${binary:Version})'
-endif
 
 build-indep: $(foreach v,$(variants),stamps/build-$(v)) $(if $(filter yes,$(with_doc)),stamps/build-doc)
 build-arch: $(foreach v,$(variants),stamps/build-$(v)) stamps/check
@@ -418,6 +394,7 @@ binary-indep: build-indep install install-indep
 	dh_installdocs -i
 	dh_installchangelogs -i
 	dh_strip -i
+	dh_link -i
 	dh_compress -i -X.pdf
 	dh_fixperms -i
 	dh_installdeb -i
@@ -434,15 +411,6 @@ binary-arch: build-arch install
 		  $(builddir_default)/gdb/doc/refcard.ps) \
 		gdb/contrib/
 
-ifneq (,$(filter minimal, $(variants)))
-	dh_installdocs -pgdb-minimal \
-		gdb/NEWS gdb/README gdb/doc/refcard.tex \
-		$(if $(filter yes, $(nodoc_profile)),, \
-		  $(builddir_default)/gdb/doc/refcard.dvi \
-		  $(builddir_default)/gdb/doc/refcard.ps)
-	dh_installchangelogs -pgdb-minimal
-endif
-
 	dh_installdocs -pgdbserver gdbserver/README
 	dh_installchangelogs -pgdbserver -pgdb$(TS)
 	dh_lintian
@@ -451,8 +419,9 @@ endif
 	ln -s gdb debian/gdb-multiarch/usr/share/doc/gdb-multiarch
 
 	dh_dwz -a
-	dh_strip -pgdb$(TS) --dbgsym-migration='gdb-dbg (<< 7.12-1~)'
+	dh_strip -pgdb$(TS)
 	dh_strip -a -Ngdb$(TS)
+	dh_link -a
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a

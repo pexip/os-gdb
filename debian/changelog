@@ -1,10 +1,206 @@
+gdb (16.2-8) unstable; urgency=medium
+
+  * d/rules: Invert rule deciding when libinproctrace is installed.
+    It's easier and less error-prone to filter the availability of
+    libinproctrace instead of its unavailability.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Tue, 18 Mar 2025 18:38:48 -0400
+
+gdb (16.2-7) unstable; urgency=medium
+
+  * d/rules: Don't install libinproctrace on mips64el.
+  * d/rules: s/FLAKY_ARCHITECTURES/FLAKY_TEST_ARCHITECTURES/.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sun, 16 Mar 2025 21:09:53 -0400
+
+gdb (16.2-6) unstable; urgency=medium
+
+  * d/rules: Fix yet another typo with libinproctrace installation.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sun, 16 Mar 2025 13:29:34 -0400
+
+gdb (16.2-5) unstable; urgency=medium
+
+  * d/rules: Fix typo on last upload.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sat, 15 Mar 2025 17:46:43 -0400
+
+gdb (16.2-4) unstable; urgency=medium
+
+  * d/rules: Only install libinproctrace on supported arches.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sat, 15 Mar 2025 16:02:51 -0400
+
+gdb (16.2-3) unstable; urgency=medium
+
+  * d/NEWS: Properly format last entry.
+  * d/rules: Small cleanup.
+  * d/rules: Don't install gdb.{log,sum}.
+    These are artifacts of the test run and don't need to be installed on
+    the user's system.
+  * d/rules: Install libinproctrace.so on all architectures.
+  * d/rules: Properly export build flags.
+  * d/control*: Bump Standards-Version to 4.7.2; no changes needed.
+  * Move lintian override to proper file.
+    - d/gdb.lintian-overrides: Move override from here...
+    - d/gdb-multiarch.lintian-overrides: ... to here.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sat, 15 Mar 2025 00:04:57 -0400
+
+gdb (16.2-2) unstable; urgency=medium
+
+  * d/rules: Disable tests on alpha due to flakiness.
+  * d/gdb.links: Remove; prepare for the reintroduction of gdb-multiarch.
+  * d/control{,.in}: Reintroduce gdb-multiarch. (Closes: #1095738, #1093542)
+  * d/rules: Reintroduce gdb-multiarch.
+  * d/control{,.in}: Make gdb-minimal transitional package.
+  * d/NEWS: Add entry about reintroduction of gdb-multiarch.
+  * d/p/Port-GDB-to-Hurd-x86_64.patch: Port GDB to GNU/Hurd amd64.
+    (Closes: #1095703)
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Mon, 17 Feb 2025 01:09:26 -0500
+
+gdb (16.2-1) unstable; urgency=medium
+
+  * New upstream version 16.2
+  * d/control{,.in}: Bump Standards-Version to 4.7.0; no changes needed.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Thu, 06 Feb 2025 18:16:19 -0500
+
+gdb (16.1-2) unstable; urgency=medium
+
+  * d/copyright: Update.
+  * d/s/lintian-overrides: Add override about AC_PATH_PROG.
+  * d/rules: Disable tests on sparc64.
+  * Manually install gcore script, as it isn't available on all arches.
+    - d/gdb.install: Remove usr/bin/gcore.
+    - d/rules: Only install gcore script on non-hurd-amd64 architectures.
+  * d/rules: Disable selftest run.
+    For non-development builds, "maintenance selftest" is disable.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sat, 25 Jan 2025 20:10:26 -0500
+
+gdb (16.1-1) unstable; urgency=medium
+
+  * d/gbp.conf: Fix debian-branch.
+  * d/control.in: Update.
+  * d/gdb.install: Install new "gstack" program.
+  * d/NEWS: Add entry about gdb-{minimal,multiarch} drop.
+  * d/gdb-multiarch.postinst: Remove unnecessary file.
+  * d/rules: Disable test run on x32 and hppa due to flakiness.
+  * d/sanitize-gdb.sh: Adapt it to work with uscan.
+  * d/watch: Invoke sanitize-gdb.sh to repack.
+  * New upstream version 16.1
+  * d/gdb.lintian-overrides: Add no-manual-page override for gstack.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sun, 19 Jan 2025 02:03:37 -0500
+
+gdb (16.0.90.20250111-1~exp2) experimental; urgency=medium
+
+  * d/{upstream-signing-key.pgp,s/included-binaries}: Remove.
+    We already have the correct signing key located under
+    debian/upstream/.
+  * d/{gdb.,gdbserver.,source/}lintian-overrides: Improve overrides.
+  * d/rules: Improve testsuite execution.
+    GDB historically has suffered from flaky testcases.  Let's try to
+    workaround this limitation by testing only a subset of known stable
+    tests.
+    This change also improves the coverage by running tests against native
+    GDB, native-gdbserver, and native-extended-gdbserver.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sun, 12 Jan 2025 23:17:56 -0500
+
+gdb (16.0.90.20250111-1~exp1) experimental; urgency=medium
+
+  * d/watch: Modernize.
+  * New upstream version 16.0.90.20250111
+  * d/sanitize-gdb.sh: Modernize.
+    It's unclear whether we still need this script or not.
+  * New upstream version 16.0.90.20250111
+  * d/rules: Default to --enable-targets=all.
+  * d/p/solve_PATH_MAX_issue.patch: Remove.
+    nto-tdep.* has been removed upstream.
+  * d/p/gfdl-dont-build-manpages.patch: Refresh.
+  * d/p/fix-blhc-chew.patch: Refresh.
+  * d/p/fix-build.patch: Remove unused patch.
+  * d/p/gdb-fortran-main.patch: Remove patch; too old and hard to maintain.
+    This patch has been added at least 19 years ago.  GDB has changed *a
+    lot* since then, and I'm not convinced this is still necessary.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sat, 11 Jan 2025 19:40:14 -0500
+
+gdb (15.2-2~exp1) experimental; urgency=medium
+
+  * d/rules: Simplify "install" definition.
+  * d/control{,.minimal}: Get rid of gdb-minimal and gdb-multiarch.
+    These packages will now be provided by gdb itself; there's no reason
+    to keep them separated.
+  * d/rules: Drop support for minimal and multiarch package variants.
+  * d/gdb.links: Symlink gdb-multiarch -> gdb for backward-compatibility.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Thu, 09 Jan 2025 20:12:05 -0500
+
+gdb (15.2-1) unstable; urgency=medium
+
+  * d/p/gdb-glibc-vdso-workaround.patch: Remove unnecessary patch.
+  * Remove obsolete patches.
+    - d/p/gdb-6.5-bz185337-resolve-tls-without-debuginfo-v2.patch: Not
+      needed anymore; Fedora GDB also removed it recently.
+    - d/p/gdb_configure.nat.patch: Not applicable anymore.
+    - d/p/fork-inferior-fix: Likewise.
+    - d/p/fix-build.patch: Likewise.
+  * d/control{,.in}: B-D on pkgconf instead of pkg-config.
+  * d/rules: Include pkg-info.mk; don't use dpkg-parsechangelog.
+  * d/rules: Use DEB_VENDOR instead of lsb_release.
+  * d/control{,.in}: Don't B-D on lsb-release as it's not needed anymore.
+  * d/rules: Export DEB_BUILD_MAINT_OPTIONS to enable hardening.
+  * d/rules: Drop --dbgsym-migration option from dh_strip.
+  * New upstream version 15.2
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Mon, 11 Nov 2024 18:19:38 -0500
+
+gdb (15.1-1) unstable; urgency=medium
+
+  [ Guillem Jover ]
+  * Remove references to obsolete m32r arch. (Closes: #1056763)
+
+  [ Joel Stanley ]
+  * Add or1k-linux-gnu as a target for gdb-multiarch
+
+  [ Héctor Orón Martínez ]
+  * New upstream version 15.1
+  * debian/patches: refresh
+  * debian/control*: stop gdb-minimal from providing gdb (Closes: #1057780)
+  * debian/control{,.in}: make gdb-source Multi-Arch foreign (Closes: #1043445)
+  * debian/rules: avoid build failure due to with-mpfr requiring a path
+  * debian/patches/gfdl-dont-build-manpages.patch: avoid building manpages
+
+  [Ricardo Ribalda]
+  * debian/patches/{fix-blhc-libiberty.patch, fix-blhc-chew.patch}:
+    - Fix blhc test for chew and libiberty, false positives
+  * debian/rules: Fix reprotest and export build variables
+
+  [ Aurelien Jarno ]
+  * Drop kfreebsd-* specific build-depends, the ports have been removed
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 01 Aug 2024 07:27:27 +0200
+
+gdb (13.2-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Drop debian/patches: included upstream.
+    - fix-crash-in-inside_main_func.patch
+    - aarch64-pauth-registers.patch
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 06 Jun 2023 14:07:56 +0200
+
 gdb (13.1-3) unstable; urgency=medium
 
   [ Emanuele Rocca ]
   * aarch64: add aarch64-pauth-registers.patch to check for valid inferior
     thread/regcache before reading pauth registers. (Closes: #1034611)
 
- -- Héctor Orón Martínez <zumbi@debian.org>  Sat, 13 May 2023 13:33:12 +0200
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sat, 13 May 2023 13:04:35 +0200
 
 gdb (13.1-2) unstable; urgency=medium
 

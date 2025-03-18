@@ -1,0 +1,40 @@
+From: =?utf-8?b?SMOpY3RvciBPcsOzbiBNYXJ0w61uZXo=?= <zumbi@debian.org>
+Date: Sat, 11 Jan 2025 19:11:15 -0500
+Subject: fix-blhc-chew
+
+===================================================================
+---
+ bfd/Makefile.in  | 4 ++--
+ bfd/doc/local.mk | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/bfd/Makefile.in b/bfd/Makefile.in
+index a781e2b..4f5bfb3 100644
+--- a/bfd/Makefile.in
++++ b/bfd/Makefile.in
+@@ -2490,8 +2490,8 @@ coff-tic54x.lo: coff-tic54x.c
+ 
+ $(MKDOC): doc/chew.stamp ; @true
+ doc/chew.stamp: $(srcdir)/doc/chew.c doc/$(am__dirstamp)
+-	$(AM_V_CCLD)$(CC_FOR_BUILD) -o doc/chw$$$$$(EXEEXT_FOR_BUILD) $(CFLAGS_FOR_BUILD) \
+-	  $(WARN_CFLAGS_FOR_BUILD) $(CPPFLAGS_FOR_BUILD) $(LDFLAGS_FOR_BUILD) \
++	$(AM_V_CCLD)$(CC_FOR_BUILD) -o doc/chw$$$$$(EXEEXT_FOR_BUILD) $(CFLAGS) \
++	  $(WARN_CFLAGS) $(CPPFLAGS) $(LDFLAGS) \
+ 	  -I. -I$(srcdir) -Idoc -I$(srcdir)/../include -I$(srcdir)/../intl -I../intl \
+ 	  $(srcdir)/doc/chew.c && \
+ 	$(SHELL) $(srcdir)/../move-if-change \
+diff --git a/bfd/doc/local.mk b/bfd/doc/local.mk
+index 346dba3..3d6512a 100644
+--- a/bfd/doc/local.mk
++++ b/bfd/doc/local.mk
+@@ -79,8 +79,8 @@ MKDOC = %D%/chew$(EXEEXT_FOR_BUILD)
+ 
+ $(MKDOC): %D%/chew.stamp ; @true
+ %D%/chew.stamp: $(srcdir)/%D%/chew.c %D%/$(am__dirstamp)
+-	$(AM_V_CCLD)$(CC_FOR_BUILD) -o %D%/chw$$$$$(EXEEXT_FOR_BUILD) $(CFLAGS_FOR_BUILD) \
+-	  $(WARN_CFLAGS_FOR_BUILD) $(CPPFLAGS_FOR_BUILD) $(LDFLAGS_FOR_BUILD) \
++	$(AM_V_CCLD)$(CC_FOR_BUILD) -o %D%/chw$$$$$(EXEEXT_FOR_BUILD) $(CFLAGS) \
++	  $(WARN_CFLAGS) $(CPPFLAGS) $(LDFLAGS) \
+ 	  -I. -I$(srcdir) -I%D% -I$(srcdir)/../include -I$(srcdir)/../intl -I../intl \
+ 	  $(srcdir)/%D%/chew.c && \
+ 	$(SHELL) $(srcdir)/../move-if-change \

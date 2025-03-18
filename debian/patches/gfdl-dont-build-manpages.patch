@@ -1,0 +1,28 @@
+From: =?utf-8?b?SMOpY3RvciBPcsOzbiBNYXJ0w61uZXo=?= <zumbi@debian.org>
+Date: Sat, 11 Jan 2025 19:11:16 -0500
+Subject: gfdl-dont-build-manpages
+
+Origin: Debian
+Forwarded: not-needed
+Last-Update: 2024-07-27
+---
+ gdb/doc/Makefile.in | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/gdb/doc/Makefile.in b/gdb/doc/Makefile.in
+index c75714b..2066d20 100644
+--- a/gdb/doc/Makefile.in
++++ b/gdb/doc/Makefile.in
+@@ -188,8 +188,10 @@ TEXI2POD = perl $(srcdir)/../../etc/texi2pod.pl \
+ POD2MAN = pod2man --center="GNU Development Tools"
+ 
+ # List of man pages generated from gdb.texi
+-MAN1S = gdb.1 gdbserver.1 gcore.1 gstack.1 gdb-add-index.1
+-MAN5S = gdbinit.5
++# MAN1S = gdb.1 gdbserver.1 gcore.1 gstack.1 gdb-add-index.1
++# MAN5S = gdbinit.5
++MAN1S = 
++MAN5S = 
+ MANS = $(MAN1S) $(MAN5S)
+ 
+ # The pod files that are generated as a side effect of creating the

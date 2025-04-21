@@ -1,3 +1,14 @@
+gdb (16.3-1) unstable; urgency=medium
+
+  * d/u/signing-key.asc: Remove problematic key.
+    Importing a new version of GDB would lead to uscan errors regarding
+    this key.  Moreover, since we're repacking the tarball anyway, the
+    signature verification would always fail.
+  * d/watch: Remove pgpsigurlmangle option.
+  * New upstream version 16.3
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Mon, 21 Apr 2025 12:29:40 -0400
+
 gdb (16.2-8) unstable; urgency=medium
 
   * d/rules: Invert rule deciding when libinproctrace is installed.

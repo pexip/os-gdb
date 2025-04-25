@@ -1,3 +1,4 @@
-# See uscan(1) for format
-version=3
-opts=pgpsigurlmangle=s/$/.sig/ https://ftp.gnu.org/gnu/gdb/gdb-(.*)\.tar\.(?:gz|bz2|xz)
+version=4
+opts=pgpsigurlmangle=s/$/.sig/ \
+  https://ftp.gnu.org/gnu/gdb/gdb-@ANY_VERSION@@ARCHIVE_EXT@ \
+  debian debian/sanitize-gdb.sh

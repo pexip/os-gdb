@@ -4,12 +4,11 @@ XSBC-Pexip-Original-Maintainer: Héctor Orón Martínez <zumbi@debian.org>
 XSBC-Pexip-Original-Uploaders: Sergio Durigan Junior <sergiodj@debian.org>
 Section: devel
 Priority: optional
-Standards-Version: 4.6.2
+Standards-Version: 4.7.2
 Rules-Requires-Root: binary-targets
 Build-Depends:
 # Packaging deps
                debhelper (>= 10),
-               lsb-release,
                xz-utils,
 # Other tool deps
                autoconf,
@@ -21,8 +20,6 @@ Build-Depends:
                procps,
                gobjc,
                mig [hurd-any],
-# GNU/kFreeBSD deps
-               libutil-freebsd-dev [kfreebsd-any],
 # TeX[info] deps
                texinfo (>= 4.7-2.2),
                texlive-base <!nodoc>,
@@ -38,13 +35,14 @@ Build-Depends:
                libsource-highlight-dev,
 	       libxxhash-dev,
 	       libmpfr-dev,
-               pkg-config,
+               pkgconf,
 # Python build
                python3-dev,
-               libkvm-dev [kfreebsd-any],
                libunwind-dev [ia64],
 # debuginfod
                libdebuginfod-dev [linux-any],
+# Reproducible build
+               faketime,
 Vcs-Git: https://salsa.debian.org/gdb-team/gdb.git
 Vcs-Browser: https://salsa.debian.org/gdb-team/gdb
 Homepage: https://www.gnu.org/s/gdb/
@@ -55,12 +53,12 @@ Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
          ${python3:Depends}
-Recommends: libc-dbg
 Suggests: gdb-doc,
-          gdbserver [linux-any]
-Conflicts: gdb
-Replaces: gdb
-Provides: ${gdb:minimal}
+          gdbserver [linux-any],
+	  libc-dbg
+Breaks: gdb-minimal (<< 15.2-2~exp1)
+Replaces: gdb-minimal (<< 15.2-2~exp1)
+Provides: gdb-minimal
 Description: GNU Debugger
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
@@ -71,9 +69,6 @@ Description: GNU Debugger
 Package: gdb-multiarch
 Architecture: any
 Depends: gdb (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
-Conflicts: gdb-arm-none-eabi
-Breaks: gdb-arm-none-eabi
-Provides: gdb-arm-none-eabi
 Description: GNU Debugger (with support for multiple architectures)
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
@@ -84,8 +79,22 @@ Description: GNU Debugger (with support for multiple architectures)
  This package contains a version of GDB which supports multiple
  target architectures.
 
+Package: gdb-minimal
+Architecture: all
+Section: oldlibs
+Multi-Arch: foreign
+Depends: gdb (>= 15.2-2~exp1), ${misc:Depends}
+Description: GNU Debugger (minimal version - dummy transitional package)
+ GDB is a source-level debugger, capable of breaking programs at
+ any specific line, displaying variable values, and determining
+ where errors occurred. Currently, gdb supports C, C++, D,
+ Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
+ Go, and Ada. A must-have for any serious programmer.
+ .
+ This is a transitional package.  It can be safely removed.
+
 Package: gdbserver
-Architecture: amd64 armel armhf arm64 i386 ia64 m32r m68k mips mipsel mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390 s390x x32
+Architecture: amd64 armel armhf arm64 i386 ia64 m68k mips mipsel mips64el powerpc powerpcspe ppc64 ppc64el riscv64 s390 s390x x32
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Replaces: gdb (<< 7.0.1-1)
 Description: GNU Debugger (remote server)
@@ -101,6 +110,7 @@ Description: GNU Debugger (remote server)
 Package: gdb-source
 Architecture: all
 Depends: ${misc:Depends}
+Multi-Arch: foreign
 Description: GNU Debugger (source)
  GDB is a source-level debugger, capable of breaking programs at
  any specific line, displaying variable values, and determining
@@ -110,19 +120,3 @@ Description: GNU Debugger (source)
  .
  This package contains the sources and patches which are needed
  to build GDB.
-
-Package: gdb-minimal
-Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}
-Provides: gdb
-Conflicts: gdb
-Replaces: gdb
-Description: GNU Debugger (minimal version)
- GDB is a source-level debugger, capable of breaking programs at
- any specific line, displaying variable values, and determining
- where errors occurred. Currently, gdb supports C, C++, D,
- Objective-C, Fortran, Java, OpenCL C, Pascal, assembly, Modula-2,
- Go, and Ada. A must-have for any serious programmer.
- .
- This package contains a minimal version of GDB with optional features
- disabled.

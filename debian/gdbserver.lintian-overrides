@@ -1,2 +1,8 @@
 # usr/lib/libinproctrace.so is a plugin library
 lacks-ldconfig-trigger
+no-symbols-control-file usr/lib/libinproctrace.so
+package-name-doesnt-match-sonames libinproctrace
+shared-library-lacks-version usr/lib/libinproctrace.so libinproctrace.so
+
+# The manpage cannot be installed as it is non-DFSG.
+no-manual-page [usr/bin/gdbserver]

@@ -1,0 +1,2 @@
+# This is obviously intentional.  The manpages are non-DFSG.
+no-manual-page [usr/bin/gdb-multiarch]

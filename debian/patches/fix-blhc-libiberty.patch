@@ -1,0 +1,30 @@
+From 26342a9474156fc0f5ff6671696eb0a4b48e7835 Mon Sep 17 00:00:00 2001
+From: Ricardo Ribalda <ricardo@ribalda.com>
+Date: Mon, 4 Dec 2023 00:33:11 +0100
+Subject: [PATCH] libiberty: Pass LDFLAGS
+
+Avoid blhc false positive:
+
+LDFLAGS missing (-Wl,-z,relro):  \ 	mv -f /builds/gdb-team/gdb/debian/output/source_dir/debian/tmp/usr/lib/`x86_64-linux-gnu-gcc -g -O2 -ffile-prefix-map=/builds/gdb-team/gdb/debian/output/source_dir=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection     -print-multi-os-directory`/./libiberty.an /builds/gdb-team/gdb/debian/output/source_dir/debian/tmp/usr/lib/`x86_64-linux-gnu-gcc -g -O2 -ffile-prefix-map=/builds/gdb-team/gdb/debian/output/source_dir=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection     -print-multi-os-directory`/./libiberty.a
+
+Signed-off-by: Ricardo Ribalda <ricardo@ribalda.com>
+---
+ libiberty/Makefile.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libiberty/Makefile.in b/libiberty/Makefile.in
+index abef3c4601b..0314b06264c 100644
+--- a/libiberty/Makefile.in
++++ b/libiberty/Makefile.in
+@@ -385,7 +385,7 @@ install-strip: install
+ # multilib-specific flags, it's overridden by FLAGS_TO_PASS from the
+ # default multilib, so we have to take CFLAGS into account as well,
+ # since it will be passed the multilib flags.
+-MULTIOSDIR = `$(CC) $(CFLAGS) -print-multi-os-directory`
++MULTIOSDIR = `$(CC) $(LDFLAGS) $(CFLAGS) -print-multi-os-directory`
+ install_to_libdir: all
+ 	if test -n "${target_header_dir}"; then \
+ 		${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR); \
+-- 
+2.42.0
+

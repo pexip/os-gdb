@@ -1,3 +1,9 @@
+gdb (16.2-8+pexip25u1) pexip-trixie; urgency=medium
+
+  * Initial trixie build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Tue, 29 Apr 2025 22:32:04 +0100
+
 gdb (16.2-8) unstable; urgency=medium
 
   * d/rules: Invert rule deciding when libinproctrace is installed.
